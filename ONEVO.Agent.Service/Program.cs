@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using ONEVO.Agent.Service;
 using ONEVO.Agent.Service.Configuration;
+using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Security;
 
 var host = Host.CreateDefaultBuilder(args)
@@ -15,6 +16,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<AgentStateMachine>();
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<DeviceIdentityStore>();
+        services.AddSingleton<NamedPipeAuthenticator>();
+        services.AddSingleton<NamedPipeServer>();
 
         services.AddHostedService<AgentWorker>();
     })
