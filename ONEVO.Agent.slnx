@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ONEVO.Agent.Shared/ONEVO.Agent.Shared.csproj" />
+  <Project Path="ONEVO.Agent.Service/ONEVO.Agent.Service.csproj" />
+  <Project Path="ONEVO.Agent.TrayApp/ONEVO.Agent.TrayApp.csproj" />
+  <Project Path="tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj" />
+  <Project Path="tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj" />
+</Solution>
