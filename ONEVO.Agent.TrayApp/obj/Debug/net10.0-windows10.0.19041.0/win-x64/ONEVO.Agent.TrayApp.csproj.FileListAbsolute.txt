@@ -1,0 +1,5 @@
+C:\HR\tray_app_maui\ONEVO.Agent.TrayApp\obj\Debug\net10.0-windows10.0.19041.0\win-x64\ONEVO.Agent.TrayApp.csproj.AssemblyReference.cache
+C:\HR\tray_app_maui\ONEVO.Agent.TrayApp\obj\Debug\net10.0-windows10.0.19041.0\win-x64\ONEVO.Agent.TrayApp.GeneratedMSBuildEditorConfig.editorconfig
+C:\HR\tray_app_maui\ONEVO.Agent.TrayApp\obj\Debug\net10.0-windows10.0.19041.0\win-x64\ONEVO.Agent.TrayApp.AssemblyInfoInputs.cache
+C:\HR\tray_app_maui\ONEVO.Agent.TrayApp\obj\Debug\net10.0-windows10.0.19041.0\win-x64\ONEVO.Agent.TrayApp.AssemblyInfo.cs
+C:\HR\tray_app_maui\ONEVO.Agent.TrayApp\obj\Debug\net10.0-windows10.0.19041.0\win-x64\ONEVO.Agent.TrayApp.csproj.CoreCompileInputs.cache

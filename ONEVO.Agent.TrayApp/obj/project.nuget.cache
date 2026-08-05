@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "VqPlX5Y+ADU=",
+  "success": true,
+  "projectFilePath": "C:\\HR\\tray_app_maui\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\user\\.nuget\\packages\\communitytoolkit.mvvm\\8.4.0\\communitytoolkit.mvvm.8.4.0.nupkg.sha512",
+    "C:\\Users\\user\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.19041.57\\microsoft.windows.sdk.net.ref.10.0.19041.57.nupkg.sha512"
+  ],
+  "logs": []
+}
