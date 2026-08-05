@@ -6,7 +6,6 @@
     <!-- Service -->
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
-    <PackageVersion Include="System.IO.Pipes.AccessControl" Version="5.0.0" />
     <!-- TrayApp -->
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <!-- Tests -->
