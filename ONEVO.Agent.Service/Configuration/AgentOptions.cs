@@ -10,4 +10,13 @@ public sealed class AgentOptions
     public int QueueCapacityMb { get; set; } = 100;
     public int HttpTimeoutSeconds { get; set; } = 30;
     public int MaxReconnectAttempts { get; set; } = 5;
+
+    /// <summary>ONEVO backend base URL, e.g. https://api.example.com</summary>
+    public string ApiBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Development only: force Unenrolled→Stopped→Active so collectors can run without full enrollment.
+    /// Must stay false in production.
+    /// </summary>
+    public bool ForceMonitoringActive { get; set; }
 }

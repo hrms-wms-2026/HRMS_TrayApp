@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.Maui.Sdk.net10">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>ONEVO.Agent.TrayApp</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <UseWindowsForms>true</UseWindowsForms>
+    <SingleProject>true</SingleProject>
+    <ApplicationTitle>ONEVO WorkPulse</ApplicationTitle>
+    <ApplicationId>com.onevo.workpulse.agent</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Maui.Controls" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ONEVO.Agent.Shared\ONEVO.Agent.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#1E3A5F" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#1E3A5F" BaseSize="128,128" />
+    <MauiFont Include="Resources\Fonts\*" />
+  </ItemGroup>
+</Project>
