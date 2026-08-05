@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.Services;
 
+using System.Drawing;
 using System.Windows.Forms;
 using ONEVO.Agent.Shared.Models;
 
@@ -47,7 +48,8 @@ public sealed class TrayIconService : IDisposable
     public void UpdateState(MonitoringState state)
     {
         if (_notifyIcon is null) return;
-        _notifyIcon.Invoke(() =>
+
+        void Apply()
         {
             _notifyIcon.Text = $"ONEVO WorkPulse — {state switch
             {
@@ -65,7 +67,14 @@ public sealed class TrayIconService : IDisposable
                 MonitoringState.Locked => SystemIcons.Error,
                 _                      => SystemIcons.Application
             };
-        });
+        }
+
+        // NotifyIcon is owned by the STA tray thread — marshal via ContextMenuStrip handle if available.
+        var menu = _notifyIcon.ContextMenuStrip;
+        if (menu is not null && menu.IsHandleCreated && menu.InvokeRequired)
+            menu.BeginInvoke(Apply);
+        else
+            Apply();
     }
 
     private ContextMenuStrip BuildContextMenu()
