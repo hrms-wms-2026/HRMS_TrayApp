@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.Services;
 
+using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
@@ -11,6 +12,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 {
     private readonly ILogger<NamedPipeClient> _logger;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, TaskCompletionSource<IpcEnvelope>> _pending = new();
     private NamedPipeClientStream? _pipe;
     private StreamWriter? _writer;
     private CancellationTokenSource? _cts;
@@ -18,6 +20,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     // CRITICAL: all collectors MUST stop on this event (§2.3)
     public event Action? OnDisconnected;
     public event Action<MonitoringState>? OnStateReceived;
+    public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
 
     public NamedPipeClient(ILogger<NamedPipeClient> logger)
@@ -111,11 +114,52 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         await WriteEnvelopeAsync(request, ct);
     }
 
-    /// <summary>
-    /// Hands privacy-scrubbed collection records to the Service. Tray never uploads to backend.
-    /// </summary>
     public Task SendEnvelopeAsync(IpcEnvelope envelope, CancellationToken ct) =>
         WriteEnvelopeAsync(envelope, ct);
+
+    public async Task<LifecycleResultPayload?> SendLifecycleAsync(
+        LifecycleAction action,
+        CancellationToken ct,
+        string? breakReason = null)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LifecycleCommand,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LifecycleCommandPayload(action, breakReason))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Lifecycle {Action} timed out waiting for result", action);
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<LifecycleResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
 
     public async Task SubmitCollectionRecordsAsync(
         IReadOnlyList<CollectionRecord> records,
@@ -166,13 +210,42 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                 if (envelope is null)
                     continue;
 
+                // Complete any pending request/response pair first.
+                if (!string.IsNullOrEmpty(envelope.CorrelationId)
+                    && _pending.TryGetValue(envelope.CorrelationId, out var pending)
+                    && envelope.Type is IpcMessageTypes.LifecycleResult
+                        or IpcMessageTypes.StatusResponse
+                        or IpcMessageTypes.CollectionRecordAck
+                        or IpcMessageTypes.EnrollmentResult)
+                {
+                    pending.TrySetResult(envelope);
+                }
+
                 switch (envelope.Type)
                 {
                     case IpcMessageTypes.StatusResponse:
                     {
                         var status = envelope.Payload?.Deserialize<StatusResponsePayload>();
                         if (status is not null)
+                        {
+                            OnStatusReceived?.Invoke(status);
                             OnStateReceived?.Invoke(status.State);
+                        }
+                        break;
+                    }
+                    case IpcMessageTypes.LifecycleResult:
+                    {
+                        // Also surface state from lifecycle result for navigation.
+                        var result = envelope.Payload?.Deserialize<LifecycleResultPayload>();
+                        if (result is not null)
+                        {
+                            OnStateReceived?.Invoke(result.State);
+                            if (result.Session is not null)
+                            {
+                                OnStatusReceived?.Invoke(new StatusResponsePayload(
+                                    result.State, DateTimeOffset.UtcNow, result.Session));
+                            }
+                        }
                         break;
                     }
                     case IpcMessageTypes.PolicyPush:
@@ -183,7 +256,6 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         break;
                     }
                     case IpcMessageTypes.CollectionRecordAck:
-                        // Acks are fire-and-forget for now; future: track pending event IDs.
                         break;
                 }
             }
@@ -194,6 +266,9 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
         finally
         {
+            foreach (var kv in _pending)
+                kv.Value.TrySetCanceled();
+            _pending.Clear();
             OnDisconnected?.Invoke();
         }
     }

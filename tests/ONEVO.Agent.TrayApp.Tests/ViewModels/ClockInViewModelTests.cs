@@ -1,3 +1,5 @@
+using ONEVO.Agent.Shared.IPC;
+using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
 
@@ -5,8 +7,8 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 
 public sealed class ClockInViewModelTests
 {
-    private static ClockInViewModel Make() =>
-        new(new FakeNamedPipeClient());
+    private static ClockInViewModel Make(FakeNamedPipeClient? pipe = null) =>
+        new(pipe ?? new FakeNamedPipeClient());
 
     [Fact]
     public void LiveTimer_DefaultsToZero()
@@ -44,12 +46,26 @@ public sealed class ClockInViewModelTests
     }
 
     [Fact]
-    public async Task ClockInCommand_SendsEnvelopeViaPipe()
+    public async Task ClockInCommand_SendsLifecycleClockIn()
     {
         var pipe = new FakeNamedPipeClient();
         var vm   = new ClockInViewModel(pipe);
         await vm.ClockInCommand.ExecuteAsync(null);
-        Assert.Single(pipe.SentEnvelopes);
+        Assert.Contains(LifecycleAction.ClockIn, pipe.LifecycleActions);
+    }
+
+    [Fact]
+    public async Task ClockInCommand_OnFailure_SetsErrorMessage()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLifecycleResult = new LifecycleResultPayload(
+                false, "ALREADY_CLOCKED_IN", "You are already clocked in.",
+                MonitoringState.Active, null)
+        };
+        var vm = new ClockInViewModel(pipe);
+        await vm.ClockInCommand.ExecuteAsync(null);
+        Assert.Equal("You are already clocked in.", vm.ErrorMessage);
     }
 
     [Fact]

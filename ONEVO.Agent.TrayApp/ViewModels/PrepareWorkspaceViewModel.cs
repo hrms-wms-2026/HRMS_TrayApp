@@ -27,6 +27,7 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
         EmployeeFullName   = "Pirakeerthan";
         EmployeeEmail      = "pirakeerthan@onevo.com";
         EmployeeId         = "ONEVO1234";
+        Preferences.Set("onevo.employee_display_name", EmployeeFullName);
         OnPropertyChanged(nameof(CanContinue));
 
         await Task.Delay(500, ct);

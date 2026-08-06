@@ -2,6 +2,7 @@ namespace ONEVO.Agent.TrayApp;
 
 using ONEVO.Agent.TrayApp.Collectors;
 using ONEVO.Agent.TrayApp.Services;
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
 public partial class App : Microsoft.Maui.Controls.Application
@@ -55,6 +56,21 @@ public partial class App : Microsoft.Maui.Controls.Application
     {
         BootLog("CreateWindow enter");
 
+        // Track last completed session so ClockOut can land on //end once.
+        var showEndAfterClockOut = false;
+
+        _pipeClient.OnStatusReceived += status =>
+        {
+            if (status.State == MonitoringState.Stopped
+                && status.Session?.ClockOutAt is not null
+                && status.Session.ClockInAt is not null)
+            {
+                showEndAfterClockOut = true;
+            }
+            if (status.State == MonitoringState.Active)
+                showEndAfterClockOut = false;
+        };
+
         _pipeClient.OnStateReceived += state =>
         {
             BootLog($"State received: {state}");
@@ -65,6 +81,8 @@ public partial class App : Microsoft.Maui.Controls.Application
                 var route = state switch
                 {
                     MonitoringState.Active     => "//active",
+                    MonitoringState.Paused     => "//active", // On-break mode of ActiveSessionPage
+                    MonitoringState.Stopped when showEndAfterClockOut => "//end",
                     MonitoringState.Stopped    => "//clockin",
                     MonitoringState.Unenrolled => "//connect",
                     MonitoringState.Locked     => "//connect",
@@ -89,8 +107,8 @@ public partial class App : Microsoft.Maui.Controls.Application
         var window = new Window(shell)
         {
             Title  = "ONEVO WorkPulse",
-            Width  = 900,
-            Height = 680
+            Width  = 960,
+            Height = 700
         };
 
         window.Created    += (_, _) =>

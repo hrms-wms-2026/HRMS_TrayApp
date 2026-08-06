@@ -4,219 +4,380 @@
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
              x:Class="ONEVO.Agent.TrayApp.Views.ClockInPage"
              x:DataType="vm:ClockInViewModel"
-             BackgroundColor="{StaticResource Background}">
+             BackgroundColor="White">
 
-  <Grid RowDefinitions="Auto,*,Auto">
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="28,20,28,14">
 
-    <!-- Top: app header bar -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto"
-          Padding="24,16,24,0">
-      <HorizontalStackLayout Grid.Column="0" Spacing="10">
-        <Border WidthRequest="32" HeightRequest="32"
-                StrokeShape="RoundRectangle 8" StrokeThickness="0">
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,18">
+      <HorizontalStackLayout Grid.Column="0" Spacing="12">
+
+        <!-- OV gradient badge -->
+        <Border WidthRequest="42" HeightRequest="42"
+                StrokeShape="RoundRectangle 13" StrokeThickness="0">
           <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-              <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
-              <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
+              <GradientStop Color="#1A5FF7" Offset="0" />
+              <GradientStop Color="#7B3FE4" Offset="1" />
             </LinearGradientBrush>
           </Border.Background>
-          <Label Text="OV" FontSize="12" FontAttributes="Bold" TextColor="White"
+          <Label Text="OV" FontSize="15" FontAttributes="Bold" TextColor="White"
                  HorizontalOptions="Center" VerticalOptions="Center" />
         </Border>
-        <VerticalStackLayout VerticalOptions="Center">
-          <Label Text="OneVo Workspace" FontSize="13" FontAttributes="Bold"
+
+        <VerticalStackLayout VerticalOptions="Center" Spacing="1">
+          <Label Text="OneVo Workspace" FontSize="14" FontAttributes="Bold"
                  TextColor="{StaticResource TextPrimary}" />
           <Label Text="Your Workplace. Simplified."
                  FontSize="10" TextColor="{StaticResource TextSecondary}" />
         </VerticalStackLayout>
       </HorizontalStackLayout>
 
-      <!-- Right menu dots -->
-      <Label Grid.Column="2" Text="•••" FontSize="20"
+      <Label Grid.Column="2" Text="•••" FontSize="22"
              TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
     </Grid>
 
-    <!-- Middle: two-column main content -->
-    <Grid Grid.Row="1" ColumnDefinitions="*,*"
-          Padding="24,20,24,16" ColumnSpacing="24">
+    <!-- ── Main body ──────────────────────────────────────────────────── -->
+    <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="32">
 
-      <!-- Left: greeting + date/time + illustration -->
+      <!-- LEFT: greeting + date/time + illustration ───────────────────── -->
       <VerticalStackLayout Grid.Column="0" Spacing="0">
 
-        <HorizontalStackLayout Spacing="6">
-          <Label Text="{Binding Greeting, StringFormat='{0},'}"
-                 FontSize="22" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-        </HorizontalStackLayout>
-        <HorizontalStackLayout Spacing="8" Margin="0,2,0,0">
+        <!-- "Good Morning, Pirakeerthan 👋" -->
+        <HorizontalStackLayout Spacing="0" Margin="0,0,0,6">
+          <Label Text="{Binding Greeting}"
+                 FontSize="26" FontAttributes="Bold"
+                 TextColor="{StaticResource TextPrimary}" />
+          <Label Text=", "
+                 FontSize="26" FontAttributes="Bold"
+                 TextColor="{StaticResource TextPrimary}" />
           <Label Text="{Binding EmployeeName}"
-                 FontSize="22" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
-          <Label Text="👋" FontSize="20" />
+                 FontSize="26" FontAttributes="Bold"
+                 TextColor="{StaticResource Primary}" />
+          <Label Text=" 👋" FontSize="24" VerticalOptions="Center" Margin="2,0,0,0" />
         </HorizontalStackLayout>
-        <Label Text="Welcome back to OneVo Workspace. Ready to begin your workday?"
-               FontSize="12" TextColor="{StaticResource TextSecondary}"
-               Margin="0,6,0,20" />
+
+        <Label Text="Welcome back to OneVo Workspace."
+               FontSize="13" TextColor="{StaticResource TextSecondary}" Margin="0,0,0,2" />
+        <Label Text="Ready to begin your workday?"
+               FontSize="13" TextColor="{StaticResource TextSecondary}" Margin="0,0,0,18" />
 
         <!-- Date + Time cards -->
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,0,0,20">
-          <Border Grid.Column="0" Style="{StaticResource Card}" Padding="12,10">
-            <VerticalStackLayout Spacing="2">
-              <Label Text="📅  Today's Date"
-                     FontSize="10" TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding CurrentDate, StringFormat='{0:dddd, MMM d}'}"
-                     FontSize="12" FontAttributes="Bold" TextColor="{StaticResource Primary}"
-                     LineBreakMode="WordWrap" />
-            </VerticalStackLayout>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,0,0,18">
+
+          <Border Grid.Column="0" BackgroundColor="White"
+                  StrokeShape="RoundRectangle 16" Stroke="{StaticResource Separator}"
+                  StrokeThickness="1" Padding="14,12">
+            <Border.Shadow>
+              <Shadow Brush="#10000040" Offset="0,3" Radius="10" Opacity="0.1" />
+            </Border.Shadow>
+            <HorizontalStackLayout Spacing="10">
+              <Border WidthRequest="36" HeightRequest="36"
+                      StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                      BackgroundColor="#EEF4FF" VerticalOptions="Center">
+                <Label Text="📅" FontSize="17"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                <Label Text="Today's Date" FontSize="10"
+                       TextColor="{StaticResource TextSecondary}" />
+                <Label Text="{Binding CurrentDateDisplay}"
+                       FontSize="12" FontAttributes="Bold"
+                       TextColor="{StaticResource Primary}"
+                       LineBreakMode="TailTruncation" />
+              </VerticalStackLayout>
+            </HorizontalStackLayout>
           </Border>
-          <Border Grid.Column="1" Style="{StaticResource Card}" Padding="12,10">
-            <VerticalStackLayout Spacing="2">
-              <Label Text="🕐  Current Time"
-                     FontSize="10" TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding CurrentDate, StringFormat='{0:hh:mm tt}'}"
-                     FontSize="12" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
-            </VerticalStackLayout>
+
+          <Border Grid.Column="1" BackgroundColor="White"
+                  StrokeShape="RoundRectangle 16" Stroke="{StaticResource Separator}"
+                  StrokeThickness="1" Padding="14,12">
+            <Border.Shadow>
+              <Shadow Brush="#10000040" Offset="0,3" Radius="10" Opacity="0.1" />
+            </Border.Shadow>
+            <HorizontalStackLayout Spacing="10">
+              <Border WidthRequest="36" HeightRequest="36"
+                      StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                      BackgroundColor="#EEF4FF" VerticalOptions="Center">
+                <Label Text="🕐" FontSize="17"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                <Label Text="Current Time" FontSize="10"
+                       TextColor="{StaticResource TextSecondary}" />
+                <Label Text="{Binding CurrentTimeDisplay}"
+                       FontSize="14" FontAttributes="Bold"
+                       TextColor="{StaticResource Primary}" />
+              </VerticalStackLayout>
+            </HorizontalStackLayout>
           </Border>
         </Grid>
 
-        <!-- Illustration placeholder -->
-        <Border Style="{StaticResource Card}" Padding="20,28" VerticalOptions="FillAndExpand">
-          <VerticalStackLayout VerticalOptions="Center">
-            <Label Text="💼" FontSize="64" HorizontalOptions="Center" />
-            <Label Text="OneVo Workspace" FontSize="12" FontAttributes="Bold"
-                   TextColor="{StaticResource Primary}" HorizontalOptions="Center"
-                   Margin="0,8,0,0" />
-            <Label Text="Your attendance, simplified."
-                   FontSize="10" TextColor="{StaticResource TextSecondary}"
-                   HorizontalOptions="Center" />
-          </VerticalStackLayout>
-        </Border>
+        <!-- Illustration card — gradient canvas + emoji scene -->
+        <Border StrokeShape="RoundRectangle 20" StrokeThickness="1"
+                Stroke="{StaticResource Separator}"
+                Padding="0" VerticalOptions="FillAndExpand">
+          <Border.Shadow>
+            <Shadow Brush="#10000040" Offset="0,4" Radius="14" Opacity="0.1" />
+          </Border.Shadow>
+          <Grid ClipToBounds="True">
+            <Grid.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#ECF2FF" Offset="0" />
+                <GradientStop Color="#F2ECFF" Offset="1" />
+              </LinearGradientBrush>
+            </Grid.Background>
 
+            <!-- Decorative blobs -->
+            <Ellipse WidthRequest="180" HeightRequest="180"
+                     HorizontalOptions="Start" VerticalOptions="End"
+                     Margin="-60,0,0,20" Opacity="0.16">
+              <Ellipse.Fill>
+                <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+                  <GradientStop Color="#7B3FE4" Offset="0" />
+                  <GradientStop Color="#7B3FE400" Offset="1" />
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+            </Ellipse>
+            <Ellipse WidthRequest="120" HeightRequest="120"
+                     HorizontalOptions="End" VerticalOptions="Start"
+                     Margin="0,10,-30,0" Opacity="0.14">
+              <Ellipse.Fill>
+                <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+                  <GradientStop Color="#1A5FF7" Offset="0" />
+                  <GradientStop Color="#1A5FF700" Offset="1" />
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+            </Ellipse>
+            <Ellipse WidthRequest="80" HeightRequest="80"
+                     HorizontalOptions="Center" VerticalOptions="End"
+                     Margin="80,0,0,10" Opacity="0.10">
+              <Ellipse.Fill>
+                <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+                  <GradientStop Color="#1A5FF7" Offset="0" />
+                  <GradientStop Color="#1A5FF700" Offset="1" />
+                </RadialGradientBrush>
+              </Ellipse.Fill>
+            </Ellipse>
+
+            <!-- Emoji scene -->
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                 Spacing="0" Padding="16,28">
+              <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="130">
+                <VerticalStackLayout Grid.Column="0" VerticalOptions="End" Margin="0,0,0,4">
+                  <Label Text="🪴" FontSize="46" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center"
+                                     VerticalOptions="Center" Spacing="0">
+                  <Label Text="💻" FontSize="62" HorizontalOptions="Center" />
+                  <Label Text="☕" FontSize="24" HorizontalOptions="Start"
+                         Margin="14,-6,0,0" />
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="2" VerticalOptions="Start"
+                                     Margin="0,8,0,0">
+                  <Label Text="📅" FontSize="38" />
+                  <Label Text="📘" FontSize="24" Margin="10,2,0,0" />
+                </VerticalStackLayout>
+              </Grid>
+
+              <Label Text="OneVo Workspace"
+                     FontSize="13" FontAttributes="Bold"
+                     TextColor="{StaticResource Primary}"
+                     HorizontalOptions="Center" Margin="0,12,0,3" />
+              <Label Text="Your attendance, simplified."
+                     FontSize="11" TextColor="{StaticResource TextSecondary}"
+                     HorizontalOptions="Center" />
+            </VerticalStackLayout>
+          </Grid>
+        </Border>
       </VerticalStackLayout>
 
-      <!-- Right: status + CLOCK IN -->
-      <VerticalStackLayout Grid.Column="1" Spacing="0">
+      <!-- RIGHT: Status + CLOCK IN ────────────────────────────────────── -->
+      <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Start">
 
-        <!-- Ready to start work header -->
-        <HorizontalStackLayout Spacing="10" Margin="0,0,0,4">
+        <!-- Green dot + "Ready to Start Work" -->
+        <HorizontalStackLayout Spacing="10" Margin="0,2,0,8">
           <Ellipse WidthRequest="14" HeightRequest="14"
                    Fill="{StaticResource StatusGreen}"
                    VerticalOptions="Center" />
           <Label Text="Ready to Start Work"
-                 FontSize="18" FontAttributes="Bold"
+                 FontSize="22" FontAttributes="Bold"
                  TextColor="{StaticResource TextPrimary}" />
         </HorizontalStackLayout>
+
         <Label Text="Click the button below to begin today's attendance."
                FontSize="12" TextColor="{StaticResource TextSecondary}"
-               Margin="0,0,0,20" />
+               Margin="0,0,0,22" />
 
-        <!-- Working Status + Live Timer card -->
-        <Border Style="{StaticResource Card}" Margin="0,0,0,20" Padding="16,14">
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
-            <VerticalStackLayout Grid.Column="0" Spacing="2">
-              <Label Text="Working Status"
-                     FontSize="11" TextColor="{StaticResource TextSecondary}" />
-              <Label Text="Ready" FontSize="15" FontAttributes="Bold"
+        <!-- Working Status | divider | Live Timer -->
+        <Border BackgroundColor="White"
+                StrokeShape="RoundRectangle 18"
+                Stroke="{StaticResource Separator}"
+                StrokeThickness="1" Padding="18,16" Margin="0,0,0,24">
+          <Border.Shadow>
+            <Shadow Brush="#10000040" Offset="0,3" Radius="10" Opacity="0.1" />
+          </Border.Shadow>
+          <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="4">
+
+            <!-- Briefcase icon -->
+            <Border Grid.Column="0" WidthRequest="40" HeightRequest="40"
+                    StrokeShape="RoundRectangle 12" StrokeThickness="0"
+                    BackgroundColor="#EEF4FF" VerticalOptions="Center">
+              <Label Text="💼" FontSize="19"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <!-- Working Status -->
+            <VerticalStackLayout Grid.Column="1" Spacing="2"
+                                 VerticalOptions="Center" Margin="10,0,0,0">
+              <Label Text="Working Status" FontSize="10"
+                     TextColor="{StaticResource TextSecondary}" />
+              <Label Text="{Binding WorkingStatus}"
+                     FontSize="17" FontAttributes="Bold"
                      TextColor="{StaticResource Primary}" />
             </VerticalStackLayout>
-            <VerticalStackLayout Grid.Column="1" Spacing="2">
-              <Label Text="Live Timer"
-                     FontSize="11" TextColor="{StaticResource TextSecondary}" />
+
+            <!-- Vertical divider -->
+            <BoxView Grid.Column="2" WidthRequest="1"
+                     BackgroundColor="{StaticResource Separator}"
+                     Margin="6,2" />
+
+            <!-- Live Timer -->
+            <VerticalStackLayout Grid.Column="3" Spacing="2"
+                                 VerticalOptions="Center" Margin="12,0,0,0">
+              <Label Text="Live Timer" FontSize="10"
+                     TextColor="{StaticResource TextSecondary}" />
               <Label Text="{Binding LiveTimer}"
-                     FontSize="18" FontAttributes="Bold"
+                     FontSize="20" FontAttributes="Bold"
                      TextColor="{StaticResource TextPrimary}" />
             </VerticalStackLayout>
           </Grid>
         </Border>
 
-        <!-- CLOCK IN button -->
-        <Border StrokeShape="RoundRectangle 32" StrokeThickness="0"
-                HeightRequest="72" Margin="0,0,0,0">
+        <!-- ⏱ CLOCK IN — glowing gradient pill -->
+        <Border StrokeShape="RoundRectangle 40" StrokeThickness="0"
+                HeightRequest="78" Margin="0,0,0,10">
           <Border.Background>
             <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-              <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
-              <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
+              <GradientStop Color="#1A5FF7" Offset="0" />
+              <GradientStop Color="#5B3DF5" Offset="0.5" />
+              <GradientStop Color="#7B3FE4" Offset="1" />
             </LinearGradientBrush>
           </Border.Background>
-          <Button Text="🕐  CLOCK IN"
+          <Border.Shadow>
+            <Shadow Brush="#801A5FF7" Offset="0,10" Radius="22" Opacity="0.55" />
+          </Border.Shadow>
+          <Button Text="⏱  CLOCK IN"
                   Command="{Binding ClockInCommand}"
                   BackgroundColor="Transparent"
                   TextColor="White"
-                  FontSize="20"
+                  FontSize="22"
                   FontAttributes="Bold"
-                  HeightRequest="72"
-                  HorizontalOptions="Fill" />
+                  CharacterSpacing="1.5"
+                  HeightRequest="78"
+                  HorizontalOptions="Fill"
+                  IsEnabled="{Binding IsClockinIn, Converter={StaticResource InvertBoolConverter}}" />
         </Border>
 
-        <!-- Error + spinner -->
-        <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}"
-               FontSize="12" Margin="0,8,0,0"
+        <Label Text="{Binding ErrorMessage}"
+               TextColor="{StaticResource StatusRed}"
+               FontSize="11" Margin="0,4,0,0"
                IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
         <ActivityIndicator IsRunning="{Binding IsClockinIn}"
                            IsVisible="{Binding IsClockinIn}"
                            Color="{StaticResource Primary}"
-                           Margin="0,8,0,0" />
-
-        <!-- Spacer -->
-        <BoxView HeightRequest="1" BackgroundColor="Transparent" VerticalOptions="FillAndExpand" />
-
-        <!-- Footer connection info -->
-        <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-          <Ellipse WidthRequest="8" HeightRequest="8"
-                   Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
-          <Label Text="Connected to OneVo Server"
-                 FontSize="11" TextColor="{StaticResource TextSecondary}" />
-        </HorizontalStackLayout>
-
+                           HorizontalOptions="Center" Margin="0,8,0,0" />
       </VerticalStackLayout>
     </Grid>
 
-    <!-- Bottom: 3 status cards -->
-    <Grid Grid.Row="2" ColumnDefinitions="*,*,*"
-          ColumnSpacing="12" Padding="24,0,24,20">
+    <!-- ── Bottom status cards ──────────────────────────────────────────── -->
+    <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="14" Margin="0,20,0,10">
 
       <!-- Current Status -->
-      <Border Grid.Column="0" Style="{StaticResource Card}" Padding="12,10">
-        <HorizontalStackLayout Spacing="10">
-          <Ellipse WidthRequest="10" HeightRequest="10"
-                   Fill="{StaticResource StatusGreen}"
-                   VerticalOptions="Center" />
-          <VerticalStackLayout>
-            <Label Text="Current Status"
-                   FontSize="10" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="{Binding ConnectionStatus}"
-                   FontSize="12" FontAttributes="Bold"
-                   TextColor="{StaticResource TextPrimary}" />
-          </VerticalStackLayout>
-        </HorizontalStackLayout>
+      <Border Grid.Column="0" BackgroundColor="White"
+              StrokeShape="RoundRectangle 16" Stroke="{StaticResource Separator}"
+              StrokeThickness="1" Padding="14,12">
+        <Border.Shadow>
+          <Shadow Brush="#08000040" Offset="0,2" Radius="8" Opacity="0.08" />
+        </Border.Shadow>
+        <Grid ColumnDefinitions="*,Auto">
+          <HorizontalStackLayout Grid.Column="0" Spacing="8">
+            <Ellipse WidthRequest="10" HeightRequest="10"
+                     Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+              <Label Text="Current Status" FontSize="10"
+                     TextColor="{StaticResource TextSecondary}" />
+              <Label Text="{Binding ConnectionStatus}" FontSize="13" FontAttributes="Bold"
+                     TextColor="{StaticResource StatusGreen}" />
+            </VerticalStackLayout>
+          </HorizontalStackLayout>
+          <Label Grid.Column="1" Text="📡" FontSize="16"
+                 VerticalOptions="Center" Opacity="0.5" />
+        </Grid>
       </Border>
 
       <!-- Internet -->
-      <Border Grid.Column="1" Style="{StaticResource Card}" Padding="12,10">
-        <HorizontalStackLayout Spacing="10">
-          <Label Text="🌐" FontSize="16" VerticalOptions="Center" />
-          <VerticalStackLayout>
-            <Label Text="Internet"
-                   FontSize="10" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="{Binding InternetStatus}"
-                   FontSize="12" FontAttributes="Bold"
-                   TextColor="{StaticResource TextPrimary}" />
-          </VerticalStackLayout>
-        </HorizontalStackLayout>
+      <Border Grid.Column="1" BackgroundColor="White"
+              StrokeShape="RoundRectangle 16" Stroke="{StaticResource Separator}"
+              StrokeThickness="1" Padding="14,12">
+        <Border.Shadow>
+          <Shadow Brush="#08000040" Offset="0,2" Radius="8" Opacity="0.08" />
+        </Border.Shadow>
+        <Grid ColumnDefinitions="*,Auto">
+          <HorizontalStackLayout Grid.Column="0" Spacing="8">
+            <Label Text="🌐" FontSize="18" VerticalOptions="Center" />
+            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+              <Label Text="Internet" FontSize="10"
+                     TextColor="{StaticResource TextSecondary}" />
+              <Label Text="{Binding InternetStatus}" FontSize="13" FontAttributes="Bold"
+                     TextColor="{StaticResource Primary}" />
+            </VerticalStackLayout>
+          </HorizontalStackLayout>
+          <Label Grid.Column="1" Text="📶" FontSize="15"
+                 VerticalOptions="Center" Opacity="0.5" />
+        </Grid>
       </Border>
 
       <!-- Device -->
-      <Border Grid.Column="2" Style="{StaticResource Card}" Padding="12,10">
-        <HorizontalStackLayout Spacing="10">
-          <Label Text="🖥" FontSize="16" VerticalOptions="Center" />
-          <VerticalStackLayout>
-            <Label Text="Device"
-                   FontSize="10" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="{Binding DeviceType}"
-                   FontSize="12" FontAttributes="Bold"
-                   TextColor="{StaticResource TextPrimary}" />
-          </VerticalStackLayout>
-        </HorizontalStackLayout>
+      <Border Grid.Column="2" BackgroundColor="White"
+              StrokeShape="RoundRectangle 16" Stroke="{StaticResource Separator}"
+              StrokeThickness="1" Padding="14,12">
+        <Border.Shadow>
+          <Shadow Brush="#08000040" Offset="0,2" Radius="8" Opacity="0.08" />
+        </Border.Shadow>
+        <Grid ColumnDefinitions="*,Auto">
+          <HorizontalStackLayout Grid.Column="0" Spacing="8">
+            <Label Text="🖥" FontSize="18" VerticalOptions="Center" />
+            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+              <Label Text="Device" FontSize="10"
+                     TextColor="{StaticResource TextSecondary}" />
+              <Label Text="{Binding DeviceType}" FontSize="13" FontAttributes="Bold"
+                     TextColor="{StaticResource Primary}" />
+            </VerticalStackLayout>
+          </HorizontalStackLayout>
+          <Label Grid.Column="1" Text="🪟" FontSize="15"
+                 VerticalOptions="Center" Opacity="0.5" />
+        </Grid>
       </Border>
+    </Grid>
 
+    <!-- ── Footer ────────────────────────────────────────────────────────── -->
+    <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Padding="2,2,2,0">
+      <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+        <Label Text="⚙" FontSize="12" TextColor="{StaticResource TextMuted}" />
+        <Label Text="Settings" FontSize="11" TextColor="{StaticResource TextMuted}" />
+      </HorizontalStackLayout>
+
+      <Label Grid.Column="1" Text="Version 1.0.0" FontSize="11"
+             TextColor="{StaticResource TextMuted}"
+             HorizontalOptions="Center" VerticalOptions="Center" />
+
+      <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+        <Ellipse WidthRequest="8" HeightRequest="8"
+                 Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
+        <Label Text="Connected to OneVo Server" FontSize="11"
+               TextColor="{StaticResource TextSecondary}" />
+      </HorizontalStackLayout>
     </Grid>
   </Grid>
 </ContentPage>
