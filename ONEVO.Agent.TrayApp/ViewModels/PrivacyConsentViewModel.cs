@@ -1,7 +1,11 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
+using ONEVO.Agent.TrayApp.Services;
+
 public sealed partial class PrivacyConsentViewModel : BaseViewModel
 {
+    private readonly INamedPipeClient _pipe;
+
     // Always on — required by policy, toggle locked in UI
     [ObservableProperty] private bool _screenMonitoringEnabled = true;
 
@@ -11,7 +15,17 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     [ObservableProperty] private bool _notificationsEnabled  = true;
     [ObservableProperty] private bool _keyboardMouseEnabled  = true;
 
-    public PrivacyConsentViewModel() { Title = "Allow Required Policies"; }
+    public PrivacyConsentViewModel(INamedPipeClient pipe)
+    {
+        Title = "Allow Required Policies";
+        _pipe = pipe;
+    }
+
+    public void OnAppearing()
+    {
+        if (_pipe.LastKnownPolicy is { } policy)
+            ApplyPolicy(policy);
+    }
 
     public void ApplyPolicy(AgentPolicy policy)
     {

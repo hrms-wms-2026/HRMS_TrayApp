@@ -25,9 +25,10 @@
           <!-- Screen Monitoring -->
           <Grid ColumnDefinitions="44,*,Auto" Padding="4,14" ColumnSpacing="12">
             <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
-                    StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
-                    StrokeThickness="0">
-              <Label Text="🖥" FontSize="19"
+                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                    BackgroundColor="{StaticResource Primary}">
+              <Label Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                     TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
@@ -44,9 +45,10 @@
           <!-- Application Tracking -->
           <Grid ColumnDefinitions="44,*,Auto" Padding="4,14" ColumnSpacing="12">
             <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
-                    StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
-                    StrokeThickness="0">
-              <Label Text="⊞" FontSize="19"
+                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                    BackgroundColor="{StaticResource Primary}">
+              <Label Text="&#xE71D;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                     TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
@@ -63,9 +65,10 @@
           <!-- Location Access -->
           <Grid ColumnDefinitions="44,*,Auto" Padding="4,14" ColumnSpacing="12">
             <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
-                    StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
-                    StrokeThickness="0">
-              <Label Text="📍" FontSize="19"
+                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                    BackgroundColor="{StaticResource Primary}">
+              <Label Text="&#xE81D;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                     TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
@@ -82,9 +85,10 @@
           <!-- Camera Access -->
           <Grid ColumnDefinitions="44,*,Auto" Padding="4,14" ColumnSpacing="12">
             <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
-                    StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
-                    StrokeThickness="0">
-              <Label Text="📷" FontSize="19"
+                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                    BackgroundColor="{StaticResource Primary}">
+              <Label Text="&#xE722;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                     TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
@@ -101,9 +105,10 @@
           <!-- System Notifications -->
           <Grid ColumnDefinitions="44,*,Auto" Padding="4,14" ColumnSpacing="12">
             <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
-                    StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
-                    StrokeThickness="0">
-              <Label Text="🔔" FontSize="19"
+                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                    BackgroundColor="{StaticResource Primary}">
+              <Label Text="&#xEA8F;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                     TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
@@ -120,9 +125,10 @@
           <!-- Keyboard & Mouse Activity -->
           <Grid ColumnDefinitions="44,*,Auto" Padding="4,14" ColumnSpacing="12">
             <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
-                    StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
-                    StrokeThickness="0">
-              <Label Text="⌨" FontSize="19"
+                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                    BackgroundColor="{StaticResource Primary}">
+              <Label Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                     TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
@@ -138,9 +144,16 @@
           <!-- Policy footer note -->
           <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
           <HorizontalStackLayout Spacing="8" Padding="4,12" HorizontalOptions="Center">
-            <Label Text="🛡" FontSize="13" />
+            <Border WidthRequest="22" HeightRequest="22"
+                    StrokeShape="RoundRectangle 11" StrokeThickness="0"
+                    BackgroundColor="{StaticResource Primary}">
+              <Label Text="&#xEA18;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                     TextColor="White"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
             <Label Text="Permissions are managed according to your company policy."
-                   FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                   FontSize="11" TextColor="{StaticResource TextSecondary}"
+                   VerticalOptions="Center" />
           </HorizontalStackLayout>
 
         </VerticalStackLayout>
@@ -148,7 +161,7 @@
 
       <!-- Allow & Continue button -->
       <Border Style="{StaticResource GradientButtonBorder}">
-        <Button Text="🛡  Allow &amp; Continue"
+        <Button Text="Allow &amp; Continue"
                 Command="{Binding AllowAndContinueCommand}"
                 Style="{StaticResource GradientButtonOverlay}" />
       </Border>
