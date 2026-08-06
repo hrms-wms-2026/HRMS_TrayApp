@@ -4,12 +4,16 @@ using System.Drawing;
 using System.Windows.Forms;
 using ONEVO.Agent.Shared.Models;
 
+/// <summary>
+/// System tray icon for monitoring status.
+/// Uses the main UI thread message pump (no second WinForms Application.Run)
+/// to avoid COM/XAML apartment crashes with MAUI WinUI.
+/// </summary>
 public sealed class TrayIconService : IDisposable
 {
     private readonly ILogger<TrayIconService> _logger;
     private NotifyIcon? _notifyIcon;
-    private Thread? _thread;
-    private readonly TaskCompletionSource _ready = new();
+    private bool _initialized;
 
     public TrayIconService(ILogger<TrayIconService> logger)
     {
@@ -18,16 +22,27 @@ public sealed class TrayIconService : IDisposable
 
     public void Initialize()
     {
-        _thread = new Thread(RunMessagePump) { IsBackground = true, Name = "TrayIconThread" };
-        _thread.SetApartmentState(ApartmentState.STA);
-        _thread.Start();
-        _ready.Task.Wait(TimeSpan.FromSeconds(5));
-        _logger.LogInformation("Tray icon initialized");
+        if (_initialized)
+            return;
+
+        try
+        {
+            // Prefer main-thread init when called from MAUI window lifecycle.
+            if (Microsoft.Maui.ApplicationModel.MainThread.IsMainThread)
+                CreateIcon();
+            else
+                Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(CreateIcon);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Tray icon initialize failed");
+        }
     }
 
-    private void RunMessagePump()
+    private void CreateIcon()
     {
-        System.Windows.Forms.Application.EnableVisualStyles();
+        if (_initialized)
+            return;
 
         _notifyIcon = new NotifyIcon
         {
@@ -38,19 +53,17 @@ public sealed class TrayIconService : IDisposable
         };
 
         _notifyIcon.DoubleClick += (_, _) => OnTrayDoubleClick();
-        _ready.SetResult();
-        System.Windows.Forms.Application.Run();
-
-        _notifyIcon.Visible = false;
-        _notifyIcon.Dispose();
+        _initialized = true;
+        _logger.LogInformation("Tray icon initialized");
     }
 
     public void UpdateState(MonitoringState state)
     {
-        if (_notifyIcon is null) return;
-
         void Apply()
         {
+            if (_notifyIcon is null)
+                return;
+
             _notifyIcon.Text = $"ONEVO WorkPulse — {state switch
             {
                 MonitoringState.Active     => "Monitoring Active",
@@ -69,12 +82,17 @@ public sealed class TrayIconService : IDisposable
             };
         }
 
-        // NotifyIcon is owned by the STA tray thread — marshal via ContextMenuStrip handle if available.
-        var menu = _notifyIcon.ContextMenuStrip;
-        if (menu is not null && menu.IsHandleCreated && menu.InvokeRequired)
-            menu.BeginInvoke(Apply);
-        else
-            Apply();
+        try
+        {
+            if (Microsoft.Maui.ApplicationModel.MainThread.IsMainThread)
+                Apply();
+            else
+                Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(Apply);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Tray UpdateState failed");
+        }
     }
 
     private ContextMenuStrip BuildContextMenu()
@@ -84,19 +102,34 @@ public sealed class TrayIconService : IDisposable
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) =>
         {
-            System.Windows.Forms.Application.ExitThread();
-            Microsoft.Maui.Controls.Application.Current?.Quit();
+            try
+            {
+                if (Microsoft.Maui.Controls.Application.Current is App app)
+                    app.RequestExit();
+                else
+                    Microsoft.Maui.Controls.Application.Current?.Quit();
+            }
+            catch
+            {
+                Environment.Exit(0);
+            }
         });
         return menu;
     }
 
     private static void OnTrayDoubleClick()
     {
-        // Enrollment/status window wired in Phase 2
+        // Enrollment/status window wired later
     }
 
     public void Dispose()
     {
-        System.Windows.Forms.Application.ExitThread();
+        if (_notifyIcon is null)
+            return;
+
+        _notifyIcon.Visible = false;
+        _notifyIcon.Dispose();
+        _notifyIcon = null;
+        _initialized = false;
     }
 }

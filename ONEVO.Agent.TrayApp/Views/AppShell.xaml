@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:ONEVO.Agent.TrayApp.Views"
+       x:Class="ONEVO.Agent.TrayApp.Views.AppShell"
+       FlyoutBehavior="Disabled">
+
+  <ShellContent Route="connect"  ContentTemplate="{DataTemplate views:ConnectWorkspacePage}" />
+  <ShellContent Route="prepare"  ContentTemplate="{DataTemplate views:PrepareWorkspacePage}" />
+  <ShellContent Route="location" ContentTemplate="{DataTemplate views:WorkLocationPage}" />
+  <ShellContent Route="photo"    ContentTemplate="{DataTemplate views:PhotoCaptureWindow}" />
+  <ShellContent Route="review"   ContentTemplate="{DataTemplate views:ReviewSetupPage}" />
+  <ShellContent Route="policy"   ContentTemplate="{DataTemplate views:PrivacyConsentPage}" />
+  <ShellContent Route="clockin"  ContentTemplate="{DataTemplate views:ClockInPage}" />
+  <ShellContent Route="active"   ContentTemplate="{DataTemplate views:ActiveSessionPage}" />
+  <ShellContent Route="end"      ContentTemplate="{DataTemplate views:EndSessionPage}" />
+</Shell>

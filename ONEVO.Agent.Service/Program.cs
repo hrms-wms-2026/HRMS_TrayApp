@@ -18,7 +18,11 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<AgentStateMachine>();
         services.AddSingleton<PolicyCache>();
-        services.AddSingleton<ActivityRecordBuffer>();
+        services.AddSingleton<ActivityRecordBuffer>(sp =>
+        {
+            var opts = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
+            return new ActivityRecordBuffer(opts.QueueMaxRecords);
+        });
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<DeviceIdentityStore>();
         services.AddSingleton<NamedPipeAuthenticator>();
@@ -34,6 +38,7 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddHostedService<AgentWorker>();
         services.AddHostedService<ActivitySyncService>();
+        services.AddHostedService<HeartbeatService>();
     })
     .Build();
 

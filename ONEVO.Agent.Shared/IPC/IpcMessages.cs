@@ -17,6 +17,12 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: effective policy for collector enablement.</summary>
     public const string PolicyPush = "PolicyPush";
+
+    /// <summary>Tray → Service: employee-entered activation code from web portal.</summary>
+    public const string ActivationCodeSubmit = "ActivationCodeSubmit";
+
+    /// <summary>Service → Tray: result of enrollment attempt.</summary>
+    public const string EnrollmentResult = "EnrollmentResult";
 }
 
 public sealed record NonceChallengePayload(string Nonce);
@@ -37,4 +43,13 @@ public sealed record CollectionRecordAckPayload
 public sealed record PolicyPushPayload
 {
     public required AgentPolicy Policy { get; init; }
+}
+
+public sealed record ActivationCodeSubmitPayload(string Code);
+
+public sealed record EnrollmentResultPayload
+{
+    public required bool Success { get; init; }
+    public string? ErrorCode { get; init; }   // "INVALID_CODE" | "EXPIRED" | "ALREADY_ENROLLED"
+    public string? EmployeeName { get; init; } // set on success for greeting
 }

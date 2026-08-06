@@ -30,6 +30,11 @@
     <ProjectReference Include="..\ONEVO.Agent.Shared\ONEVO.Agent.Shared.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>ONEVO.Agent.TrayApp.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#1E3A5F" />
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#1E3A5F" BaseSize="128,128" />
     <MauiFont Include="Resources\Fonts\*" />

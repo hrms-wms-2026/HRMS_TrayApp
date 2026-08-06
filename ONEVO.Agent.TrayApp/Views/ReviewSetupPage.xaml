@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             x:Class="ONEVO.Agent.TrayApp.Views.ReviewSetupPage"
+             x:DataType="vm:ReviewSetupViewModel"
+             Title="Review Your Setup">
+  <VerticalStackLayout Padding="40" Spacing="12">
+    <Label Text="Review Your Setup" FontSize="22" FontAttributes="Bold"
+           HorizontalOptions="Center" />
+
+    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+          RowSpacing="8" ColumnSpacing="16">
+      <Label Grid.Row="0" Grid.Column="0" Text="Name:" FontAttributes="Bold" />
+      <Label Grid.Row="0" Grid.Column="1" Text="{Binding FullName}" />
+      <Label Grid.Row="1" Grid.Column="0" Text="Email:" FontAttributes="Bold" />
+      <Label Grid.Row="1" Grid.Column="1" Text="{Binding WorkEmail}" />
+      <Label Grid.Row="2" Grid.Column="0" Text="Department:" FontAttributes="Bold" />
+      <Label Grid.Row="2" Grid.Column="1" Text="{Binding Department}" />
+      <Label Grid.Row="3" Grid.Column="0" Text="Manager:" FontAttributes="Bold" />
+      <Label Grid.Row="3" Grid.Column="1" Text="{Binding Manager}" />
+      <Label Grid.Row="4" Grid.Column="0" Text="Work Location:" FontAttributes="Bold" />
+      <Label Grid.Row="4" Grid.Column="1" Text="{Binding WorkLocation}" />
+      <Label Grid.Row="5" Grid.Column="0" Text="Device:" FontAttributes="Bold" />
+      <Label Grid.Row="5" Grid.Column="1" Text="{Binding RegisteredDevice}" />
+      <Label Grid.Row="6" Grid.Column="0" Text="Last Updated:" FontAttributes="Bold" />
+      <Label Grid.Row="6" Grid.Column="1" Text="{Binding LastUpdated, StringFormat='{0:g}'}" />
+    </Grid>
+
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+      <Button Grid.Column="0" Text="Edit Setup" Command="{Binding EditSetupCommand}" />
+      <Button Grid.Column="1" Text="Confirm Setup"
+              Command="{Binding ConfirmSetupCommand}"
+              BackgroundColor="{StaticResource Primary}" TextColor="White" />
+    </Grid>
+  </VerticalStackLayout>
+</ContentPage>

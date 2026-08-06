@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             x:Class="ONEVO.Agent.TrayApp.Views.ConnectWorkspacePage"
+             x:DataType="vm:ConnectWorkspaceViewModel"
+             Title="Connect OneVo Workspace">
+  <VerticalStackLayout Padding="40" Spacing="20" VerticalOptions="Center">
+    <Label Text="OneVo Workspace" FontSize="28" FontAttributes="Bold"
+           TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
+    <Label Text="Connect OneVo Workspace" FontSize="20" HorizontalOptions="Center" />
+    <Label Text="Enter the one-time code from your Employee Web Portal to link this device."
+           FontSize="14" TextColor="Gray" HorizontalTextAlignment="Center" />
+
+    <Entry Placeholder="Activation Code (6 characters)"
+           Text="{Binding ActivationCode}"
+           MaxLength="6"
+           IsEnabled="{Binding IsConnecting, Converter={StaticResource InvertBoolConverter}}" />
+
+    <Label Text="{Binding ErrorMessage}" TextColor="Red"
+           IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+    <Button Text="Verify and Connect"
+            Command="{Binding VerifyAndConnectCommand}"
+            BackgroundColor="{StaticResource Primary}"
+            TextColor="White" />
+
+    <Button Text="Open Employee Web Portal"
+            Command="{Binding OpenEmployeePortalCommand}"
+            BackgroundColor="Transparent"
+            TextColor="{StaticResource Primary}" />
+
+    <ActivityIndicator IsRunning="{Binding IsConnecting}"
+                       IsVisible="{Binding IsConnecting}" />
+  </VerticalStackLayout>
+</ContentPage>

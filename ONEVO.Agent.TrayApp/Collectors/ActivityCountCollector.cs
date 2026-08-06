@@ -15,7 +15,14 @@ using ONEVO.Agent.TrayApp.Services;
 /// </summary>
 public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 {
+    private static readonly string BootLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ONEVO", "Agent", "tray-boot.log");
+
     public string Name => "ActivityCount";
+
+    /// <summary>Raised after each snapshot is handed to the Service (for UI status).</summary>
+    public event Action<ActivitySnapshotPayload, int>? SnapshotEmitted;
 
     private readonly ILogger<ActivityCountCollector> _logger;
     private readonly NamedPipeClient _pipeClient;
@@ -24,19 +31,20 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
     private readonly object _counterLock = new();
     private long _keyboardCount;
     private long _mouseCount;
+    private int _snapshotSequence;
 
     private IntPtr _keyboardHook;
     private IntPtr _mouseHook;
+    // KEEP ROOTS — GC must not collect these while hooks are installed.
     private NativeMethods.LowLevelProc? _keyboardProc;
     private NativeMethods.LowLevelProc? _mouseProc;
+    private GCHandle _keyboardProcHandle;
+    private GCHandle _mouseProcHandle;
 
     private CancellationTokenSource? _runCts;
     private Task? _snapshotLoop;
     private int _intervalSeconds = Constants.DefaultActivitySnapshotIntervalSeconds;
     private bool _running;
-
-    // Keep delegates alive so GC does not collect them while hooks are set.
-    // (Hook callbacks must remain rooted for the lifetime of SetWindowsHookEx.)
 
     public ActivityCountCollector(
         ILogger<ActivityCountCollector> logger,
@@ -51,7 +59,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
     {
         if (!policy.ActivitySignalEnabled)
         {
-            _logger.LogInformation("{Name}: policy disabled — not starting", Name);
+            BootLog("policy disabled — not starting");
             return Task.CompletedTask;
         }
 
@@ -59,12 +67,24 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             return Task.CompletedTask;
 
         _intervalSeconds = Math.Clamp(
-            Constants.DefaultActivitySnapshotIntervalSeconds, 15, 300);
+            Constants.DefaultActivitySnapshotIntervalSeconds, 10, 300);
 
-        InstallHooks();
+        // Install hooks on the UI thread — LL hooks must live with a message pump.
+        void Install()
+        {
+            InstallHooks();
+            BootLog($"hooks installed on thread={Environment.CurrentManagedThreadId}");
+        }
+
+        if (Microsoft.Maui.ApplicationModel.MainThread.IsMainThread)
+            Install();
+        else
+            Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(Install).GetAwaiter().GetResult();
+
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _snapshotLoop = SnapshotLoopAsync(_runCts.Token);
         _running = true;
+        BootLog($"started interval={_intervalSeconds}s");
         _logger.LogInformation("{Name}: started (interval={Seconds}s)", Name, _intervalSeconds);
         return Task.CompletedTask;
     }
@@ -93,7 +113,6 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             _snapshotLoop = null;
         }
 
-        // Final snapshot flush before unhook (counts only)
         try
         {
             await EmitSnapshotAsync(CancellationToken.None);
@@ -105,6 +124,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 
         UninstallHooks();
         ResetCounters();
+        BootLog("stopped");
         _logger.LogInformation("{Name}: stopped", Name);
     }
 
@@ -112,11 +132,16 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
     {
         _keyboardProc = KeyboardHookCallback;
         _mouseProc = MouseHookCallback;
+        _keyboardProcHandle = GCHandle.Alloc(_keyboardProc);
+        _mouseProcHandle = GCHandle.Alloc(_mouseProc);
 
-        using var curProcess = System.Diagnostics.Process.GetCurrentProcess();
-        using var curModule = curProcess.MainModule
-            ?? throw new InvalidOperationException("Cannot resolve main module for hooks");
-        var hMod = NativeMethods.GetModuleHandle(curModule.ModuleName);
+        // LL hooks: module handle of the executable (null often works for LL hooks).
+        var hMod = NativeMethods.GetModuleHandle(null);
+        if (hMod == IntPtr.Zero)
+        {
+            using var curProcess = System.Diagnostics.Process.GetCurrentProcess();
+            hMod = NativeMethods.GetModuleHandle(curProcess.MainModule?.ModuleName);
+        }
 
         _keyboardHook = NativeMethods.SetWindowsHookEx(
             NativeMethods.WH_KEYBOARD_LL, _keyboardProc, hMod, 0);
@@ -133,6 +158,8 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             throw new InvalidOperationException(
                 $"SetWindowsHookEx(WH_MOUSE_LL) failed: {Marshal.GetLastWin32Error()}");
         }
+
+        BootLog("hooks installed");
     }
 
     private void UninstallHooks()
@@ -147,55 +174,77 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             NativeMethods.UnhookWindowsHookEx(_mouseHook);
             _mouseHook = IntPtr.Zero;
         }
+        if (_keyboardProcHandle.IsAllocated) _keyboardProcHandle.Free();
+        if (_mouseProcHandle.IsAllocated) _mouseProcHandle.Free();
         _keyboardProc = null;
         _mouseProc = null;
     }
 
     private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        // Count only key-down; never read vkCode/scanCode from lParam.
-        if (nCode >= 0)
+        try
         {
-            var msg = wParam.ToInt32();
-            if (msg is NativeMethods.WM_KEYDOWN or NativeMethods.WM_SYSKEYDOWN)
+            // Count only key-down; never read vkCode/scanCode from lParam.
+            if (nCode >= 0)
             {
-                lock (_counterLock)
+                var msg = wParam.ToInt32();
+                if (msg is NativeMethods.WM_KEYDOWN or NativeMethods.WM_SYSKEYDOWN)
                 {
-                    if (_keyboardCount < Constants.MaxEventsPerInterval)
-                        _keyboardCount++;
+                    lock (_counterLock)
+                    {
+                        if (_keyboardCount < Constants.MaxEventsPerInterval)
+                            _keyboardCount++;
+                    }
                 }
             }
         }
+        catch
+        {
+            // never throw out of a hook callback
+        }
+
         return NativeMethods.CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
     }
 
     private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        // Count clicks/wheel only — never read POINT from lParam.
-        if (nCode >= 0)
+        try
         {
-            var msg = wParam.ToInt32();
-            if (msg is NativeMethods.WM_LBUTTONDOWN
-                or NativeMethods.WM_RBUTTONDOWN
-                or NativeMethods.WM_MBUTTONDOWN
-                or NativeMethods.WM_MOUSEWHEEL
-                or NativeMethods.WM_XBUTTONDOWN)
+            // Count clicks/wheel only — never read POINT from lParam.
+            if (nCode >= 0)
             {
-                lock (_counterLock)
+                var msg = wParam.ToInt32();
+                if (msg is NativeMethods.WM_LBUTTONDOWN
+                    or NativeMethods.WM_RBUTTONDOWN
+                    or NativeMethods.WM_MBUTTONDOWN
+                    or NativeMethods.WM_MOUSEWHEEL
+                    or NativeMethods.WM_XBUTTONDOWN)
                 {
-                    if (_mouseCount < Constants.MaxEventsPerInterval)
-                        _mouseCount++;
+                    lock (_counterLock)
+                    {
+                        if (_mouseCount < Constants.MaxEventsPerInterval)
+                            _mouseCount++;
+                    }
                 }
             }
         }
+        catch
+        {
+            // never throw out of a hook callback
+        }
+
         return NativeMethods.CallNextHookEx(_mouseHook, nCode, wParam, lParam);
     }
 
     private async Task SnapshotLoopAsync(CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_intervalSeconds));
+        // First tick after a short delay so UI shows "working" quickly.
         try
         {
+            await Task.Delay(TimeSpan.FromSeconds(Math.Min(5, _intervalSeconds)), ct);
+            await EmitSnapshotAsync(ct);
+
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_intervalSeconds));
             while (await timer.WaitForNextTickAsync(ct))
             {
                 await EmitSnapshotAsync(ct);
@@ -204,6 +253,11 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         catch (OperationCanceledException)
         {
             // normal stop
+        }
+        catch (Exception ex)
+        {
+            BootLog($"snapshot loop error: {ex.Message}");
+            _logger.LogError(ex, "{Name}: snapshot loop failed", Name);
         }
     }
 
@@ -215,25 +269,25 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         {
             keyboard = _keyboardCount;
             mouse = _mouseCount;
-            // Reset only after we have taken the snapshot values (§7.1).
             _keyboardCount = 0;
             _mouseCount = 0;
         }
 
         var interval = _intervalSeconds;
         var secondsSinceInput = PrivacyScrubber.GetSecondsSinceLastInput();
-        // Heuristic: idle if no system input for ≥ half the interval.
         var idleSeconds = secondsSinceInput >= interval / 2
             ? Math.Min(interval, secondsSinceInput)
             : 0;
         var activeSeconds = Math.Max(0, interval - idleSeconds);
 
-        // Intensity 0–100 from event density (counts only — no content).
         var eventDensity = (keyboard + mouse) / (double)Math.Max(1, interval);
         var intensity = Math.Round(
             (decimal)Math.Clamp(eventDensity / 5.0 * 100.0, 0, 100), 2);
 
-        var processName = PrivacyScrubber.GetForegroundProcessNameSafe();
+        // Foreground process lookup is best-effort; never fail the snapshot.
+        string? processName = null;
+        try { processName = PrivacyScrubber.GetForegroundProcessNameSafe(); }
+        catch { /* ignore */ }
 
         var payload = new ActivitySnapshotPayload
         {
@@ -246,6 +300,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             ForegroundProcessName = processName
         };
 
+        var seq = Interlocked.Increment(ref _snapshotSequence);
         var record = new CollectionRecord
         {
             EventId = Guid.NewGuid().ToString("N"),
@@ -256,10 +311,30 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             Payload = JsonSerializer.SerializeToElement(payload)
         };
 
-        // Do not log counts or process name in production paths (privacy).
-        _logger.LogDebug("{Name}: snapshot handed off eventId={EventId}", Name, record.EventId);
+        BootLog($"snapshot #{seq} kb={payload.KeyboardEventsCount} mouse={payload.MouseEventsCount}");
+        _logger.LogInformation(
+            "{Name}: snapshot #{Seq} kb={Kb} mouse={Mouse} eventId={EventId}",
+            Name, seq, payload.KeyboardEventsCount, payload.MouseEventsCount, record.EventId);
 
-        await _pipeClient.SubmitCollectionRecordsAsync([record], ct);
+        try
+        {
+            await _pipeClient.SubmitCollectionRecordsAsync([record], ct);
+            BootLog($"snapshot #{seq} submitted to IPC");
+        }
+        catch (Exception ex)
+        {
+            BootLog($"snapshot #{seq} IPC submit failed: {ex.Message}");
+            _logger.LogWarning(ex, "{Name}: IPC submit failed for snapshot #{Seq}", Name, seq);
+        }
+
+        try
+        {
+            SnapshotEmitted?.Invoke(payload, seq);
+        }
+        catch (Exception ex)
+        {
+            BootLog($"snapshot #{seq} UI event failed: {ex.Message}");
+        }
     }
 
     private void ResetCounters()
@@ -268,6 +343,19 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         {
             _keyboardCount = 0;
             _mouseCount = 0;
+        }
+    }
+
+    private static void BootLog(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
+            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [Activity] {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // ignore
         }
     }
 

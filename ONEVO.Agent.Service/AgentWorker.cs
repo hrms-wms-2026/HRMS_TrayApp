@@ -67,6 +67,10 @@ public sealed class AgentWorker : BackgroundService
             case IpcMessageTypes.CollectionRecordSubmit:
                 await HandleCollectionSubmitAsync(envelope, reply);
                 break;
+
+            case IpcMessageTypes.ActivationCodeSubmit:
+                await HandleActivationCodeSubmitAsync(envelope, reply);
+                break;
         }
     }
 
@@ -149,7 +153,9 @@ public sealed class AgentWorker : BackgroundService
         var accepted = 0;
         foreach (var record in payload.Records)
         {
-            if (record.RecordType != CollectionRecordTypes.ActivitySnapshot)
+            if (record.RecordType is not (CollectionRecordTypes.ActivitySnapshot
+                or CollectionRecordTypes.AppUsageSnapshot
+                or CollectionRecordTypes.DeviceStateSnapshot))
                 continue;
 
             if (_activityBuffer.TryEnqueue(record))
@@ -170,6 +176,13 @@ public sealed class AgentWorker : BackgroundService
             Payload = JsonSerializer.SerializeToElement(
                 new CollectionRecordAckPayload { AcceptedCount = accepted })
         });
+    }
+
+    private Task HandleActivationCodeSubmitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        // Phase 2: validate code against backend, trigger enrollment state transition
+        _logger.LogInformation("ActivationCodeSubmit received — enrollment handler not yet implemented (Phase 2)");
+        return Task.CompletedTask;
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
