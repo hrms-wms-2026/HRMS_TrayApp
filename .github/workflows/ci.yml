@@ -15,10 +15,19 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          # Must match global.json (rollForward: disable requires exact SDK).
+          # "10.0.x" alone can leave the runner on an older preinstalled 10.0.100
+          # which then fails every subsequent `dotnet` command.
+          global-json-file: global.json
+          dotnet-version: "10.0.300"
+
+      - name: Verify SDK
+        run: |
+          dotnet --info
+          dotnet --list-sdks
 
       - name: Install MAUI workload
-        run: dotnet workload install maui-windows
+        run: dotnet workload install maui-windows --skip-manifest-update
 
       - name: Build Shared
         run: dotnet build ONEVO.Agent.Shared/ONEVO.Agent.Shared.csproj --configuration Release
