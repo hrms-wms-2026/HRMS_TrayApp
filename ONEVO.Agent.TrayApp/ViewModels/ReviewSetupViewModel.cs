@@ -18,10 +18,11 @@ public sealed partial class ReviewSetupViewModel : BaseViewModel
 
     public void OnAppearing()
     {
-        FullName     = Preferences.Get("onevo.employee_display_name", string.Empty);
-        WorkEmail    = Preferences.Get("onevo.employee_email",        string.Empty);
-        EmployeeId   = Preferences.Get("onevo.employee_id",          string.Empty);
-        WorkLocation = Preferences.Get("onevo.work_location_display", string.Empty);
+        FullName                  = Preferences.Get("onevo.employee_display_name", string.Empty);
+        WorkEmail                 = Preferences.Get("onevo.employee_email",         string.Empty);
+        EmployeeId                = Preferences.Get("onevo.employee_id",            string.Empty);
+        WorkLocation              = Preferences.Get("onevo.work_location_display",  string.Empty);
+        FaceVerificationCompleted = Preferences.Get("onevo.face_verified",          false);
     }
 
     [RelayCommand]

@@ -9,6 +9,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     private readonly ICameraService _camera;
     private readonly INamedPipeClient _pipe;
     private byte[]? _capturedBytes;
+    private string? _captureContext;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
@@ -24,6 +25,19 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         Title   = "Face Verification";
         _camera = camera;
         _pipe   = pipe;
+    }
+
+    /// <summary>
+    /// Called by the page when a Shell query parameter is received.
+    /// Pass "clockin" to complete clock-in after face capture.
+    /// </summary>
+    public void SetContext(string? context)
+    {
+        _captureContext = context;
+        // Reset state so each entry starts clean.
+        _capturedBytes    = null;
+        IsCaptured        = false;
+        CaptureStatusText = "Look at the camera and keep your face within the frame.";
     }
 
     [RelayCommand]
@@ -77,6 +91,24 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             catch { /* non-blocking — photo send failure should not block navigation */ }
         }
 
+        if (_captureContext == "clockin")
+        {
+            CaptureStatusText = "Completing clock-in...";
+            var result = await _pipe.SendLifecycleAsync(LifecycleAction.ClockIn, CancellationToken.None);
+            if (result is null || !result.Success)
+            {
+                CaptureStatusText = result?.Message ?? result?.ErrorCode ?? "Clock-in failed. Please try again.";
+                IsCaptured = false;
+                _capturedBytes = null;
+                return;
+            }
+
+            try { await Shell.Current.GoToAsync("//active"); }
+            catch { /* unit tests */ }
+            return;
+        }
+
+        Preferences.Set("onevo.face_verified", true);
         try { await Shell.Current.GoToAsync("//review"); }
         catch { /* unit tests */ }
     }
