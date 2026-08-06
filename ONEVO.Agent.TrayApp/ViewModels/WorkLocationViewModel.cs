@@ -1,16 +1,13 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-
 public sealed partial class WorkLocationViewModel : BaseViewModel
 {
     public IReadOnlyList<WorkLocationOption> ApprovedLocations { get; } =
     [
-        new("Central Office",   "HQ"),
-        new("Singapore Office", "SG"),
-        new("Hyderabad Office", "HYD"),
-        new("Remote Work",      "REMOTE")
+        new("Chennai Office",   "CHENNAI",   "Tamil Nadu, India"),
+        new("Bangalore Office", "BANGALORE", "Karnataka, India"),
+        new("Hyderabad Office", "HYDERABAD", "Telangana, India"),
+        new("Work From Home",   "WFH",       "Remote Location")
     ];
 
     [ObservableProperty]
@@ -33,10 +30,10 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private static void SaveAndContinue()
     {
-        // Navigation wired in AppShell
+        // Navigation wired in code-behind
     }
 
     private bool HasSelection => SelectedLocation is not null;
 }
 
-public sealed record WorkLocationOption(string DisplayName, string Code);
+public sealed record WorkLocationOption(string DisplayName, string Code, string SubTitle);

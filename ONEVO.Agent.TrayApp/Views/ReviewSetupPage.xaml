@@ -4,34 +4,102 @@
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
              x:Class="ONEVO.Agent.TrayApp.Views.ReviewSetupPage"
              x:DataType="vm:ReviewSetupViewModel"
-             Title="Review Your Setup">
-  <VerticalStackLayout Padding="40" Spacing="12">
-    <Label Text="Review Your Setup" FontSize="22" FontAttributes="Bold"
-           HorizontalOptions="Center" />
+             BackgroundColor="{StaticResource Background}"
+             Title="Confirm Your Details">
 
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
-          RowSpacing="8" ColumnSpacing="16">
-      <Label Grid.Row="0" Grid.Column="0" Text="Name:" FontAttributes="Bold" />
-      <Label Grid.Row="0" Grid.Column="1" Text="{Binding FullName}" />
-      <Label Grid.Row="1" Grid.Column="0" Text="Email:" FontAttributes="Bold" />
-      <Label Grid.Row="1" Grid.Column="1" Text="{Binding WorkEmail}" />
-      <Label Grid.Row="2" Grid.Column="0" Text="Department:" FontAttributes="Bold" />
-      <Label Grid.Row="2" Grid.Column="1" Text="{Binding Department}" />
-      <Label Grid.Row="3" Grid.Column="0" Text="Manager:" FontAttributes="Bold" />
-      <Label Grid.Row="3" Grid.Column="1" Text="{Binding Manager}" />
-      <Label Grid.Row="4" Grid.Column="0" Text="Work Location:" FontAttributes="Bold" />
-      <Label Grid.Row="4" Grid.Column="1" Text="{Binding WorkLocation}" />
-      <Label Grid.Row="5" Grid.Column="0" Text="Device:" FontAttributes="Bold" />
-      <Label Grid.Row="5" Grid.Column="1" Text="{Binding RegisteredDevice}" />
-      <Label Grid.Row="6" Grid.Column="0" Text="Last Updated:" FontAttributes="Bold" />
-      <Label Grid.Row="6" Grid.Column="1" Text="{Binding LastUpdated, StringFormat='{0:g}'}" />
-    </Grid>
+  <Grid ColumnDefinitions="4*,6*">
 
-    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-      <Button Grid.Column="0" Text="Edit Setup" Command="{Binding EditSetupCommand}" />
-      <Button Grid.Column="1" Text="Confirm Setup"
-              Command="{Binding ConfirmSetupCommand}"
-              BackgroundColor="{StaticResource Primary}" TextColor="White" />
-    </Grid>
-  </VerticalStackLayout>
+    <!-- Left: shield illustration -->
+    <Border Grid.Column="0" StrokeThickness="0"
+            BackgroundColor="{StaticResource Background}">
+      <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                           Spacing="12" Padding="24">
+        <Label Text="🛡" FontSize="96" HorizontalOptions="Center" />
+        <Label Text="Review your information before we proceed."
+               FontSize="12" TextColor="{StaticResource TextSecondary}"
+               HorizontalTextAlignment="Center" />
+      </VerticalStackLayout>
+    </Border>
+
+    <!-- Right: form panel -->
+    <ScrollView Grid.Column="1" BackgroundColor="{StaticResource Background}">
+      <VerticalStackLayout Padding="36,36,36,28" Spacing="0">
+
+        <!-- Header -->
+        <HorizontalStackLayout Spacing="6">
+          <Label Text="Confirm Your " Style="{StaticResource PageTitle}" />
+          <Label Text="Details" Style="{StaticResource PageTitleAccent}" />
+        </HorizontalStackLayout>
+        <Label Text="Please review your information before continuing."
+               Style="{StaticResource PageSubtitle}"
+               HorizontalTextAlignment="Start"
+               Margin="0,6,0,24" />
+
+        <!-- Details card -->
+        <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+          <VerticalStackLayout Spacing="0">
+
+            <!-- Full Name -->
+            <Grid ColumnDefinitions="32,*,Auto" Padding="4,12" ColumnSpacing="12">
+              <Label Grid.Column="0" Text="👤" FontSize="17" HorizontalOptions="Center" VerticalOptions="Center" />
+              <Label Grid.Column="1" Text="Full Name" Style="{StaticResource FieldLabel}" />
+              <Label Grid.Column="2" Text="{Binding FullName}" Style="{StaticResource FieldValue}" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+
+            <!-- Email -->
+            <Grid ColumnDefinitions="32,*,Auto" Padding="4,12" ColumnSpacing="12">
+              <Label Grid.Column="0" Text="✉" FontSize="17" HorizontalOptions="Center" VerticalOptions="Center" />
+              <Label Grid.Column="1" Text="Email" Style="{StaticResource FieldLabel}" />
+              <Label Grid.Column="2" Text="{Binding WorkEmail}" Style="{StaticResource FieldValue}" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+
+            <!-- Employee ID -->
+            <Grid ColumnDefinitions="32,*,Auto" Padding="4,12" ColumnSpacing="12">
+              <Label Grid.Column="0" Text="🪪" FontSize="17" HorizontalOptions="Center" VerticalOptions="Center" />
+              <Label Grid.Column="1" Text="Employee ID" Style="{StaticResource FieldLabel}" />
+              <Label Grid.Column="2" Text="{Binding EmployeeId}" Style="{StaticResource FieldValue}" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+
+            <!-- Location -->
+            <Grid ColumnDefinitions="32,*,Auto" Padding="4,12" ColumnSpacing="12">
+              <Label Grid.Column="0" Text="📍" FontSize="17" HorizontalOptions="Center" VerticalOptions="Center" />
+              <Label Grid.Column="1" Text="Location" Style="{StaticResource FieldLabel}" />
+              <Label Grid.Column="2" Text="{Binding WorkLocation}" Style="{StaticResource FieldValue}" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+
+            <!-- Face Verification -->
+            <Grid ColumnDefinitions="32,*,Auto" Padding="4,12" ColumnSpacing="12">
+              <Label Grid.Column="0" Text="🤳" FontSize="17" HorizontalOptions="Center" VerticalOptions="Center" />
+              <Label Grid.Column="1" Text="Face Verification" Style="{StaticResource FieldLabel}" />
+              <Label Grid.Column="2" Text="{Binding FaceVerificationStatusText}"
+                     TextColor="{StaticResource StatusGreen}"
+                     FontSize="13" FontAttributes="Bold"
+                     VerticalOptions="Center" />
+            </Grid>
+
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- Confirm & Continue button -->
+        <Border Style="{StaticResource GradientButtonBorder}" Margin="0,0,0,14">
+          <Button Text="🛡  Confirm &amp; Continue"
+                  Command="{Binding ConfirmAndContinueCommand}"
+                  Style="{StaticResource GradientButtonOverlay}" />
+        </Border>
+
+        <!-- Back text link -->
+        <Button Text="Back"
+                Command="{Binding BackCommand}"
+                BackgroundColor="Transparent"
+                TextColor="{StaticResource Primary}"
+                FontSize="14"
+                HorizontalOptions="Center" />
+
+      </VerticalStackLayout>
+    </ScrollView>
+  </Grid>
 </ContentPage>

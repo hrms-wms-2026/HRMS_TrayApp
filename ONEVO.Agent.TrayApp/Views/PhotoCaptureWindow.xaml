@@ -1,9 +1,175 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
              x:Class="ONEVO.Agent.TrayApp.Views.PhotoCaptureWindow"
-             Title="Set Up Identity Verification">
-    <VerticalStackLayout Padding="32" Spacing="16">
-        <Label Text="Identity Verification" FontSize="24" TextColor="{StaticResource Primary}" />
+             x:DataType="vm:PhotoCaptureWindowViewModel"
+             BackgroundColor="{StaticResource Background}"
+             Title="Face Verification">
+  <ScrollView>
+    <VerticalStackLayout Padding="48,36" Spacing="0"
+                         HorizontalOptions="Center" MaximumWidthRequest="520">
+
+      <!-- Header -->
+      <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
+        <Label Text="Face " Style="{StaticResource PageTitle}" />
+        <Label Text="Verification" Style="{StaticResource PageTitleAccent}" />
+      </HorizontalStackLayout>
+      <Label Text="Look at the camera and keep your face within the frame."
+             Style="{StaticResource PageSubtitle}" Margin="0,8,0,32" />
+
+      <!-- Outer glow ring -->
+      <Border WidthRequest="296" HeightRequest="296"
+              StrokeShape="RoundRectangle 148"
+              StrokeThickness="0"
+              HorizontalOptions="Center"
+              Margin="0,0,0,0">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#801A5FF7" Offset="0" />
+            <GradientStop Color="#807B3FE4" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+
+        <!-- Inner white ring -->
+        <Border WidthRequest="280" HeightRequest="280"
+                StrokeShape="RoundRectangle 140"
+                Stroke="{StaticResource Primary}" StrokeThickness="4"
+                BackgroundColor="{StaticResource CardBackground}"
+                HorizontalOptions="Center" VerticalOptions="Center">
+
+          <!-- Clip content to circle shape -->
+          <Grid WidthRequest="272" HeightRequest="272"
+                HorizontalOptions="Center" VerticalOptions="Center">
+
+            <!-- Face placeholder (shown when not captured) -->
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                 IsVisible="{Binding IsCaptured, Converter={StaticResource InvertBoolConverter}}">
+              <Label Text="👤" FontSize="100" HorizontalOptions="Center"
+                     TextColor="{StaticResource Separator}" />
+            </VerticalStackLayout>
+
+            <!-- Success checkmark (shown when captured) -->
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                 IsVisible="{Binding IsCaptured}">
+              <Border WidthRequest="80" HeightRequest="80"
+                      StrokeShape="RoundRectangle 40" StrokeThickness="0"
+                      BackgroundColor="{StaticResource StatusGreen}"
+                      HorizontalOptions="Center">
+                <Label Text="✓" FontSize="44" FontAttributes="Bold"
+                       TextColor="White"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+            </VerticalStackLayout>
+
+            <!-- Corner brackets (top-left) -->
+            <BoxView WidthRequest="24" HeightRequest="3"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="Start" VerticalOptions="Start"
+                     Margin="18,18,0,0" />
+            <BoxView WidthRequest="3" HeightRequest="24"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="Start" VerticalOptions="Start"
+                     Margin="18,18,0,0" />
+
+            <!-- Corner brackets (top-right) -->
+            <BoxView WidthRequest="24" HeightRequest="3"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="End" VerticalOptions="Start"
+                     Margin="0,18,18,0" />
+            <BoxView WidthRequest="3" HeightRequest="24"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="End" VerticalOptions="Start"
+                     Margin="0,18,18,0" />
+
+            <!-- Corner brackets (bottom-left) -->
+            <BoxView WidthRequest="24" HeightRequest="3"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="Start" VerticalOptions="End"
+                     Margin="18,0,0,18" />
+            <BoxView WidthRequest="3" HeightRequest="24"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="Start" VerticalOptions="End"
+                     Margin="18,0,0,18" />
+
+            <!-- Corner brackets (bottom-right) -->
+            <BoxView WidthRequest="24" HeightRequest="3"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="End" VerticalOptions="End"
+                     Margin="0,0,18,18" />
+            <BoxView WidthRequest="3" HeightRequest="24"
+                     BackgroundColor="{StaticResource Primary}"
+                     HorizontalOptions="End" VerticalOptions="End"
+                     Margin="0,0,18,18" />
+
+            <!-- Animated scan line (translated in code-behind) -->
+            <BoxView x:Name="ScanLine"
+                     HeightRequest="3"
+                     HorizontalOptions="Fill" VerticalOptions="Start"
+                     IsVisible="{Binding IsScanAnimating}">
+              <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                  <GradientStop Color="Transparent" Offset="0" />
+                  <GradientStop Color="{StaticResource Primary}" Offset="0.3" />
+                  <GradientStop Color="{StaticResource PrimaryAccent}" Offset="0.7" />
+                  <GradientStop Color="Transparent" Offset="1" />
+                </LinearGradientBrush>
+              </BoxView.Background>
+            </BoxView>
+
+          </Grid>
+        </Border>
+      </Border>
+
+      <!-- Camera capture button -->
+      <Border WidthRequest="60" HeightRequest="60"
+              StrokeShape="RoundRectangle 30"
+              BackgroundColor="{StaticResource CardBackground}"
+              Stroke="{StaticResource Separator}" StrokeThickness="1"
+              HorizontalOptions="Center" Margin="0,20,0,0">
+        <Button Text="📷"
+                Command="{Binding CapturePhotoCommand}"
+                BackgroundColor="Transparent"
+                FontSize="24"
+                IsEnabled="{Binding IsCapturing, Converter={StaticResource InvertBoolConverter}}"
+                HorizontalOptions="Fill" VerticalOptions="Fill" />
+      </Border>
+
+      <!-- Status text -->
+      <Label Text="{Binding CaptureStatusText}"
+             Style="{StaticResource PageSubtitle}"
+             Margin="0,14,0,0" />
+
+      <!-- Scanning spinner -->
+      <ActivityIndicator IsRunning="{Binding IsCapturing}"
+                         IsVisible="{Binding IsCapturing}"
+                         Color="{StaticResource Primary}"
+                         WidthRequest="32" HeightRequest="32"
+                         HorizontalOptions="Center"
+                         Margin="0,8,0,0" />
+
+      <!-- Security notice card -->
+      <Border Style="{StaticResource Card}" Margin="0,20,0,28" Padding="14,12">
+        <HorizontalStackLayout Spacing="12">
+          <Border WidthRequest="32" HeightRequest="32"
+                  StrokeShape="RoundRectangle 16" BackgroundColor="#EEF2FF"
+                  StrokeThickness="0">
+            <Label Text="🛡" FontSize="16"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
+          </Border>
+          <Label Text="This profile picture will be used for secure employee verification."
+                 FontSize="12" TextColor="{StaticResource TextSecondary}"
+                 VerticalOptions="Center" />
+        </HorizontalStackLayout>
+      </Border>
+
+      <!-- Continue button -->
+      <Border Style="{StaticResource GradientButtonBorder}">
+        <Button Text="Continue"
+                Command="{Binding ContinueCommand}"
+                Style="{StaticResource GradientButtonOverlay}" />
+      </Border>
+
     </VerticalStackLayout>
+  </ScrollView>
 </ContentPage>

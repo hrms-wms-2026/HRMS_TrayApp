@@ -4,26 +4,95 @@
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
              x:Class="ONEVO.Agent.TrayApp.Views.WorkLocationPage"
              x:DataType="vm:WorkLocationViewModel"
+             BackgroundColor="{StaticResource Background}"
              Title="Select Your Work Location">
-  <VerticalStackLayout Padding="40" Spacing="16">
-    <Label Text="Select Your Work Location" FontSize="22" FontAttributes="Bold"
-           HorizontalOptions="Center" />
 
-    <SearchBar Placeholder="Search locations…" Text="{Binding SearchText}" />
+  <Grid ColumnDefinitions="4*,6*">
 
-    <CollectionView ItemsSource="{Binding FilteredLocations}"
-                    SelectedItem="{Binding SelectedLocation}"
-                    SelectionMode="Single">
-      <CollectionView.ItemTemplate>
-        <DataTemplate x:DataType="vm:WorkLocationOption">
-          <Label Text="{Binding DisplayName}" Padding="8" FontSize="16" />
-        </DataTemplate>
-      </CollectionView.ItemTemplate>
-    </CollectionView>
+    <!-- Left: illustration panel -->
+    <Border Grid.Column="0" StrokeThickness="0"
+            BackgroundColor="{StaticResource Background}">
+      <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                           Spacing="12" Padding="24">
+        <Label Text="📍" FontSize="96" HorizontalOptions="Center" />
+        <Label Text="Choose where you work today."
+               FontSize="12" TextColor="{StaticResource TextSecondary}"
+               HorizontalTextAlignment="Center" />
+      </VerticalStackLayout>
+    </Border>
 
-    <Button Text="Save and Continue"
-            Command="{Binding SaveAndContinueCommand}"
-            BackgroundColor="{StaticResource Primary}"
-            TextColor="White" />
-  </VerticalStackLayout>
+    <!-- Right: form panel -->
+    <ScrollView Grid.Column="1" BackgroundColor="{StaticResource Background}">
+      <VerticalStackLayout Padding="36,36,36,28" Spacing="0">
+
+        <!-- Header -->
+        <HorizontalStackLayout Spacing="6">
+          <Label Text="Select Your " Style="{StaticResource PageTitle}" />
+          <Label Text="Work Location" Style="{StaticResource PageTitleAccent}" />
+        </HorizontalStackLayout>
+        <Label Text="Choose your current work location before continuing."
+               Style="{StaticResource PageSubtitle}"
+               HorizontalTextAlignment="Start"
+               Margin="0,6,0,20" />
+
+        <!-- Search bar -->
+        <Border BackgroundColor="{StaticResource CardBackground}"
+                StrokeShape="RoundRectangle 10"
+                Stroke="{StaticResource Separator}" StrokeThickness="1"
+                Padding="12,4" Margin="0,0,0,14">
+          <HorizontalStackLayout Spacing="10">
+            <Label Text="🔍" FontSize="16" VerticalOptions="Center" />
+            <Entry Placeholder="Search location..."
+                   Text="{Binding SearchText}"
+                   BackgroundColor="Transparent"
+                   PlaceholderColor="{StaticResource TextMuted}"
+                   FontSize="14"
+                   HorizontalOptions="Fill" />
+          </HorizontalStackLayout>
+        </Border>
+
+        <!-- Location list -->
+        <CollectionView ItemsSource="{Binding FilteredLocations}"
+                        SelectedItem="{Binding SelectedLocation}"
+                        SelectionMode="Single"
+                        Margin="0,0,0,20">
+          <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="vm:WorkLocationOption">
+              <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="14,14">
+                <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="12">
+                  <Border Grid.Column="0" WidthRequest="36" HeightRequest="36"
+                          StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
+                          StrokeThickness="0">
+                    <Label Text="📍" FontSize="18"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                  </Border>
+                  <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                    <Label Text="{Binding DisplayName}"
+                           FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="14" />
+                    <Label Text="{Binding SubTitle}"
+                           TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                  </VerticalStackLayout>
+                  <!-- Selection radio indicator -->
+                  <Border Grid.Column="2"
+                          WidthRequest="20" HeightRequest="20"
+                          StrokeShape="RoundRectangle 10"
+                          Stroke="{StaticResource Primary}" StrokeThickness="2"
+                          BackgroundColor="Transparent"
+                          VerticalOptions="Center" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Confirm Location button -->
+        <Border Style="{StaticResource GradientButtonBorder}">
+          <Button Text="📍  Confirm Location"
+                  Command="{Binding SaveAndContinueCommand}"
+                  Style="{StaticResource GradientButtonOverlay}" />
+        </Border>
+
+      </VerticalStackLayout>
+    </ScrollView>
+  </Grid>
 </ContentPage>

@@ -1,7 +1,5 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.Shared.IPC;
 
@@ -14,14 +12,13 @@ public sealed partial class ClockInViewModel : BaseViewModel
     [ObservableProperty] private string _workLocation     = string.Empty;
     [ObservableProperty] private DateTimeOffset _currentDate = DateTimeOffset.Now;
 
-    [ObservableProperty] private bool _identityChecked    = true;
-    [ObservableProperty] private bool _permissionsReady   = true;
-    [ObservableProperty] private bool _requiredChecksPass = true;
+    [ObservableProperty] private string _liveTimer        = "00:00:00";
+    [ObservableProperty] private string _connectionStatus = "Online";
+    [ObservableProperty] private string _internetStatus   = "Excellent Connection";
+    [ObservableProperty] private string _deviceType       = "Windows Desktop";
 
     [ObservableProperty] private bool _isClockinIn;
     [ObservableProperty] private string? _errorMessage;
-
-    public bool ReadyToClockIn => IdentityChecked && PermissionsReady && RequiredChecksPass;
 
     public ClockInViewModel(INamedPipeClient pipe)
     {
@@ -36,7 +33,7 @@ public sealed partial class ClockInViewModel : BaseViewModel
         return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
     }
 
-    [RelayCommand(CanExecute = nameof(ReadyToClockIn))]
+    [RelayCommand]
     private async Task ClockInAsync(CancellationToken ct)
     {
         IsClockinIn  = true;

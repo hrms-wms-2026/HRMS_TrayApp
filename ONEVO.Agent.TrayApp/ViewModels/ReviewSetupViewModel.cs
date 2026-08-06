@@ -1,30 +1,29 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-
 public sealed partial class ReviewSetupViewModel : BaseViewModel
 {
-    [ObservableProperty] private string _fullName          = string.Empty;
-    [ObservableProperty] private string _workEmail         = string.Empty;
-    [ObservableProperty] private string _department        = string.Empty;
-    [ObservableProperty] private string _manager           = string.Empty;
-    [ObservableProperty] private string _workLocation      = string.Empty;
-    [ObservableProperty] private string _monitoringManager = string.Empty;
-    [ObservableProperty] private string _registeredDevice  = string.Empty;
-    [ObservableProperty] private DateTimeOffset _lastUpdated = DateTimeOffset.UtcNow;
-    [ObservableProperty] private bool _hasSetupErrors;
+    [ObservableProperty] private string _fullName     = string.Empty;
+    [ObservableProperty] private string _workEmail    = string.Empty;
+    [ObservableProperty] private string _employeeId   = string.Empty;
+    [ObservableProperty] private string _workLocation = string.Empty;
 
-    public ReviewSetupViewModel() { Title = "Review Your Setup"; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FaceVerificationStatusText))]
+    private bool _faceVerificationCompleted;
+
+    public string FaceVerificationStatusText =>
+        FaceVerificationCompleted ? "Completed" : "Pending";
+
+    public ReviewSetupViewModel() { Title = "Confirm Your Details"; }
 
     [RelayCommand]
-    private static void EditSetup()
+    private static void Back()
     {
         // Navigate back to PrepareWorkspacePage
     }
 
     [RelayCommand]
-    private static void ConfirmSetup()
+    private static void ConfirmAndContinue()
     {
         // Navigate to PrivacyConsentPage
     }

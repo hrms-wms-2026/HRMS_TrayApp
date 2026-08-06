@@ -89,8 +89,8 @@ public partial class App : Microsoft.Maui.Controls.Application
         var window = new Window(shell)
         {
             Title  = "ONEVO WorkPulse",
-            Width  = 560,
-            Height = 640
+            Width  = 900,
+            Height = 680
         };
 
         window.Created    += (_, _) =>

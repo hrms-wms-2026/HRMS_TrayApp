@@ -18,6 +18,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<INamedPipeClient>(sp =>
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<ICameraService, CameraService>();
 
         // Collectors
         builder.Services.AddSingleton<ActivityCountCollector>();

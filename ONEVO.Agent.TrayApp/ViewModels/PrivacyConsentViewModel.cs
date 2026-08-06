@@ -1,33 +1,26 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using ONEVO.Agent.Shared.Models;
-
 public sealed partial class PrivacyConsentViewModel : BaseViewModel
 {
-    // Required by policy — always true, toggle locked
-    [ObservableProperty] private bool _activitySignalEnabled = true;
-    public bool ActivitySignalRequired => true;
+    // Always on — required by policy, toggle locked in UI
+    [ObservableProperty] private bool _screenMonitoringEnabled = true;
 
-    [ObservableProperty] private bool _applicationUsageEnabled = true;
-    [ObservableProperty] private bool _workLocationEnabled     = true;
-    [ObservableProperty] private bool _cameraAccessEnabled     = false;
-    [ObservableProperty] private bool _notificationsEnabled    = true;
-    [ObservableProperty] private bool _keyboardMouseEnabled    = true;
+    [ObservableProperty] private bool _appTrackingEnabled    = true;
+    [ObservableProperty] private bool _locationAccessEnabled = true;
+    [ObservableProperty] private bool _cameraAccessEnabled   = false;
+    [ObservableProperty] private bool _notificationsEnabled  = true;
+    [ObservableProperty] private bool _keyboardMouseEnabled  = true;
 
-    [ObservableProperty] private bool _policyAcknowledged;
-
-    public PrivacyConsentViewModel() { Title = "Privacy, Monitoring and Required Permissions"; }
+    public PrivacyConsentViewModel() { Title = "Allow Required Policies"; }
 
     public void ApplyPolicy(AgentPolicy policy)
     {
-        ApplicationUsageEnabled = policy.AppUsageEnabled;
-        CameraAccessEnabled     = policy.CameraVerificationEnabled;
+        AppTrackingEnabled  = policy.AppUsageEnabled;
+        CameraAccessEnabled = policy.CameraVerificationEnabled;
     }
 
-    [RelayCommand(CanExecute = nameof(PolicyAcknowledged))]
-    private static void ReviewAndContinue()
+    [RelayCommand]
+    private static void AllowAndContinue()
     {
         // Navigate to ClockInPage
     }
