@@ -1,7 +1,9 @@
 namespace ONEVO.Agent.TrayApp;
 
+using ONEVO.Agent.TrayApp.Collectors;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
+using ONEVO.Agent.TrayApp.Views;
 
 public static class MauiProgram
 {
@@ -10,15 +12,54 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
 
+        // Infrastructure
         builder.Services.AddSingleton<TrayIconService>();
         builder.Services.AddSingleton<NamedPipeClient>();
+        builder.Services.AddSingleton<INamedPipeClient>(sp =>
+            sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
 
-        builder.Services.AddTransient<LoginWindowViewModel>();
+        // Collectors
+        builder.Services.AddSingleton<ActivityCountCollector>();
+        builder.Services.AddSingleton<IAgentCollector>(sp =>
+            sp.GetRequiredService<ActivityCountCollector>());
+        builder.Services.AddSingleton<AppUsageCollector>();
+        builder.Services.AddSingleton<IAgentCollector>(sp =>
+            sp.GetRequiredService<AppUsageCollector>());
+        builder.Services.AddSingleton<DeviceStateCollector>();
+        builder.Services.AddSingleton<IAgentCollector>(sp =>
+            sp.GetRequiredService<DeviceStateCollector>());
+        builder.Services.AddSingleton<MeetingDetector>();
+        builder.Services.AddSingleton<IAgentCollector>(sp =>
+            sp.GetRequiredService<MeetingDetector>());
+        builder.Services.AddSingleton<ScreenshotCollector>();
+        builder.Services.AddSingleton<IAgentCollector>(sp =>
+            sp.GetRequiredService<ScreenshotCollector>());
+        builder.Services.AddSingleton<CollectorCoordinator>();
+
+        // ViewModels
+        builder.Services.AddTransient<ConnectWorkspaceViewModel>();
+        builder.Services.AddTransient<PrepareWorkspaceViewModel>();
+        builder.Services.AddTransient<WorkLocationViewModel>();
+        builder.Services.AddTransient<ReviewSetupViewModel>();
+        builder.Services.AddTransient<PrivacyConsentViewModel>();
+        builder.Services.AddTransient<ClockInViewModel>();
+        builder.Services.AddTransient<ActiveSessionViewModel>();
+        builder.Services.AddTransient<EndSessionViewModel>();
         builder.Services.AddTransient<StatusPopupViewModel>();
+        builder.Services.AddTransient<LoginWindowViewModel>();
         builder.Services.AddTransient<PhotoCaptureWindowViewModel>();
 
-        builder.Logging.AddDebug();
+        // Views
+        builder.Services.AddTransient<ConnectWorkspacePage>();
+        builder.Services.AddTransient<PrepareWorkspacePage>();
+        builder.Services.AddTransient<WorkLocationPage>();
+        builder.Services.AddTransient<ReviewSetupPage>();
+        builder.Services.AddTransient<PrivacyConsentPage>();
+        builder.Services.AddTransient<ClockInPage>();
+        builder.Services.AddTransient<ActiveSessionPage>();
+        builder.Services.AddTransient<EndSessionPage>();
+        builder.Services.AddTransient<PhotoCaptureWindow>();
 
         return builder.Build();
     }

@@ -9,10 +9,29 @@ using ONEVO.Agent.TrayApp.Services;
 /// </summary>
 public sealed class CollectorCoordinator : IAsyncDisposable
 {
+    private static readonly string BootLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ONEVO", "Agent", "tray-boot.log");
+
+    /// <summary>
+    /// Used when Service sends Active before PolicyPush arrives (or policy message is missed).
+    /// Activity is on; other collectors stay off until real policy arrives.
+    /// </summary>
+    private static readonly AgentPolicy LocalDefaultPolicy = new()
+    {
+        Version = "tray-local-default",
+        ActivitySignalEnabled = true,
+        AppUsageEnabled = false,
+        ScreenshotEnabled = false,
+        CameraVerificationEnabled = false,
+        ValidUntil = DateTimeOffset.UtcNow.AddDays(1)
+    };
+
     private readonly ILogger<CollectorCoordinator> _logger;
     private readonly IEnumerable<IAgentCollector> _collectors;
-    private readonly NamedPipeClient _pipeClient;
+    private readonly INamedPipeClient _pipeClient;
     private readonly object _gate = new();
+    private readonly SemaphoreSlim _reconcileLock = new(1, 1);
 
     private AgentPolicy? _policy;
     private MonitoringState _state = MonitoringState.Unenrolled;
@@ -22,7 +41,7 @@ public sealed class CollectorCoordinator : IAsyncDisposable
     public CollectorCoordinator(
         ILogger<CollectorCoordinator> logger,
         IEnumerable<IAgentCollector> collectors,
-        NamedPipeClient pipeClient)
+        INamedPipeClient pipeClient)
     {
         _logger = logger;
         _collectors = collectors;
@@ -33,12 +52,26 @@ public sealed class CollectorCoordinator : IAsyncDisposable
         _pipeClient.OnDisconnected += OnDisconnected;
     }
 
+    private static void BootLog(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
+            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [Coordinator] {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
     private void OnStateReceived(MonitoringState state)
     {
         lock (_gate)
         {
             _state = state;
         }
+        BootLog($"State={state}");
         _ = ReconcileAsync();
     }
 
@@ -48,32 +81,50 @@ public sealed class CollectorCoordinator : IAsyncDisposable
         {
             _policy = policy;
         }
+        BootLog($"Policy received Version={policy.Version} Activity={policy.ActivitySignalEnabled}");
         _ = ReconcileAsync();
     }
 
     private void OnDisconnected()
     {
+        BootLog("IPC disconnected — stop collectors");
         _logger.LogWarning("IPC disconnected — stopping all collectors immediately");
         _ = StopAllAsync();
     }
 
     private async Task ReconcileAsync()
     {
-        MonitoringState state;
-        AgentPolicy? policy;
-        lock (_gate)
+        await _reconcileLock.WaitAsync();
+        try
         {
-            state = _state;
-            policy = _policy;
+            MonitoringState state;
+            AgentPolicy? policy;
+            lock (_gate)
+            {
+                state = _state;
+                policy = _policy;
+            }
+
+            // Phase-1: if Active but policy not yet received, use local default
+            // so keyboard/mouse capture can start immediately after auth.
+            var effective = policy
+                ?? (state == MonitoringState.Active ? LocalDefaultPolicy : null);
+
+            var shouldRun = state == MonitoringState.Active
+                && effective is not null
+                && effective.ActivitySignalEnabled;
+
+            BootLog($"Reconcile state={state} hasPolicy={policy is not null} shouldRun={shouldRun}");
+
+            if (shouldRun)
+                await StartAllAsync(effective!);
+            else
+                await StopAllAsync();
         }
-
-        // Collect only when Active and we have a policy that enables features.
-        var shouldRun = state == MonitoringState.Active && policy is not null;
-
-        if (shouldRun)
-            await StartAllAsync(policy!);
-        else
-            await StopAllAsync();
+        finally
+        {
+            _reconcileLock.Release();
+        }
     }
 
     private async Task StartAllAsync(AgentPolicy policy)
@@ -91,10 +142,14 @@ public sealed class CollectorCoordinator : IAsyncDisposable
         {
             try
             {
+                BootLog($"Starting collector {collector.Name}");
                 await collector.StartAsync(policy, ct);
+                BootLog($"Started collector {collector.Name}");
+                _logger.LogInformation("Collector started: {Name}", collector.Name);
             }
             catch (Exception ex)
             {
+                BootLog($"Start failed {collector.Name}: {ex}");
                 _logger.LogError(ex, "Failed to start collector {Name}", collector.Name);
             }
         }
@@ -123,9 +178,11 @@ public sealed class CollectorCoordinator : IAsyncDisposable
             try
             {
                 await collector.StopAsync(CancellationToken.None);
+                BootLog($"Stopped collector {collector.Name}");
             }
             catch (Exception ex)
             {
+                BootLog($"Stop failed {collector.Name}: {ex.Message}");
                 _logger.LogError(ex, "Failed to stop collector {Name}", collector.Name);
             }
         }
@@ -137,5 +194,6 @@ public sealed class CollectorCoordinator : IAsyncDisposable
         _pipeClient.OnPolicyReceived -= OnPolicyReceived;
         _pipeClient.OnDisconnected -= OnDisconnected;
         await StopAllAsync();
+        _reconcileLock.Dispose();
     }
 }

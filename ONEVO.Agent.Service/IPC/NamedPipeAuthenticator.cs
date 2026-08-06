@@ -13,7 +13,12 @@ public sealed class NamedPipeAuthenticator
     {
         var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(Constants.NonceLengthBytes));
 
-        var writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+        // No BOM — BOM breaks the peer's JSON parser on the first write.
+        var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        await using var writer = new StreamWriter(pipe, utf8, bufferSize: 1024, leaveOpen: true)
+        {
+            AutoFlush = true
+        };
         var challenge = new IpcEnvelope
         {
             Type = IpcMessageTypes.NonceChallenge,
@@ -24,7 +29,7 @@ public sealed class NamedPipeAuthenticator
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(Constants.IpcConnectionTimeoutMs);
 
-        var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);
+        using var reader = new StreamReader(pipe, utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
         var line = await reader.ReadLineAsync(cts.Token);
         if (line is null) return false;
 

@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.Service.Sync;
 
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -11,7 +12,7 @@ using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
-/// Flushes buffered activity snapshots to backend ingest endpoint.
+/// Flushes buffered collection records to backend ingest endpoints.
 /// Uses Device JWT from CredentialStore — never trusts tenant_id in payload.
 /// </summary>
 public sealed class ActivitySyncService : BackgroundService
@@ -85,40 +86,59 @@ public sealed class ActivitySyncService : BackgroundService
         var jwt = _credentials.ReadDeviceJwt();
         if (string.IsNullOrWhiteSpace(jwt))
         {
-            _logger.LogDebug("No device JWT — re-queuing {Count} activity records", batch.Count);
+            _logger.LogDebug("No device JWT — re-queuing {Count} records", batch.Count);
             _buffer.RequeueFront(batch);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_options.ApiBaseUrl))
         {
-            _logger.LogWarning("ApiBaseUrl not configured — re-queuing activity records");
+            _logger.LogWarning("ApiBaseUrl not configured — re-queuing records");
             _buffer.RequeueFront(batch);
             return;
         }
 
+        var requeue = new List<CollectionRecord>();
+
+        requeue.AddRange(await FlushActivitySnapshotsAsync(
+            batch.Where(r => r.RecordType == CollectionRecordTypes.ActivitySnapshot).ToList(),
+            jwt, ct));
+
+        requeue.AddRange(await FlushAppUsageSnapshotsAsync(
+            batch.Where(r => r.RecordType == CollectionRecordTypes.AppUsageSnapshot).ToList(),
+            jwt, ct));
+
+        requeue.AddRange(await FlushDeviceStateSnapshotsAsync(
+            batch.Where(r => r.RecordType == CollectionRecordTypes.DeviceStateSnapshot).ToList(),
+            jwt, ct));
+
+        if (requeue.Count > 0)
+            _buffer.RequeueFront(requeue);
+    }
+
+    private async Task<List<CollectionRecord>> FlushActivitySnapshotsAsync(
+        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    {
+        if (records.Count == 0) return [];
+
         var items = new List<ActivityIngestItem>();
-        var used = new List<CollectionRecord>();
+        var used  = new List<CollectionRecord>();
 
-        foreach (var record in batch)
+        foreach (var record in records)
         {
-            if (record.RecordType != CollectionRecordTypes.ActivitySnapshot)
-                continue;
-
             try
             {
                 var snap = record.Payload.Deserialize<ActivitySnapshotPayload>(JsonOptions);
-                if (snap is null)
-                    continue;
+                if (snap is null) continue;
 
                 items.Add(new ActivityIngestItem
                 {
-                    CapturedAt = snap.CapturedAt,
-                    KeyboardEventsCount = snap.KeyboardEventsCount,
-                    MouseEventsCount = snap.MouseEventsCount,
-                    ActiveSeconds = snap.ActiveSeconds,
-                    IdleSeconds = snap.IdleSeconds,
-                    IntensityScore = snap.IntensityScore,
+                    CapturedAt           = snap.CapturedAt,
+                    KeyboardEventsCount  = snap.KeyboardEventsCount,
+                    MouseEventsCount     = snap.MouseEventsCount,
+                    ActiveSeconds        = snap.ActiveSeconds,
+                    IdleSeconds          = snap.IdleSeconds,
+                    IntensityScore       = snap.IntensityScore,
                     ForegroundProcessName = snap.ForegroundProcessName
                 });
                 used.Add(record);
@@ -129,13 +149,92 @@ public sealed class ActivitySyncService : BackgroundService
             }
         }
 
-        if (items.Count == 0)
-            return;
+        if (items.Count == 0) return [];
+        return await PostBatchAsync(
+            AgentApiRoutes.ActivitySnapshots, jwt,
+            new ActivityIngestRequest { Snapshots = items },
+            used, ct);
+    }
 
-        var client = _httpClientFactory.CreateClient("OnevoApi");
-        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.ActivitySnapshots)
+    private async Task<List<CollectionRecord>> FlushAppUsageSnapshotsAsync(
+        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    {
+        if (records.Count == 0) return [];
+
+        var items = new List<AppUsageIngestItem>();
+        var used  = new List<CollectionRecord>();
+
+        foreach (var record in records)
         {
-            Content = JsonContent.Create(new ActivityIngestRequest { Snapshots = items })
+            try
+            {
+                var snap = record.Payload.Deserialize<AppUsageSnapshotPayload>(JsonOptions);
+                if (snap is null) continue;
+
+                items.Add(new AppUsageIngestItem
+                {
+                    CapturedAt      = snap.CapturedAt,
+                    ProcessName     = snap.ProcessName,
+                    WindowTitleHash = snap.WindowTitleHash
+                });
+                used.Add(record);
+            }
+            catch (JsonException)
+            {
+                _logger.LogWarning("Corrupt app-usage record quarantined eventId={EventId}", record.EventId);
+            }
+        }
+
+        if (items.Count == 0) return [];
+        return await PostBatchAsync(
+            AgentApiRoutes.AppUsageSnapshots, jwt,
+            new AppUsageIngestRequest { Snapshots = items },
+            used, ct);
+    }
+
+    private async Task<List<CollectionRecord>> FlushDeviceStateSnapshotsAsync(
+        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    {
+        if (records.Count == 0) return [];
+
+        var items = new List<DeviceStateIngestItem>();
+        var used  = new List<CollectionRecord>();
+
+        foreach (var record in records)
+        {
+            try
+            {
+                var snap = record.Payload.Deserialize<DeviceStateSnapshotPayload>(JsonOptions);
+                if (snap is null) continue;
+
+                items.Add(new DeviceStateIngestItem
+                {
+                    CapturedAt  = snap.CapturedAt,
+                    IdleSeconds = snap.IdleSeconds,
+                    IsIdle      = snap.IsIdle
+                });
+                used.Add(record);
+            }
+            catch (JsonException)
+            {
+                _logger.LogWarning("Corrupt device-state record quarantined eventId={EventId}", record.EventId);
+            }
+        }
+
+        if (items.Count == 0) return [];
+        return await PostBatchAsync(
+            AgentApiRoutes.DeviceStateSnapshots, jwt,
+            new DeviceStateIngestRequest { Snapshots = items },
+            used, ct);
+    }
+
+    private async Task<List<CollectionRecord>> PostBatchAsync(
+        string route, string jwt, object body, List<CollectionRecord> records, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, route)
+        {
+            Content = JsonContent.Create(body)
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
 
@@ -146,33 +245,27 @@ public sealed class ActivitySyncService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Activity ingest HTTP failed — re-queue {Count}", used.Count);
-            _buffer.RequeueFront(used);
-            return;
+            _logger.LogWarning(ex, "HTTP failed for {Route} — re-queue {Count}", route, records.Count);
+            return records;
         }
 
-        if (response.StatusCode is System.Net.HttpStatusCode.Accepted
-            or System.Net.HttpStatusCode.OK)
+        if (response.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK)
         {
-            _logger.LogInformation(
-                "Activity batch accepted by backend. Count={Count}",
-                items.Count);
-            return;
+            _logger.LogInformation("Batch accepted for {Route}. Count={Count}", route, records.Count);
+            return [];
         }
 
-        if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized
-            or System.Net.HttpStatusCode.Forbidden)
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
             _logger.LogWarning(
-                "Activity ingest rejected status={Status} — records dropped pending re-enrollment",
-                (int)response.StatusCode);
-            return;
+                "Rejected status={Status} for {Route} — dropping pending re-enrollment",
+                (int)response.StatusCode, route);
+            return [];
         }
 
         _logger.LogWarning(
-            "Activity ingest non-success status={Status} — re-queue {Count}",
-            (int)response.StatusCode,
-            used.Count);
-        _buffer.RequeueFront(used);
+            "Non-success status={Status} for {Route} — re-queue {Count}",
+            (int)response.StatusCode, route, records.Count);
+        return records;
     }
 }

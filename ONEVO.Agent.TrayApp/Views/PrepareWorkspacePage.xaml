@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             x:Class="ONEVO.Agent.TrayApp.Views.PrepareWorkspacePage"
+             x:DataType="vm:PrepareWorkspaceViewModel"
+             Title="Preparing Your Workspace">
+  <VerticalStackLayout Padding="40" Spacing="16" VerticalOptions="Center">
+    <Label Text="Preparing Your Workspace" FontSize="22" FontAttributes="Bold"
+           HorizontalOptions="Center" />
+
+    <HorizontalStackLayout Spacing="8">
+      <Label Text="{Binding ActivationVerified, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="Activation Verified" />
+    </HorizontalStackLayout>
+    <HorizontalStackLayout Spacing="8">
+      <Label Text="{Binding ProfileLoaded, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="Profile Loaded" />
+    </HorizontalStackLayout>
+    <HorizontalStackLayout Spacing="8">
+      <Label Text="{Binding PermissionsChecked, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="Permissions Checked" />
+    </HorizontalStackLayout>
+    <HorizontalStackLayout Spacing="8">
+      <Label Text="{Binding CompanySettingsVerified, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="Company Settings Verified" />
+    </HorizontalStackLayout>
+
+    <BoxView HeightRequest="1" BackgroundColor="LightGray" />
+
+    <Label Text="{Binding EmployeeFullName, StringFormat='Name: {0}'}" />
+    <Label Text="{Binding EmployeeEmail, StringFormat='Email: {0}'}" />
+    <Label Text="{Binding EmployeeDepartment, StringFormat='Department: {0}'}" />
+
+    <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}" />
+
+    <Button Text="Continue"
+            Command="{Binding ContinueSetupCommand}"
+            BackgroundColor="{StaticResource Primary}"
+            TextColor="White"
+            IsVisible="{Binding IsLoading, Converter={StaticResource InvertBoolConverter}}" />
+  </VerticalStackLayout>
+</ContentPage>

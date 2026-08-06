@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             x:Class="ONEVO.Agent.TrayApp.Views.EndSessionPage"
+             x:DataType="vm:EndSessionViewModel">
+  <VerticalStackLayout Padding="32" Spacing="12">
+    <Label Text="End Work Session" FontSize="20" FontAttributes="Bold" HorizontalOptions="Center" />
+
+    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+          RowSpacing="6" ColumnSpacing="8">
+      <Label Grid.Row="0" Grid.Column="0" Text="Clock In:" />
+      <Label Grid.Row="0" Grid.Column="1" Text="{Binding ClockInDisplay}" />
+      <Label Grid.Row="1" Grid.Column="0" Text="Clock Out:" />
+      <Label Grid.Row="1" Grid.Column="1" Text="{Binding ClockOutDisplay}" />
+      <Label Grid.Row="2" Grid.Column="0" Text="Break Time:" />
+      <Label Grid.Row="2" Grid.Column="1" Text="{Binding BreakTimeDisplay}" />
+      <Label Grid.Row="3" Grid.Column="0" Text="AFK Time:" />
+      <Label Grid.Row="3" Grid.Column="1" Text="{Binding AfkTimeDisplay}" />
+      <Label Grid.Row="4" Grid.Column="0" Text="Meeting Time:" />
+      <Label Grid.Row="4" Grid.Column="1" Text="{Binding MeetingTimeDisplay}" />
+      <Label Grid.Row="5" Grid.Column="0" Text="Working Time:" FontAttributes="Bold" />
+      <Label Grid.Row="5" Grid.Column="1" Text="{Binding WorkingTimeDisplay}" FontAttributes="Bold" />
+    </Grid>
+
+    <Label Text="{Binding ErrorMessage}" TextColor="Red"
+           IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+      <Button Grid.Column="0" Text="Return to Work" Command="{Binding ReturnToWorkCommand}" />
+      <Button Grid.Column="1" Text="Verify Identity" Command="{Binding VerifyIdentityCommand}" />
+      <Button Grid.Column="2" Text="Confirm Clock-Out"
+              Command="{Binding ConfirmClockOutCommand}"
+              BackgroundColor="{StaticResource Primary}" TextColor="White" />
+    </Grid>
+    <ActivityIndicator IsRunning="{Binding IsConfirming}" IsVisible="{Binding IsConfirming}" />
+  </VerticalStackLayout>
+</ContentPage>

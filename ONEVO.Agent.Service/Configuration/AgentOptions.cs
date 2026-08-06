@@ -8,6 +8,7 @@ public sealed class AgentOptions
     public int PolicyRefreshIntervalSeconds { get; set; } = 3600;
     public int IngestIntervalSeconds { get; set; } = 150;
     public int QueueCapacityMb { get; set; } = 100;
+    public int QueueMaxRecords { get; set; } = 5_000;
     public int HttpTimeoutSeconds { get; set; } = 30;
     public int MaxReconnectAttempts { get; set; } = 5;
 

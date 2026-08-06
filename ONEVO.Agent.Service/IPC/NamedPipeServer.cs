@@ -34,14 +34,28 @@ public sealed class NamedPipeServer : IAsyncDisposable
     {
         while (!ct.IsCancellationRequested)
         {
-            var pipe = CreateSecurePipe();
+            NamedPipeServerStream? pipe = null;
             try
             {
+                pipe = CreatePipe();
+                _logger.LogDebug("Waiting for IPC client on {Pipe}", Constants.PipeName);
                 await pipe.WaitForConnectionAsync(ct);
+                _logger.LogInformation("IPC client connected — authenticating");
                 _ = HandleClientAsync(pipe, ct);
+                pipe = null; // ownership transferred to HandleClientAsync
             }
-            catch (OperationCanceledException) { pipe.Dispose(); break; }
-            catch (Exception ex) { _logger.LogError(ex, "Pipe accept failed"); pipe.Dispose(); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                pipe?.Dispose();
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Pipe accept failed — retrying");
+                pipe?.Dispose();
+                try { await Task.Delay(500, ct); }
+                catch (OperationCanceledException) { break; }
+            }
         }
     }
 
@@ -57,12 +71,13 @@ public sealed class NamedPipeServer : IAsyncDisposable
 
             _logger.LogInformation("IPC client authenticated");
 
-            var writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+            var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+            var writer = new StreamWriter(pipe, utf8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
 
             Task SendAsync(IpcEnvelope envelope) =>
                 writer.WriteLineAsync(JsonSerializer.Serialize(envelope));
 
-            using var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);
+            using var reader = new StreamReader(pipe, utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
             try
             {
                 while (pipe.IsConnected && !ct.IsCancellationRequested)
@@ -92,12 +107,35 @@ public sealed class NamedPipeServer : IAsyncDisposable
         }
     }
 
+    private NamedPipeServerStream CreatePipe()
+    {
+        try
+        {
+            return CreateSecurePipe();
+        }
+        catch (Exception ex)
+        {
+            // ACL pipe creation can fail in some host contexts; fall back so IPC still works.
+            _logger.LogWarning(ex, "Secure pipe ACL create failed — using default ACL pipe");
+            return new NamedPipeServerStream(
+                Constants.PipeName,
+                PipeDirection.InOut,
+                NamedPipeServerStream.MaxAllowedServerInstances,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+        }
+    }
+
     private static NamedPipeServerStream CreateSecurePipe()
     {
         var security = new PipeSecurity();
         security.AddAccessRule(new PipeAccessRule(
             WindowsIdentity.GetCurrent().User!,
             PipeAccessRights.FullControl,
+            AccessControlType.Allow));
+        security.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null),
+            PipeAccessRights.ReadWrite,
             AccessControlType.Allow));
         security.AddAccessRule(new PipeAccessRule(
             new SecurityIdentifier(WellKnownSidType.InteractiveSid, null),

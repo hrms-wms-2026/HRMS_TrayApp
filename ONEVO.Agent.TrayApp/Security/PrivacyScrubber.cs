@@ -22,39 +22,46 @@ public static partial class PrivacyScrubber
         try
         {
             var hwnd = NativeMethods.GetForegroundWindow();
-            if (hwnd == IntPtr.Zero)
-                return null;
+            if (hwnd == IntPtr.Zero) return null;
 
             NativeMethods.GetWindowThreadProcessId(hwnd, out var pid);
-            if (pid == 0)
-                return null;
+            if (pid == 0) return null;
 
-            using var process = Process.GetProcessById((int)pid);
-            var name = process.ProcessName;
-            if (string.IsNullOrWhiteSpace(name))
-                return null;
+            string? name;
+            try
+            {
+                using var process = Process.GetProcessById((int)pid);
+                name = process.ProcessName;
+            }
+            catch (ArgumentException)      { return null; }
+            catch (InvalidOperationException) { return null; }
 
-            // Process.ProcessName omits extension; normalize to *.exe for backend consistency.
-            if (!name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                name += ".exe";
-
-            name = name.ToLowerInvariant();
-            if (name.Length > 100)
-                name = name[..100];
-
-            if (!SafeProcessName.IsMatch(name))
-                return null;
-
-            // Reject path separators / drive letters if anything slipped through.
-            if (name.Contains('\\') || name.Contains('/') || name.Contains(':'))
-                return null;
-
-            return name;
+            return SanitizeProcessName(name);
         }
-        catch
-        {
+        catch { return null; }
+    }
+
+    /// <summary>Normalizes and validates a process name. Returns null if unsafe.</summary>
+    internal static string? SanitizeProcessName(string? rawName)
+    {
+        if (string.IsNullOrWhiteSpace(rawName))
             return null;
-        }
+
+        var name = rawName.Trim().ToLowerInvariant();
+
+        // Strip .exe, truncate base to 96 chars, re-append — so total ≤ 100
+        var baseName = name.EndsWith(".exe", StringComparison.Ordinal) ? name[..^4] : name;
+        if (baseName.Length > 96)
+            baseName = baseName[..96];
+        name = baseName + ".exe";
+
+        if (!SafeProcessName.IsMatch(name))
+            return null;
+
+        if (name.Contains('\\') || name.Contains('/') || name.Contains(':'))
+            return null;
+
+        return name;
     }
 
     /// <summary>Seconds since last keyboard/mouse input (system-wide), via GetLastInputInfo.</summary>

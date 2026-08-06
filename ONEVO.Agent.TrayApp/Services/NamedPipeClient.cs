@@ -7,7 +7,7 @@ using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
-public sealed class NamedPipeClient : IAsyncDisposable
+public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 {
     private readonly ILogger<NamedPipeClient> _logger;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
@@ -44,11 +44,12 @@ public sealed class NamedPipeClient : IAsyncDisposable
                 await _pipe.ConnectAsync(Constants.IpcConnectionTimeoutMs, ct);
                 await AuthenticateAsync(_pipe, ct);
 
-                _writer = new StreamWriter(_pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+                var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+                _writer = new StreamWriter(_pipe, utf8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
                 _logger.LogInformation("Connected to ONEVO Agent Service");
 
                 await RequestStatusAsync(ct);
-                await ReadLoopAsync(_pipe, ct);
+                await ReadLoopAsync(_pipe, utf8, ct);
                 return;
             }
             catch (OperationCanceledException) { return; }
@@ -74,8 +75,9 @@ public sealed class NamedPipeClient : IAsyncDisposable
 
     private static async Task AuthenticateAsync(NamedPipeClientStream pipe, CancellationToken ct)
     {
-        var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);
-        var writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+        var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        using var reader = new StreamReader(pipe, utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
+        await using var writer = new StreamWriter(pipe, utf8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(Constants.IpcConnectionTimeoutMs);
@@ -99,6 +101,7 @@ public sealed class NamedPipeClient : IAsyncDisposable
             Payload = JsonSerializer.SerializeToElement(new NonceResponsePayload(payload.Nonce))
         };
         await writer.WriteLineAsync(JsonSerializer.Serialize(response));
+        await writer.FlushAsync(ct);
     }
 
     private async Task RequestStatusAsync(CancellationToken ct)
@@ -111,6 +114,9 @@ public sealed class NamedPipeClient : IAsyncDisposable
     /// <summary>
     /// Hands privacy-scrubbed collection records to the Service. Tray never uploads to backend.
     /// </summary>
+    public Task SendEnvelopeAsync(IpcEnvelope envelope, CancellationToken ct) =>
+        WriteEnvelopeAsync(envelope, ct);
+
     public async Task SubmitCollectionRecordsAsync(
         IReadOnlyList<CollectionRecord> records,
         CancellationToken ct)
@@ -142,9 +148,9 @@ public sealed class NamedPipeClient : IAsyncDisposable
         }
     }
 
-    private async Task ReadLoopAsync(NamedPipeClientStream pipe, CancellationToken ct)
+    private async Task ReadLoopAsync(NamedPipeClientStream pipe, Encoding utf8, CancellationToken ct)
     {
-        using var reader = new StreamReader(pipe, Encoding.UTF8);
+        using var reader = new StreamReader(pipe, utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
         try
         {
             while (pipe.IsConnected && !ct.IsCancellationRequested)

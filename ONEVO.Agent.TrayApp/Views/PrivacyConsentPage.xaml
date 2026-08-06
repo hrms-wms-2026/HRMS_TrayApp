@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             x:Class="ONEVO.Agent.TrayApp.Views.PrivacyConsentPage"
+             x:DataType="vm:PrivacyConsentViewModel"
+             Title="Privacy, Monitoring and Required Permissions">
+  <ScrollView>
+    <VerticalStackLayout Padding="40" Spacing="16">
+      <Label Text="Privacy, Monitoring and Required Permissions"
+             FontSize="20" FontAttributes="Bold" HorizontalOptions="Center" />
+      <Label Text="The following monitoring is active during your work session."
+             FontSize="14" TextColor="Gray" HorizontalTextAlignment="Center" />
+
+      <BoxView HeightRequest="1" BackgroundColor="LightGray" />
+
+      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+            RowSpacing="12" ColumnSpacing="16">
+        <Label Grid.Row="0" Grid.Column="0" Text="Activity Signal (Required)" FontAttributes="Bold" />
+        <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding ActivitySignalEnabled}" IsEnabled="False" />
+
+        <Label Grid.Row="1" Grid.Column="0" Text="Application Usage" />
+        <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding ApplicationUsageEnabled}" />
+
+        <Label Grid.Row="2" Grid.Column="0" Text="Work Location" />
+        <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding WorkLocationEnabled}" />
+
+        <Label Grid.Row="3" Grid.Column="0" Text="Camera Access" />
+        <Switch Grid.Row="3" Grid.Column="1" IsToggled="{Binding CameraAccessEnabled}" />
+
+        <Label Grid.Row="4" Grid.Column="0" Text="Notifications" />
+        <Switch Grid.Row="4" Grid.Column="1" IsToggled="{Binding NotificationsEnabled}" />
+
+        <Label Grid.Row="5" Grid.Column="0" Text="Keyboard &amp; Mouse (counts only)" />
+        <Switch Grid.Row="5" Grid.Column="1" IsToggled="{Binding KeyboardMouseEnabled}" IsEnabled="False" />
+      </Grid>
+
+      <BoxView HeightRequest="1" BackgroundColor="LightGray" />
+
+      <HorizontalStackLayout Spacing="12">
+        <CheckBox IsChecked="{Binding PolicyAcknowledged}" />
+        <Label Text="I have read and acknowledge the monitoring policy."
+               VerticalOptions="Center" />
+      </HorizontalStackLayout>
+
+      <Button Text="Review and Continue"
+              Command="{Binding ReviewAndContinueCommand}"
+              BackgroundColor="{StaticResource Primary}"
+              TextColor="White" />
+    </VerticalStackLayout>
+  </ScrollView>
+</ContentPage>

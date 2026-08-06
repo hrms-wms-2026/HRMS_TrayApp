@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             x:Class="ONEVO.Agent.TrayApp.Views.ActiveSessionPage"
+             x:DataType="vm:ActiveSessionViewModel">
+  <VerticalStackLayout Padding="32" Spacing="12">
+    <Label Text="Your Work Session Is Active" FontSize="20" FontAttributes="Bold"
+           HorizontalOptions="Center" />
+    <Label Text="Working" TextColor="Green" FontSize="16" HorizontalOptions="Center" />
+    <Label Text="{Binding ElapsedDisplay}" FontSize="40" FontAttributes="Bold"
+           HorizontalOptions="Center" />
+
+    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="8">
+      <Label Grid.Row="0" Grid.Column="0" Text="Clock In:" />
+      <Label Grid.Row="0" Grid.Column="1" Text="{Binding ClockInTimeDisplay}" />
+      <Label Grid.Row="1" Grid.Column="0" Text="Break Time:" />
+      <Label Grid.Row="1" Grid.Column="1" Text="{Binding BreakTimeDisplay}" />
+      <Label Grid.Row="2" Grid.Column="0" Text="Active Time:" />
+      <Label Grid.Row="2" Grid.Column="1" Text="{Binding ActiveTimeDisplay}" />
+    </Grid>
+
+    <Label Text="{Binding SyncMessage}" TextColor="Gray" FontSize="12"
+           IsVisible="{Binding SyncMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+      <Button Grid.Column="0" Text="Start Break"
+              Command="{Binding StartBreakCommand}" />
+      <Button Grid.Column="1" Text="End Work Session"
+              Command="{Binding EndWorkSessionCommand}"
+              BackgroundColor="OrangeRed" TextColor="White" />
+    </Grid>
+  </VerticalStackLayout>
+</ContentPage>
