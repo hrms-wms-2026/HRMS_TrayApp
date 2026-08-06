@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-windows
+
+      - name: Build Shared
+        run: dotnet build ONEVO.Agent.Shared/ONEVO.Agent.Shared.csproj --configuration Release
+
+      - name: Build Service
+        run: dotnet build ONEVO.Agent.Service/ONEVO.Agent.Service.csproj --configuration Release
+
+      - name: Build TrayApp
+        run: dotnet build ONEVO.Agent.TrayApp/ONEVO.Agent.TrayApp.csproj --configuration Release
+
+      - name: Test - Shared
+        run: dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj --configuration Release
+
+      - name: Test - Service
+        run: dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj --configuration Release
+
+      - name: Test - TrayApp
+        run: dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --configuration Release
