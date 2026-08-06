@@ -1,6 +1,10 @@
 namespace ONEVO.Agent.TrayApp.Collectors;
 
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Text.Json;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Services;
 
 /// <summary>
 /// Screenshot collection — off unless effective policy enables it (§7.5).
@@ -11,15 +15,21 @@ public sealed class ScreenshotCollector : IAgentCollector, IAsyncDisposable
     public string Name => "Screenshot";
 
     private readonly ILogger<ScreenshotCollector> _logger;
+    private readonly INamedPipeClient _pipe;
+    private readonly string _deviceId;
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private bool _running;
 
-    public ScreenshotCollector(ILogger<ScreenshotCollector> logger) => _logger = logger;
+    public ScreenshotCollector(ILogger<ScreenshotCollector> logger, INamedPipeClient pipe)
+    {
+        _logger   = logger;
+        _pipe     = pipe;
+        _deviceId = Environment.MachineName;
+    }
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
     {
-        // Policy MUST explicitly enable screenshots — default is off.
         if (!policy.ScreenshotEnabled)
         {
             _logger.LogDebug("{Name}: policy disabled — not starting", Name);
@@ -50,9 +60,45 @@ public sealed class ScreenshotCollector : IAgentCollector, IAsyncDisposable
         {
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(300));
             while (await timer.WaitForNextTickAsync(ct))
-                _logger.LogDebug("{Name}: capture tick (stub)", Name);
+                await CaptureScreenAsync(ct);
         }
         catch (OperationCanceledException) { }
+    }
+
+    private async Task CaptureScreenAsync(CancellationToken ct)
+    {
+        try
+        {
+            var bounds = System.Windows.Forms.Screen.PrimaryScreen?.Bounds
+                ?? new Rectangle(0, 0, 1920, 1080);
+
+            using var bmp = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
+            using var g   = Graphics.FromImage(bmp);
+            g.CopyFromScreen(bounds.Location, Point.Empty, bounds.Size);
+
+            using var ms = new MemoryStream();
+            bmp.Save(ms, ImageFormat.Jpeg);
+            var dataBase64 = Convert.ToBase64String(ms.ToArray());
+
+            var payload = new { format = "jpeg", data = dataBase64 };
+            var record  = new ONEVO.Agent.Shared.Models.CollectionRecord
+            {
+                EventId         = Guid.NewGuid().ToString("N"),
+                RecordType      = CollectionRecordTypes.Screenshot,
+                SchemaVersion   = CollectionSchemaVersions.ScreenshotV1,
+                CaptureTimestamp = DateTimeOffset.UtcNow,
+                DeviceId        = _deviceId,
+                Payload         = JsonSerializer.SerializeToElement(payload)
+            };
+
+            await _pipe.SubmitCollectionRecordsAsync([record], ct);
+            _logger.LogDebug("{Name}: captured and submitted ({Bytes} bytes)", Name, ms.Length);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Name}: capture failed", Name);
+        }
     }
 
     public async ValueTask DisposeAsync() => await StopAsync(CancellationToken.None);

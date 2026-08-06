@@ -20,8 +20,9 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    private static void AllowAndContinue()
+    private async Task AllowAndContinue()
     {
-        // Navigate to ClockInPage
+        try { await Shell.Current.GoToAsync("//clockin"); }
+        catch { /* unit tests */ }
     }
 }

@@ -16,15 +16,25 @@ public sealed partial class ReviewSetupViewModel : BaseViewModel
 
     public ReviewSetupViewModel() { Title = "Confirm Your Details"; }
 
-    [RelayCommand]
-    private static void Back()
+    public void OnAppearing()
     {
-        // Navigate back to PrepareWorkspacePage
+        FullName     = Preferences.Get("onevo.employee_display_name", string.Empty);
+        WorkEmail    = Preferences.Get("onevo.employee_email",        string.Empty);
+        EmployeeId   = Preferences.Get("onevo.employee_id",          string.Empty);
+        WorkLocation = Preferences.Get("onevo.work_location_display", string.Empty);
     }
 
     [RelayCommand]
-    private static void ConfirmAndContinue()
+    private async Task Back()
     {
-        // Navigate to PrivacyConsentPage
+        try { await Shell.Current.GoToAsync("//prepare"); }
+        catch { /* unit tests */ }
+    }
+
+    [RelayCommand]
+    private async Task ConfirmAndContinue()
+    {
+        try { await Shell.Current.GoToAsync("//policy"); }
+        catch { /* unit tests */ }
     }
 }

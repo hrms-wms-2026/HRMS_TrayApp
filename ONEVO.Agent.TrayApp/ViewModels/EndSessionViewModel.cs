@@ -148,18 +148,6 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     [RelayCommand]
     private static void CloseApp()
     {
-        // Hide window via close (App hooks Closing → hide to tray).
-        try
-        {
-            if (Application.Current?.Windows.Count > 0)
-            {
-                // Prefer hide: platform Closing handler cancels and hides.
-                Application.Current.Windows[0].Handler?.PlatformView?.GetType();
-            }
-        }
-        catch { /* ignore */ }
-
-        // Fallback navigation to ready for next day.
         try { Shell.Current.GoToAsync("//clockin"); }
         catch { /* unit tests */ }
     }

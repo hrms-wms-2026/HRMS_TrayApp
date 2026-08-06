@@ -82,6 +82,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
             CurrentDate = DateTimeOffset.Now;
             CurrentDateDisplay = CurrentDate.ToString("dddd, MMMM d, yyyy");
             CurrentTimeDisplay = CurrentDate.ToString("hh:mm tt");
+            LiveTimer = CurrentDate.ToString("HH:mm:ss");
         }
 
         try

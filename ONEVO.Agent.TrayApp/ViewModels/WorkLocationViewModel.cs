@@ -28,9 +28,12 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
     public WorkLocationViewModel() { Title = "Select Your Work Location"; }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private static void SaveAndContinue()
+    private async Task SaveAndContinue()
     {
-        // Navigation wired in code-behind
+        Preferences.Set("onevo.work_location_code",    SelectedLocation!.Code);
+        Preferences.Set("onevo.work_location_display", SelectedLocation.DisplayName);
+        try { await Shell.Current.GoToAsync("//photo"); }
+        catch { /* unit tests */ }
     }
 
     private bool HasSelection => SelectedLocation is not null;

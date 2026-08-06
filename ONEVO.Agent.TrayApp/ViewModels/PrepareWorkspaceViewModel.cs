@@ -28,6 +28,8 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
         EmployeeEmail      = "pirakeerthan@onevo.com";
         EmployeeId         = "ONEVO1234";
         Preferences.Set("onevo.employee_display_name", EmployeeFullName);
+        Preferences.Set("onevo.employee_email",        EmployeeEmail);
+        Preferences.Set("onevo.employee_id",           EmployeeId);
         OnPropertyChanged(nameof(CanContinue));
 
         await Task.Delay(500, ct);
@@ -37,8 +39,9 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
     }
 
     [RelayCommand(CanExecute = nameof(CanContinue))]
-    private static void ContinueSetup()
+    private async Task ContinueSetup()
     {
-        // Navigation wired in code-behind
+        try { await Shell.Current.GoToAsync("//location"); }
+        catch { /* unit tests */ }
     }
 }

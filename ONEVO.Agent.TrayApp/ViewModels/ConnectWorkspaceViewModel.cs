@@ -39,6 +39,8 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 Payload = JsonSerializer.SerializeToElement(payload)
             };
             await _pipe.SendEnvelopeAsync(envelope, ct);
+            try { await Shell.Current.GoToAsync("//prepare"); }
+            catch { /* unit tests */ }
         }
         catch (Exception ex)
         {

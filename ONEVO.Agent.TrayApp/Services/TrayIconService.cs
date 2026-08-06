@@ -119,7 +119,25 @@ public sealed class TrayIconService : IDisposable
 
     private static void OnTrayDoubleClick()
     {
-        // Enrollment/status window wired later
+#if WINDOWS
+        try
+        {
+            Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+            {
+                if (Microsoft.Maui.Controls.Application.Current?.Windows.Count > 0)
+                {
+                    var mauiWindow = Microsoft.Maui.Controls.Application.Current.Windows[0];
+                    if (mauiWindow.Handler?.PlatformView is Microsoft.UI.Xaml.Window native
+                        && native.AppWindow is not null)
+                    {
+                        native.AppWindow.Show();
+                        native.Activate();
+                    }
+                }
+            });
+        }
+        catch { /* ignore */ }
+#endif
     }
 
     public void Dispose()
