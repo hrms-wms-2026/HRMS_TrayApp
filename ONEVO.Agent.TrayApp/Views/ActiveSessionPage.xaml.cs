@@ -4,9 +4,19 @@ using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class ActiveSessionPage : ContentPage
 {
-    public ActiveSessionPage(ActiveSessionViewModel vm)
+    public ActiveSessionPage()
     {
         InitializeComponent();
-        BindingContext = vm;
+    }
+
+    protected override void OnHandlerChanged()
+    {
+        base.OnHandlerChanged();
+        if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
+        {
+            var vm = sp.GetRequiredService<ActiveSessionViewModel>();
+            BindingContext = vm;
+            vm.StartSession(DateTimeOffset.UtcNow);
+        }
     }
 }

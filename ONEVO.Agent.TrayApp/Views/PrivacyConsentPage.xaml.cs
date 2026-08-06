@@ -4,9 +4,15 @@ using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class PrivacyConsentPage : ContentPage
 {
-    public PrivacyConsentPage(PrivacyConsentViewModel vm)
+    public PrivacyConsentPage()
     {
         InitializeComponent();
-        BindingContext = vm;
+    }
+
+    protected override void OnHandlerChanged()
+    {
+        base.OnHandlerChanged();
+        if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
+            BindingContext = sp.GetRequiredService<PrivacyConsentViewModel>();
     }
 }

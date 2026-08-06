@@ -4,9 +4,15 @@ using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class EndSessionPage : ContentPage
 {
-    public EndSessionPage(EndSessionViewModel vm)
+    public EndSessionPage()
     {
         InitializeComponent();
-        BindingContext = vm;
+    }
+
+    protected override void OnHandlerChanged()
+    {
+        base.OnHandlerChanged();
+        if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
+            BindingContext = sp.GetRequiredService<EndSessionViewModel>();
     }
 }

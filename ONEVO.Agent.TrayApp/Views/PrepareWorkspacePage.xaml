@@ -10,19 +10,19 @@
            HorizontalOptions="Center" />
 
     <HorizontalStackLayout Spacing="8">
-      <Image Source="{Binding ActivationVerified, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="{Binding ActivationVerified, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
       <Label Text="Activation Verified" />
     </HorizontalStackLayout>
     <HorizontalStackLayout Spacing="8">
-      <Image Source="{Binding ProfileLoaded, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="{Binding ProfileLoaded, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
       <Label Text="Profile Loaded" />
     </HorizontalStackLayout>
     <HorizontalStackLayout Spacing="8">
-      <Image Source="{Binding PermissionsChecked, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="{Binding PermissionsChecked, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
       <Label Text="Permissions Checked" />
     </HorizontalStackLayout>
     <HorizontalStackLayout Spacing="8">
-      <Image Source="{Binding CompanySettingsVerified, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
+      <Label Text="{Binding CompanySettingsVerified, Converter={StaticResource BoolToCheckmarkConverter}}" WidthRequest="20" />
       <Label Text="Company Settings Verified" />
     </HorizontalStackLayout>
 
