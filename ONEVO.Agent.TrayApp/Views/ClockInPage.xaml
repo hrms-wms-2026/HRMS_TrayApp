@@ -120,7 +120,8 @@
           <Border.Shadow>
             <Shadow Brush="#10000040" Offset="0,4" Radius="14" Opacity="0.1" />
           </Border.Shadow>
-          <Grid ClipToBounds="True">
+          <!-- ClipToBounds is not a MAUI Grid property (WPF-only); parent Border StrokeShape clips. -->
+          <Grid>
             <Grid.Background>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#ECF2FF" Offset="0" />
