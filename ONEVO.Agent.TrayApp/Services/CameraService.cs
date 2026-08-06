@@ -1,20 +1,30 @@
 namespace ONEVO.Agent.TrayApp.Services;
 
+using Windows.Media.Capture;
+using Windows.Media.MediaProperties;
+using Windows.Storage.Streams;
+
 public sealed class CameraService : ICameraService
 {
     public async Task<byte[]?> CapturePhotoAsync(CancellationToken ct = default)
     {
         try
         {
-            var result = await MediaPicker.CapturePhotoAsync(new MediaPickerOptions
+            var capture = new MediaCapture();
+            await capture.InitializeAsync(new MediaCaptureInitializationSettings
             {
-                Title = "Take Profile Photo"
+                StreamingCaptureMode = StreamingCaptureMode.Video
             });
-            if (result is null) return null;
-            await using var stream = await result.OpenReadAsync();
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms, ct);
-            return ms.ToArray();
+
+            using var stream = new InMemoryRandomAccessStream();
+            var props = ImageEncodingProperties.CreateJpeg();
+            await capture.CapturePhotoToStreamAsync(props, stream);
+            capture.Dispose();
+
+            stream.Seek(0);
+            var bytes = new byte[stream.Size];
+            await stream.AsStreamForRead().ReadExactlyAsync(bytes, 0, bytes.Length, ct);
+            return bytes.Length > 0 ? bytes : null;
         }
         catch
         {
