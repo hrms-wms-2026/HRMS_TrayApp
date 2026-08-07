@@ -11,6 +11,9 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
 
+    public StatusResponsePayload? LastKnownStatus { get; set; }
+    public AgentPolicy? LastKnownPolicy { get; set; }
+
     public List<IReadOnlyList<CollectionRecord>> Submitted { get; } = [];
     public List<IpcEnvelope> SentEnvelopes { get; } = [];
     public List<LifecycleAction> LifecycleActions { get; } = [];

@@ -6,7 +6,7 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 public sealed class PhotoCaptureWindowViewModelTests
 {
     private static PhotoCaptureWindowViewModel MakeVm(bool cameraSucceeds = true) =>
-        new(new FakeCameraService { ShouldReturnPhoto = cameraSucceeds });
+        new(new FakeCameraService { ShouldReturnPhoto = cameraSucceeds }, new FakeNamedPipeClient());
 
     [Fact]
     public void InitialState_NotCaptured()
@@ -67,7 +67,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     public async Task CapturePhotoCommand_CallsCameraService()
     {
         var fake = new FakeCameraService { ShouldReturnPhoto = true };
-        var vm   = new PhotoCaptureWindowViewModel(fake);
+        var vm   = new PhotoCaptureWindowViewModel(fake, new FakeNamedPipeClient());
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         Assert.Equal(1, fake.CallCount);
     }

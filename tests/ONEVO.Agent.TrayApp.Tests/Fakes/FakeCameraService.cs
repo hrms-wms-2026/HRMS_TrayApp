@@ -6,11 +6,25 @@ public sealed class FakeCameraService : ICameraService
 {
     public bool ShouldReturnPhoto { get; set; } = true;
     public int CallCount { get; private set; }
+    public int PreviewStartCount { get; private set; }
+    public int PreviewStopCount { get; private set; }
 
     public Task<byte[]?> CapturePhotoAsync(CancellationToken ct = default)
     {
         CallCount++;
         byte[]? result = ShouldReturnPhoto ? [0xFF, 0xD8, 0xFF] : null;
         return Task.FromResult(result);
+    }
+
+    public Task<object?> StartPreviewAsync(CancellationToken ct = default)
+    {
+        PreviewStartCount++;
+        return Task.FromResult<object?>(null);
+    }
+
+    public Task StopPreviewAsync()
+    {
+        PreviewStopCount++;
+        return Task.CompletedTask;
     }
 }
