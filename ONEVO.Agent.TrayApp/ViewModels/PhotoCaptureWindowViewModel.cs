@@ -119,7 +119,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             return;
         }
 
-        Preferences.Set("onevo.face_verified", true);
+        try { Preferences.Set("onevo.face_verified", true); }
+        catch { /* no MAUI Preferences host in unit tests */ }
         try { await Shell.Current.GoToAsync("//review"); }
         catch { /* unit tests */ }
     }

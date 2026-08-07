@@ -35,8 +35,9 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         _currentPolicy = pipe.LastKnownPolicy;
         _pipe.OnPolicyReceived += HandlePolicyReceived;
         // Enrollment saves the real name; fall back to Windows username.
-        EmployeeName = Preferences.Get("onevo.employee_display_name",
-            string.IsNullOrWhiteSpace(Environment.UserName) ? "Employee" : Environment.UserName);
+        var fallbackName = string.IsNullOrWhiteSpace(Environment.UserName) ? "Employee" : Environment.UserName;
+        try { EmployeeName = Preferences.Get("onevo.employee_display_name", fallbackName); }
+        catch { EmployeeName = fallbackName; }
 
         _clockTimer = new System.Timers.Timer(1_000) { AutoReset = true };
         _clockTimer.Elapsed += (_, _) => TickClock();

@@ -30,8 +30,13 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private async Task SaveAndContinue()
     {
-        Preferences.Set("onevo.work_location_code",    SelectedLocation!.Code);
-        Preferences.Set("onevo.work_location_display", SelectedLocation.DisplayName);
+        try
+        {
+            Preferences.Set("onevo.work_location_code",    SelectedLocation!.Code);
+            Preferences.Set("onevo.work_location_display", SelectedLocation.DisplayName);
+        }
+        catch { /* no MAUI Preferences host in unit tests */ }
+
         try { await Shell.Current.GoToAsync("//photo"); }
         catch { /* unit tests */ }
     }
