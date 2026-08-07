@@ -24,7 +24,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ActivityRecordBuffer>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
-            return new ActivityRecordBuffer(opts.QueueMaxRecords);
+            var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("ActivityRecordBuffer");
+            var path = ActivityRecordBuffer.GetDefaultDatabasePath();
+            logger.LogInformation("SQLite activity store: {Path} (max pending {Max})", path, opts.QueueMaxRecords);
+            return new ActivityRecordBuffer(path, opts.QueueMaxRecords);
         });
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<DeviceIdentityStore>();

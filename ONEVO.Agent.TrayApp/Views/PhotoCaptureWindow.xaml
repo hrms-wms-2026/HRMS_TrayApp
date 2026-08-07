@@ -7,8 +7,10 @@
              x:DataType="vm:PhotoCaptureWindowViewModel"
              BackgroundColor="{StaticResource Background}"
              Title="Face Verification">
-  <ScrollView>
-    <VerticalStackLayout Padding="48,36" Spacing="0"
+  <Grid RowDefinitions="Auto,*,Auto" Padding="28,20,28,14">
+    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
+  <ScrollView Grid.Row="1">
+    <VerticalStackLayout Padding="20,8" Spacing="0"
                          HorizontalOptions="Center" MaximumWidthRequest="520">
 
       <!-- Header -->
@@ -172,4 +174,6 @@
 
     </VerticalStackLayout>
   </ScrollView>
+    <controls:FooterStatusBar Grid.Row="2" ConnectionLabel="Connected" />
+  </Grid>
 </ContentPage>

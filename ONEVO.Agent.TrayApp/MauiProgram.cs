@@ -23,6 +23,8 @@ public static class MauiProgram
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
         builder.Services.AddSingleton<ICameraService, CameraService>();
+        builder.Services.AddSingleton<ILocationService, GeolocationService>();
+        builder.Services.AddSingleton<ISessionDayMetrics, SessionDayMetrics>();
 
         // Collectors
         builder.Services.AddSingleton<ActivityCountCollector>();

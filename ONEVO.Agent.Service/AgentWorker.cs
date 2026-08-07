@@ -219,6 +219,28 @@ public sealed class AgentWorker : BackgroundService
         _presenceSession.ClockOut(now);
         _lifecycleGate.SetPresenceSessionActive(false);
         _lifecycleGate.SetNotOnBreak(true);
+
+        // Durable SQL history for completed day.
+        try
+        {
+            var snap = _presenceSession.Snapshot(now);
+            _activityBuffer.SaveSessionHistory(
+                snap.ClockInAt,
+                snap.ClockOutAt,
+                snap.AccumulatedBreak,
+                snap.AccumulatedWork,
+                snap.BreakSessionCount,
+                snap.ScheduleDisplay);
+            _logger.LogInformation(
+                "Session saved to SQLite Work={Work} Break={Break} Breaks={Count} Db={Db}",
+                snap.AccumulatedWork, snap.AccumulatedBreak, snap.BreakSessionCount,
+                _activityBuffer.DatabasePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to persist session_history to SQLite");
+        }
+
         return (true, null, "Clocked out. Workday completed.", MonitoringState.Stopped);
     }
 
@@ -343,9 +365,11 @@ public sealed class AgentWorker : BackgroundService
         }
 
         _logger.LogInformation(
-            "Buffered activity records Accepted={Accepted} QueueDepth={Depth}",
+            "SQLite buffered records Accepted={Accepted} Pending={Pending} TotalStored={Total} Db={Db}",
             accepted,
-            _activityBuffer.Count);
+            _activityBuffer.Count,
+            _activityBuffer.TotalStoredCount,
+            _activityBuffer.DatabasePath);
 
         await reply(new IpcEnvelope
         {
@@ -356,11 +380,91 @@ public sealed class AgentWorker : BackgroundService
         });
     }
 
-    private Task HandleActivationCodeSubmitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    private async Task HandleActivationCodeSubmitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
     {
-        // Phase 2: validate code against backend, trigger enrollment state transition
-        _logger.LogInformation("ActivationCodeSubmit received — enrollment handler not yet implemented (Phase 2)");
-        return Task.CompletedTask;
+        var payload = envelope.Payload?.Deserialize<ActivationCodeSubmitPayload>();
+        var code = payload?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
+
+        // Local / Phase-1: accept any code with length >= 6 (portal uses 8).
+        // Later: exchange against backend API when ApiBaseUrl + credentials are ready.
+        if (code.Length < 6)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.EnrollmentResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
+                {
+                    Success = false,
+                    ErrorCode = "INVALID_CODE",
+                    EmployeeName = null
+                })
+            });
+            return;
+        }
+
+        var current = _stateMachine.CurrentState;
+        if (current == MonitoringState.Unenrolled)
+        {
+            if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
+            {
+                await reply(new IpcEnvelope
+                {
+                    Type = IpcMessageTypes.EnrollmentResult,
+                    CorrelationId = envelope.CorrelationId,
+                    Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
+                    {
+                        Success = false,
+                        ErrorCode = "INVALID_STATE",
+                        EmployeeName = null
+                    })
+                });
+                return;
+            }
+        }
+        else if (current is MonitoringState.Locked)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.EnrollmentResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
+                {
+                    Success = false,
+                    ErrorCode = "LOCKED",
+                    EmployeeName = null
+                })
+            });
+            return;
+        }
+        // Already enrolled (Stopped/Active/Paused) — treat as success so tray can continue.
+
+        _lifecycleGate.SetDeviceEnrolled(true);
+        _lifecycleGate.SetCredentialValid(true);
+        _lifecycleGate.SetDeviceApproved(true);
+        _lifecycleGate.SetEmployeeSessionActive(true);
+        _lifecycleGate.SetConsentValid(true);
+        _lifecycleGate.SetPolicyAllowsCollection(true);
+        _lifecycleGate.SetNotOnApprovedTimeOff(true);
+
+        _logger.LogInformation(
+            "Activation accepted (local). CodeLength={Len} State={State}",
+            code.Length, _stateMachine.CurrentState);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.EnrollmentResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
+            {
+                Success = true,
+                ErrorCode = null,
+                EmployeeName = "Pirakeerthan"
+            })
+        });
+
+        // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
+        await reply(BuildStatusEnvelope(correlationId: null));
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

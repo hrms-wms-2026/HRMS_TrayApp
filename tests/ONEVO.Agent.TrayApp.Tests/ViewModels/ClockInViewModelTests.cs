@@ -11,11 +11,11 @@ public sealed class ClockInViewModelTests
         new(pipe ?? new FakeNamedPipeClient());
 
     [Fact]
-    public void LiveTimer_IsInitializedToHhMmSsFormat()
+    public void LiveTimer_DefaultsToZeroUntilClockIn()
     {
-        // Constructor ticks the wall clock immediately (HH:mm:ss), not a stopwatch.
+        // Pre-clock-in mockup shows session timer at 00:00:00 (wall clock is separate).
         var vm = Make();
-        Assert.Matches(@"^\d{2}:\d{2}:\d{2}$", vm.LiveTimer);
+        Assert.Equal("00:00:00", vm.LiveTimer);
     }
 
     [Fact]

@@ -2,118 +2,127 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.EndSessionPage"
              x:DataType="vm:EndSessionViewModel"
              BackgroundColor="{StaticResource Background}">
 
-  <ScrollView>
-    <Grid RowDefinitions="Auto,*,Auto" Padding="24,16">
+  <Grid RowDefinitions="Auto,*,Auto" Padding="24,16">
+    <controls:AppHeaderBar Grid.Row="0" />
 
-      <!-- Header -->
-      <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
-        <HorizontalStackLayout Grid.Column="0" Spacing="10">
-          <Border WidthRequest="32" HeightRequest="32"
-                  StrokeShape="RoundRectangle 8" StrokeThickness="0">
-            <Border.Background>
-              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
-                <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
-              </LinearGradientBrush>
-            </Border.Background>
-            <Label Text="OV" FontSize="12" FontAttributes="Bold" TextColor="White"
-                   HorizontalOptions="Center" VerticalOptions="Center" />
-          </Border>
-          <VerticalStackLayout VerticalOptions="Center">
-            <Label Text="OneVo Workspace" FontSize="13" FontAttributes="Bold"
-                   TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Your Workplace. Simplified."
-                   FontSize="10" TextColor="{StaticResource TextSecondary}" />
-          </VerticalStackLayout>
-        </HorizontalStackLayout>
-      </Grid>
+    <ScrollView Grid.Row="1">
+      <VerticalStackLayout Spacing="14">
 
-      <VerticalStackLayout Grid.Row="1" Spacing="16">
-
-        <Label Text="Workday Completed 🎉"
-               FontSize="24" FontAttributes="Bold"
-               TextColor="{StaticResource TextPrimary}"
-               HorizontalOptions="Center" />
-        <Label Text="{Binding Message}"
-               FontSize="13" TextColor="{StaticResource TextSecondary}"
-               HorizontalOptions="Center"
-               HorizontalTextAlignment="Center" />
-
-        <!-- Top status cards -->
-        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-          <Border Grid.Column="0" Style="{StaticResource Card}" Padding="12">
-            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-              <Label Text="Status" FontSize="10" TextColor="{StaticResource TextSecondary}"
-                     HorizontalOptions="Center" />
-              <Label Text="{Binding StatusText}" FontSize="14" FontAttributes="Bold"
+        <Grid x:Name="PaneGrid" ColumnDefinitions="0.9*,1.1*" ColumnSpacing="20">
+          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassCard}" Padding="16"
+                  BackgroundColor="{StaticResource IllustrationTint}" StrokeThickness="0"
+                  MinimumWidthRequest="0">
+            <VerticalStackLayout VerticalOptions="Center" Spacing="10">
+              <Label Text="💻" FontSize="72" HorizontalOptions="Center" />
+              <Border WidthRequest="40" HeightRequest="40" StrokeShape="RoundRectangle 20"
+                      StrokeThickness="0" BackgroundColor="{StaticResource StatusGreen}"
+                      HorizontalOptions="Center">
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="18" TextColor="White"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <Label Text="Onexso Workspace" FontSize="12" FontAttributes="Bold"
                      TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
             </VerticalStackLayout>
           </Border>
-          <Border Grid.Column="1" Style="{StaticResource Card}" Padding="12">
-            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-              <Label Text="Clock Out Time" FontSize="10" TextColor="{StaticResource TextSecondary}"
-                     HorizontalOptions="Center" />
-              <Label Text="{Binding ClockOutDisplay}" FontSize="14" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
-            </VerticalStackLayout>
-          </Border>
-          <Border Grid.Column="2" Style="{StaticResource Card}" Padding="12">
-            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-              <Label Text="Total Shift" FontSize="10" TextColor="{StaticResource TextSecondary}"
-                     HorizontalOptions="Center" />
-              <Label Text="{Binding TotalShiftDisplay}" FontSize="14" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
-            </VerticalStackLayout>
-          </Border>
+
+          <VerticalStackLayout x:Name="RightPane" Grid.Column="1" Spacing="12">
+            <HorizontalStackLayout Spacing="4">
+              <Label Text="Workday " Style="{StaticResource PageTitle}" FontSize="24" />
+              <Label Text="Completed" Style="{StaticResource PageTitleAccent}" FontSize="24" />
+              <Label Text=" 🎉" FontSize="22" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+            <Label Text="{Binding Message}"
+                   FontSize="13" TextColor="{StaticResource TextSecondary}" />
+
+            <!-- Top: Status | Total Shift | Break Sessions (no duplicate Clock Out) -->
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+              <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="12">
+                <VerticalStackLayout Spacing="4">
+                  <Label Text="Status" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding StatusText}" FontSize="14" FontAttributes="Bold"
+                         TextColor="{StaticResource Primary}" />
+                </VerticalStackLayout>
+              </Border>
+              <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="12">
+                <VerticalStackLayout Spacing="4">
+                  <Label Text="Total Shift" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding TotalShiftDisplay}" FontSize="14" FontAttributes="Bold"
+                         TextColor="{StaticResource TextPrimary}" />
+                </VerticalStackLayout>
+              </Border>
+              <Border Grid.Column="2" Style="{StaticResource GlassCard}" Padding="12">
+                <VerticalStackLayout Spacing="4">
+                  <Label Text="Break Sessions" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding BreakSessionsDisplay}" FontSize="14" FontAttributes="Bold"
+                         TextColor="{StaticResource StatusOrange}" />
+                </VerticalStackLayout>
+              </Border>
+            </Grid>
+
+            <!-- Detail times once each -->
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+              <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="10">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="Clock In Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding ClockInDisplay}" FontSize="13" FontAttributes="Bold"
+                         TextColor="{StaticResource StatusBlue}" />
+                </VerticalStackLayout>
+              </Border>
+              <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="10">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="Clock Out Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding ClockOutDisplay}" FontSize="13" FontAttributes="Bold"
+                         TextColor="{StaticResource StatusBlue}" />
+                </VerticalStackLayout>
+              </Border>
+              <Border Grid.Column="2" Style="{StaticResource GlassCard}" Padding="10">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="Total Work Duration" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding WorkingTimeDisplay}" FontSize="13" FontAttributes="Bold"
+                         TextColor="{StaticResource StatusGreen}" />
+                </VerticalStackLayout>
+              </Border>
+              <Border Grid.Column="3" Style="{StaticResource GlassCard}" Padding="10">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="Total Break Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding BreakTimeDisplay}" FontSize="13" FontAttributes="Bold"
+                         TextColor="{StaticResource StatusOrange}" />
+                </VerticalStackLayout>
+              </Border>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+              <Button Grid.Column="0" Text="📊  View Dashboard"
+                      Command="{Binding OpenDashboardCommand}"
+                      Style="{StaticResource OutlineButton}"
+                      HeightRequest="48" FontSize="13" />
+              <Button Grid.Column="1" Text="⬇  Download Summary"
+                      Command="{Binding DownloadSummaryCommand}"
+                      Style="{StaticResource OrangePillButton}" />
+              <Button Grid.Column="2" Text="Close App"
+                      Command="{Binding CloseAppCommand}"
+                      Style="{StaticResource RedPillButton}" />
+            </Grid>
+          </VerticalStackLayout>
         </Grid>
 
-        <!-- Detail metrics -->
-        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
-          <Border Grid.Column="0" Style="{StaticResource Card}" Padding="10">
-            <VerticalStackLayout Spacing="2">
-              <Label Text="Clock In" FontSize="10" TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding ClockInDisplay}" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" />
-            </VerticalStackLayout>
-          </Border>
-          <Border Grid.Column="1" Style="{StaticResource Card}" Padding="10">
-            <VerticalStackLayout Spacing="2">
-              <Label Text="Clock Out" FontSize="10" TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding ClockOutDisplay}" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" />
-            </VerticalStackLayout>
-          </Border>
-          <Border Grid.Column="2" Style="{StaticResource Card}" Padding="10">
-            <VerticalStackLayout Spacing="2">
-              <Label Text="Work Duration" FontSize="10" TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding WorkingTimeDisplay}" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource StatusGreen}" />
-            </VerticalStackLayout>
-          </Border>
-          <Border Grid.Column="3" Style="{StaticResource Card}" Padding="10">
-            <VerticalStackLayout Spacing="2">
-              <Label Text="Break Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding BreakTimeDisplay}" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource StatusOrange}" />
-            </VerticalStackLayout>
-          </Border>
-        </Grid>
-
-        <!-- Secondary metrics -->
-        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-          <Border Grid.Column="0" Style="{StaticResource Card}" Padding="12">
+        <!-- Productive + Idle only (Break Sessions already in top row) -->
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+          <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="12">
             <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
               <Label Text="Productive Time" FontSize="10" TextColor="{StaticResource TextSecondary}"
                      HorizontalOptions="Center" />
               <Label Text="{Binding ProductiveTimeDisplay}" FontSize="16" FontAttributes="Bold"
-                     TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
+                     TextColor="{StaticResource StatusBlue}" HorizontalOptions="Center" />
             </VerticalStackLayout>
           </Border>
-          <Border Grid.Column="1" Style="{StaticResource Card}" Padding="12">
+          <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="12">
             <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
               <Label Text="Idle Time" FontSize="10" TextColor="{StaticResource TextSecondary}"
                      HorizontalOptions="Center" />
@@ -121,61 +130,47 @@
                      TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
             </VerticalStackLayout>
           </Border>
-          <Border Grid.Column="2" Style="{StaticResource Card}" Padding="12">
-            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
-              <Label Text="Break Sessions" FontSize="10" TextColor="{StaticResource TextSecondary}"
-                     HorizontalOptions="Center" />
-              <Label Text="{Binding BreakSessionsDisplay}" FontSize="16" FontAttributes="Bold"
-                     TextColor="{StaticResource StatusOrange}" HorizontalOptions="Center" />
-            </VerticalStackLayout>
-          </Border>
         </Grid>
 
-        <Border Style="{StaticResource Card}" Padding="14">
-          <VerticalStackLayout Spacing="6">
+        <Border Style="{StaticResource GlassCard}" Padding="14">
+          <VerticalStackLayout Spacing="10">
             <Label Text="Top Applications Used Today" FontSize="12" FontAttributes="Bold"
                    TextColor="{StaticResource TextPrimary}" />
-            <Label Text="No application usage data available yet for this session."
-                   FontSize="11" TextColor="{StaticResource TextSecondary}" />
+            <CollectionView ItemsSource="{Binding TopApps}"
+                            ItemsLayout="HorizontalList"
+                            HeightRequest="72">
+              <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:TopAppItem">
+                  <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="12,10" WidthRequest="120">
+                    <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                      <Label Text="{Binding Name}" FontSize="11" FontAttributes="Bold"
+                             TextColor="{StaticResource TextPrimary}"
+                             HorizontalOptions="Center" LineBreakMode="TailTruncation" />
+                      <Label Text="{Binding Duration}" FontSize="12" FontAttributes="Bold"
+                             TextColor="{StaticResource Primary}"
+                             HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                  </Border>
+                </DataTemplate>
+              </CollectionView.ItemTemplate>
+            </CollectionView>
           </VerticalStackLayout>
         </Border>
 
         <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}"
                FontSize="12"
                IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
-
-        <!-- Actions -->
-        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="0,4,0,0">
-          <Button Grid.Column="0" Text="📊  View Dashboard"
-                  Command="{Binding OpenDashboardCommand}"
-                  Style="{StaticResource OutlineButton}"
-                  HeightRequest="48" FontSize="13" />
-          <Button Grid.Column="1" Text="⬇  Download Summary"
-                  Command="{Binding DownloadSummaryCommand}"
-                  BackgroundColor="{StaticResource StatusOrange}"
-                  TextColor="White" FontAttributes="Bold"
-                  CornerRadius="24" HeightRequest="48" FontSize="13" />
-          <Button Grid.Column="2" Text="Close App"
-                  Command="{Binding CloseAppCommand}"
-                  BackgroundColor="{StaticResource StatusRed}"
-                  TextColor="White" FontAttributes="Bold"
-                  CornerRadius="24" HeightRequest="48" FontSize="13" />
-        </Grid>
       </VerticalStackLayout>
+    </ScrollView>
 
-      <!-- Footer -->
-      <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Padding="0,16,0,0">
-        <Label Grid.Column="0" Text="Settings" FontSize="11"
-               TextColor="{StaticResource TextMuted}" />
-        <Label Grid.Column="1" Text="Version 1.0.0" FontSize="11"
-               TextColor="{StaticResource TextMuted}" HorizontalOptions="Center" />
-        <HorizontalStackLayout Grid.Column="2" Spacing="6">
-          <Ellipse WidthRequest="8" HeightRequest="8"
-                   Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
-          <Label Text="Connected to OneVo Server" FontSize="11"
-                 TextColor="{StaticResource TextSecondary}" />
-        </HorizontalStackLayout>
-      </Grid>
+    <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Padding="0,8,0,0">
+      <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+        <Label Text="{StaticResource IconSettings}" FontFamily="Segoe MDL2 Assets"
+               FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+        <Label Text="Settings" Style="{StaticResource FooterLabel}" />
+      </HorizontalStackLayout>
+      <controls:FooterStatusBar Grid.Column="1"
+                                ConnectionLabel="Connected to Onexso Server" />
     </Grid>
-  </ScrollView>
+  </Grid>
 </ContentPage>

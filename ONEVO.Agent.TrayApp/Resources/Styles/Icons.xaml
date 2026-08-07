@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Segoe MDL2 Assets — verified against Windows 10/11 system font -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+    <x:String x:Key="IconLink">&#xE71B;</x:String>
+    <x:String x:Key="IconGlobe">&#xE774;</x:String>
+    <x:String x:Key="IconPaste">&#xE77F;</x:String>
+    <x:String x:Key="IconHelp">&#xE897;</x:String>
+    <x:String x:Key="IconShield">&#xEA18;</x:String>
+    <x:String x:Key="IconInfo">&#xE946;</x:String>
+    <x:String x:Key="IconPerson">&#xE77B;</x:String>
+    <x:String x:Key="IconMail">&#xE715;</x:String>
+    <x:String x:Key="IconBadge">&#xE8AE;</x:String>
+    <x:String x:Key="IconLocation">&#xE81D;</x:String>
+    <x:String x:Key="IconCamera">&#xE722;</x:String>
+    <x:String x:Key="IconCheck">&#xE73E;</x:String>
+    <x:String x:Key="IconClock">&#xE823;</x:String>
+    <x:String x:Key="IconCalendar">&#xE787;</x:String>
+    <x:String x:Key="IconSettings">&#xE713;</x:String>
+    <x:String x:Key="IconMonitor">&#xE7F4;</x:String>
+    <x:String x:Key="IconApps">&#xE71D;</x:String>
+    <x:String x:Key="IconBell">&#xEA8F;</x:String>
+    <x:String x:Key="IconKeyboard">&#xE765;</x:String>
+    <x:String x:Key="IconCoffee">&#xE8CB;</x:String>
+    <x:String x:Key="IconSignOut">&#xE7E8;</x:String>
+    <x:String x:Key="IconChart">&#xE9D2;</x:String>
+    <x:String x:Key="IconDownload">&#xE896;</x:String>
+    <x:String x:Key="IconSearch">&#xE721;</x:String>
+    <x:String x:Key="IconChevron">&#xE76C;</x:String>
+</ResourceDictionary>

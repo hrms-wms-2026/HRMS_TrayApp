@@ -5,6 +5,10 @@
     <Color x:Key="Primary">#1A5FF7</Color>
     <Color x:Key="PrimaryDark">#1247C0</Color>
     <Color x:Key="PrimaryAccent">#7B3FE4</Color>
+    <Color x:Key="PrimarySoft">#EEF2FF</Color>
+    <Color x:Key="PrimaryGradientStart">#1A5FF7</Color>
+    <Color x:Key="PrimaryGradientMid">#5B3DF5</Color>
+    <Color x:Key="PrimaryGradientEnd">#7B3FE4</Color>
 
     <!-- Text -->
     <Color x:Key="TextPrimary">#0F1B2D</Color>
@@ -12,18 +16,22 @@
     <Color x:Key="TextMuted">#9CA8B6</Color>
 
     <!-- Surfaces -->
-    <Color x:Key="Background">#EEF2FF</Color>
+    <Color x:Key="Background">#F4F7FF</Color>
     <Color x:Key="CardBackground">#FFFFFF</Color>
     <Color x:Key="RowBackground">#F8FAFF</Color>
     <Color x:Key="Separator">#E4E9F2</Color>
+    <Color x:Key="IllustrationTint">#ECF2FF</Color>
 
     <!-- Status -->
     <Color x:Key="StatusGreen">#22C55E</Color>
     <Color x:Key="StatusRed">#EF4444</Color>
     <Color x:Key="StatusOrange">#F97316</Color>
+    <Color x:Key="StatusBlue">#2563EB</Color>
+    <Color x:Key="ButtonOrange">#F59E0B</Color>
+    <Color x:Key="ButtonOrangeEnd">#F97316</Color>
+    <Color x:Key="ButtonRed">#EF4444</Color>
+    <Color x:Key="ButtonRedEnd">#DC2626</Color>
 
     <!-- Legacy compat -->
     <Color x:Key="White">White</Color>
-    <Color x:Key="PrimaryGradientStart">#1A5FF7</Color>
-    <Color x:Key="PrimaryGradientEnd">#7B3FE4</Color>
 </ResourceDictionary>

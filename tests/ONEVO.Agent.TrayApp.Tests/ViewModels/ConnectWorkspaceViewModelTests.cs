@@ -9,10 +9,10 @@ public sealed class ConnectWorkspaceViewModelTests
         new(new FakeNamedPipeClient());
 
     [Fact]
-    public void ActivationCode_DefaultsEmpty()
+    public void ActivationCode_DefaultsToDemoCode()
     {
         var vm = Make();
-        Assert.Equal(string.Empty, vm.ActivationCode);
+        Assert.Equal(ConnectWorkspaceViewModel.DemoActivationCode, vm.ActivationCode);
     }
 
     [Fact]
@@ -56,12 +56,33 @@ public sealed class ConnectWorkspaceViewModelTests
     }
 
     [Fact]
-    public async Task VerifyAndConnectCommand_SendsEnvelopeToPipe()
+    public async Task VerifyAndConnectCommand_SendsActivationToPipe()
     {
         var pipe = new FakeNamedPipeClient();
         var vm   = new ConnectWorkspaceViewModel(pipe);
         vm.ActivationCode = "ABC123";
         await vm.VerifyAndConnectCommand.ExecuteAsync(null);
         Assert.Single(pipe.SentEnvelopes);
+        Assert.Equal(ONEVO.Agent.Shared.IPC.IpcMessageTypes.ActivationCodeSubmit, pipe.SentEnvelopes[0].Type);
+    }
+
+    [Fact]
+    public async Task VerifyAndConnectCommand_OnFailure_SetsError()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextEnrollmentResult = new ONEVO.Agent.Shared.IPC.EnrollmentResultPayload
+            {
+                Success = false,
+                ErrorCode = "INVALID_CODE"
+            }
+        };
+        var vm = new ConnectWorkspaceViewModel(pipe);
+        vm.ActivationCode = "BAD";
+        // length < 6 disables command — use long enough invalid path via canned fail with 6 chars
+        vm.ActivationCode = "BADBAD";
+        await vm.VerifyAndConnectCommand.ExecuteAsync(null);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.False(vm.IsConnected);
     }
 }

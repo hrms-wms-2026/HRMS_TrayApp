@@ -47,7 +47,7 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon = new NotifyIcon
         {
             Visible = true,
-            Text = "ONEVO WorkPulse — Starting...",
+            Text = "Onexso WorkPulse — Starting...",
             Icon = SystemIcons.Application,
             ContextMenuStrip = BuildContextMenu()
         };
@@ -64,7 +64,7 @@ public sealed class TrayIconService : IDisposable
             if (_notifyIcon is null)
                 return;
 
-            _notifyIcon.Text = $"ONEVO WorkPulse — {state switch
+            _notifyIcon.Text = $"Onexso WorkPulse — {state switch
             {
                 MonitoringState.Active     => "Monitoring Active",
                 MonitoringState.Paused     => "On Break",

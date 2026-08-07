@@ -1,14 +1,68 @@
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 
 public sealed class WorkLocationViewModelTests
 {
+    private sealed class FixedLocationService : ILocationService
+    {
+        private readonly GeoPoint? _point;
+        public FixedLocationService(GeoPoint? point) => _point = point;
+        public Task<GeoPoint?> GetCurrentAsync(CancellationToken ct = default) =>
+            Task.FromResult(_point);
+    }
+
     [Fact]
     public void ApprovedLocations_HasFourEntries()
     {
         var vm = new WorkLocationViewModel();
         Assert.Equal(4, vm.ApprovedLocations.Count);
+    }
+
+    [Fact]
+    public void FindNearestOffice_NearChennai_SelectsChennai()
+    {
+        var vm = new WorkLocationViewModel();
+        // ~T.Nagar, Chennai
+        var match = vm.FindNearestOffice(13.0418, 80.2341);
+        Assert.NotNull(match);
+        Assert.Equal("CHENNAI", match!.Option.Code);
+        Assert.False(match.IsRemoteFallback);
+        Assert.True(match.DistanceKm < 20);
+    }
+
+    [Fact]
+    public void FindNearestOffice_FarFromOffices_SuggestsWfh()
+    {
+        var vm = new WorkLocationViewModel();
+        // London
+        var match = vm.FindNearestOffice(51.5074, -0.1278);
+        Assert.NotNull(match);
+        Assert.Equal("WFH", match!.Option.Code);
+        Assert.True(match.IsRemoteFallback);
+    }
+
+    [Fact]
+    public async Task DetectLiveLocation_AutoSelectsNearest()
+    {
+        // Approximate Bangalore CBD
+        var loc = new FixedLocationService(new GeoPoint(12.9716, 77.5946));
+        var vm = new WorkLocationViewModel(loc);
+        await vm.DetectLiveLocationCommand.ExecuteAsync(null);
+        Assert.NotNull(vm.SelectedLocation);
+        Assert.Equal("BANGALORE", vm.SelectedLocation!.Code);
+        Assert.Contains("Bangalore", vm.LiveLocationStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.False(vm.IsDetectingLocation);
+    }
+
+    [Fact]
+    public async Task DetectLiveLocation_WhenUnavailable_DoesNotForceSelection()
+    {
+        var vm = new WorkLocationViewModel(new FixedLocationService(null));
+        await vm.DetectLiveLocationCommand.ExecuteAsync(null);
+        Assert.Null(vm.SelectedLocation);
+        Assert.Contains("Could not get live location", vm.LiveLocationStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

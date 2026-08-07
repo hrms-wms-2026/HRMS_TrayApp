@@ -87,7 +87,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
             CurrentDate = DateTimeOffset.Now;
             CurrentDateDisplay = CurrentDate.ToString("dddd, MMMM d, yyyy");
             CurrentTimeDisplay = CurrentDate.ToString("hh:mm tt");
-            LiveTimer = CurrentDate.ToString("HH:mm:ss");
+            // Mockup: Live Timer stays at 00:00:00 until the employee clocks in.
+            LiveTimer = "00:00:00";
         }
 
         try
@@ -127,7 +128,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
             var result = await _pipe.SendLifecycleAsync(LifecycleAction.ClockIn, ct);
             if (result is null)
             {
-                ErrorMessage = "No response from OneVo Agent Service. Is the service running?";
+                ErrorMessage = "No response from Onexso Agent Service. Is the service running?";
                 return;
             }
 

@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.Views;
 
+using ONEVO.Agent.TrayApp.Controls;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class ConnectWorkspacePage : ContentPage
@@ -7,6 +8,7 @@ public partial class ConnectWorkspacePage : ContentPage
     public ConnectWorkspacePage()
     {
         InitializeComponent();
+        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
     }
 
     protected override void OnHandlerChanged()

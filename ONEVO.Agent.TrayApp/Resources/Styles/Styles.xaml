@@ -5,10 +5,23 @@
     <!-- Card container -->
     <Style x:Key="Card" TargetType="Border">
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
-        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
         <Setter Property="Stroke" Value="{StaticResource Separator}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="16" />
+    </Style>
+
+    <Style x:Key="GlassCard" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 18" />
+        <Setter Property="Stroke" Value="{StaticResource Separator}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#14000040" Offset="0,4" Radius="14" Opacity="0.12" />
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- Gradient button wrapper Border -->
@@ -20,8 +33,14 @@
             <Setter.Value>
                 <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
                     <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
+                    <GradientStop Color="{StaticResource PrimaryGradientMid}" Offset="0.5" />
                     <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
                 </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#601A5FF7" Offset="0,8" Radius="18" Opacity="0.4" />
             </Setter.Value>
         </Setter>
     </Style>
@@ -38,13 +57,32 @@
 
     <!-- Outline secondary button -->
     <Style x:Key="OutlineButton" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
         <Setter Property="TextColor" Value="{StaticResource Primary}" />
         <Setter Property="BorderColor" Value="{StaticResource Primary}" />
         <Setter Property="BorderWidth" Value="1.5" />
         <Setter Property="CornerRadius" Value="28" />
         <Setter Property="HeightRequest" Value="56" />
         <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+
+    <Style x:Key="OrangePillButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{StaticResource ButtonOrange}" />
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="CornerRadius" Value="24" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <Style x:Key="RedPillButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{StaticResource ButtonRed}" />
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="CornerRadius" Value="24" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="FontSize" Value="14" />
     </Style>
 
     <!-- Page heading — black portion -->
@@ -80,6 +118,12 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
         <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <Style x:Key="FooterLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="TextColor" Value="{StaticResource TextMuted}" />
         <Setter Property="VerticalOptions" Value="Center" />
     </Style>
 
