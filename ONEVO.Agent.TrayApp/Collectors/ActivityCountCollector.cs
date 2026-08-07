@@ -67,7 +67,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             return Task.CompletedTask;
 
         _intervalSeconds = Math.Clamp(
-            Constants.DefaultActivitySnapshotIntervalSeconds, 10, 300);
+            Constants.DefaultActivitySnapshotIntervalSeconds, 60, 300);
 
         // Install hooks on the UI thread — LL hooks must live with a message pump.
         void Install()

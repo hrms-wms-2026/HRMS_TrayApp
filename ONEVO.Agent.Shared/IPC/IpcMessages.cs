@@ -23,11 +23,51 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: result of enrollment attempt.</summary>
     public const string EnrollmentResult = "EnrollmentResult";
+
+    /// <summary>Tray → Service: employee lifecycle action (clock-in, break, clock-out).</summary>
+    public const string LifecycleCommand = "LifecycleCommand";
+
+    /// <summary>Service → Tray: result of a lifecycle action.</summary>
+    public const string LifecycleResult = "LifecycleResult";
+}
+
+public enum LifecycleAction
+{
+    ClockIn,
+    StartBreak,
+    EndBreak,
+    ClockOut
 }
 
 public sealed record NonceChallengePayload(string Nonce);
 public sealed record NonceResponsePayload(string Nonce);
-public sealed record StatusResponsePayload(MonitoringState State, DateTimeOffset Timestamp);
+
+/// <summary>Authoritative presence-session snapshot owned by the Service.</summary>
+public sealed record SessionSnapshot(
+    DateTimeOffset? ClockInAt,
+    DateTimeOffset? ClockOutAt,
+    bool IsOnBreak,
+    DateTimeOffset? CurrentBreakStartedAt,
+    TimeSpan AccumulatedBreak,
+    TimeSpan AccumulatedWork,
+    string? ScheduleDisplay,
+    int BreakSessionCount);
+
+public sealed record StatusResponsePayload(
+    MonitoringState State,
+    DateTimeOffset Timestamp,
+    SessionSnapshot? Session = null);
+
+public sealed record LifecycleCommandPayload(
+    LifecycleAction Action,
+    string? BreakReason = null);
+
+public sealed record LifecycleResultPayload(
+    bool Success,
+    string? ErrorCode,
+    string? Message,
+    MonitoringState State,
+    SessionSnapshot? Session);
 
 public sealed record CollectionRecordSubmitPayload
 {

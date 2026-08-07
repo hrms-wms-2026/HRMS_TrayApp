@@ -3,6 +3,7 @@ using ONEVO.Agent.Service;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.IPC;
+using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Service.Sync;
@@ -17,6 +18,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IValidateOptions<AgentOptions>, OptionsValidation>();
 
         services.AddSingleton<AgentStateMachine>();
+        services.AddSingleton<LifecycleGate>();
+        services.AddSingleton<PresenceSession>();
         services.AddSingleton<PolicyCache>();
         services.AddSingleton<ActivityRecordBuffer>(sp =>
         {

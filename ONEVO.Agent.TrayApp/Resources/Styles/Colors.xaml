@@ -1,8 +1,29 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
-    <Color x:Key="Primary">#1E3A5F</Color>
-    <Color x:Key="PrimaryDark">#122840</Color>
+    <!-- Brand -->
+    <Color x:Key="Primary">#1A5FF7</Color>
+    <Color x:Key="PrimaryDark">#1247C0</Color>
+    <Color x:Key="PrimaryAccent">#7B3FE4</Color>
+
+    <!-- Text -->
+    <Color x:Key="TextPrimary">#0F1B2D</Color>
+    <Color x:Key="TextSecondary">#6B7A8E</Color>
+    <Color x:Key="TextMuted">#9CA8B6</Color>
+
+    <!-- Surfaces -->
+    <Color x:Key="Background">#EEF2FF</Color>
+    <Color x:Key="CardBackground">#FFFFFF</Color>
+    <Color x:Key="RowBackground">#F8FAFF</Color>
+    <Color x:Key="Separator">#E4E9F2</Color>
+
+    <!-- Status -->
+    <Color x:Key="StatusGreen">#22C55E</Color>
+    <Color x:Key="StatusRed">#EF4444</Color>
+    <Color x:Key="StatusOrange">#F97316</Color>
+
+    <!-- Legacy compat -->
     <Color x:Key="White">White</Color>
-    <Color x:Key="Background">#F5F7FA</Color>
+    <Color x:Key="PrimaryGradientStart">#1A5FF7</Color>
+    <Color x:Key="PrimaryGradientEnd">#7B3FE4</Color>
 </ResourceDictionary>

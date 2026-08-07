@@ -1,34 +1,42 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Services;
 
 public sealed partial class PrivacyConsentViewModel : BaseViewModel
 {
-    // Required by policy — always true, toggle locked
-    [ObservableProperty] private bool _activitySignalEnabled = true;
-    public bool ActivitySignalRequired => true;
+    private readonly INamedPipeClient _pipe;
 
-    [ObservableProperty] private bool _applicationUsageEnabled = true;
-    [ObservableProperty] private bool _workLocationEnabled     = true;
-    [ObservableProperty] private bool _cameraAccessEnabled     = false;
-    [ObservableProperty] private bool _notificationsEnabled    = true;
-    [ObservableProperty] private bool _keyboardMouseEnabled    = true;
+    // Always on — required by policy, toggle locked in UI
+    [ObservableProperty] private bool _screenMonitoringEnabled = true;
 
-    [ObservableProperty] private bool _policyAcknowledged;
+    [ObservableProperty] private bool _appTrackingEnabled    = true;
+    [ObservableProperty] private bool _locationAccessEnabled = true;
+    [ObservableProperty] private bool _cameraAccessEnabled   = false;
+    [ObservableProperty] private bool _notificationsEnabled  = true;
+    [ObservableProperty] private bool _keyboardMouseEnabled  = true;
 
-    public PrivacyConsentViewModel() { Title = "Privacy, Monitoring and Required Permissions"; }
+    public PrivacyConsentViewModel(INamedPipeClient pipe)
+    {
+        Title = "Allow Required Policies";
+        _pipe = pipe;
+    }
+
+    public void OnAppearing()
+    {
+        if (_pipe.LastKnownPolicy is { } policy)
+            ApplyPolicy(policy);
+    }
 
     public void ApplyPolicy(AgentPolicy policy)
     {
-        ApplicationUsageEnabled = policy.AppUsageEnabled;
-        CameraAccessEnabled     = policy.CameraVerificationEnabled;
+        AppTrackingEnabled  = policy.AppUsageEnabled;
+        CameraAccessEnabled = policy.CameraVerificationEnabled;
     }
 
-    [RelayCommand(CanExecute = nameof(PolicyAcknowledged))]
-    private static void ReviewAndContinue()
+    [RelayCommand]
+    private async Task AllowAndContinue()
     {
-        // Navigate to ClockInPage
+        try { await Shell.Current.GoToAsync("//clockin"); }
+        catch { /* unit tests */ }
     }
 }

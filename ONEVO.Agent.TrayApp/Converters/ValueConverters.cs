@@ -36,3 +36,15 @@ public sealed class BoolToCheckmarkConverter : IValueConverter
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>true → StatusGreen, false → TextMuted (for badge background)</summary>
+public sealed class BoolToColorConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is true
+            ? Color.FromArgb("#22C55E")
+            : Color.FromArgb("#9CA8B6");
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

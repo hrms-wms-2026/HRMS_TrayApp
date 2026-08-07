@@ -3,32 +3,244 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
              x:Class="ONEVO.Agent.TrayApp.Views.ActiveSessionPage"
-             x:DataType="vm:ActiveSessionViewModel">
-  <VerticalStackLayout Padding="32" Spacing="12">
-    <Label Text="Your Work Session Is Active" FontSize="20" FontAttributes="Bold"
-           HorizontalOptions="Center" />
-    <Label Text="Working" TextColor="Green" FontSize="16" HorizontalOptions="Center" />
-    <Label Text="{Binding ElapsedDisplay}" FontSize="40" FontAttributes="Bold"
-           HorizontalOptions="Center" />
+             x:DataType="vm:ActiveSessionViewModel"
+             BackgroundColor="{StaticResource Background}">
 
-    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="8" ColumnSpacing="8">
-      <Label Grid.Row="0" Grid.Column="0" Text="Clock In:" />
-      <Label Grid.Row="0" Grid.Column="1" Text="{Binding ClockInTimeDisplay}" />
-      <Label Grid.Row="1" Grid.Column="0" Text="Break Time:" />
-      <Label Grid.Row="1" Grid.Column="1" Text="{Binding BreakTimeDisplay}" />
-      <Label Grid.Row="2" Grid.Column="0" Text="Active Time:" />
-      <Label Grid.Row="2" Grid.Column="1" Text="{Binding ActiveTimeDisplay}" />
+  <Grid>
+    <ScrollView>
+      <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="24,16">
+
+        <!-- Header -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+          <HorizontalStackLayout Grid.Column="0" Spacing="10">
+            <Border WidthRequest="32" HeightRequest="32"
+                    StrokeShape="RoundRectangle 8" StrokeThickness="0">
+              <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                  <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
+                  <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
+                </LinearGradientBrush>
+              </Border.Background>
+              <Label Text="OV" FontSize="12" FontAttributes="Bold" TextColor="White"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <VerticalStackLayout VerticalOptions="Center">
+              <Label Text="OneVo Workspace" FontSize="13" FontAttributes="Bold"
+                     TextColor="{StaticResource TextPrimary}" />
+              <Label Text="Your Workplace. Simplified."
+                     FontSize="10" TextColor="{StaticResource TextSecondary}" />
+            </VerticalStackLayout>
+          </HorizontalStackLayout>
+          <Label Grid.Column="2" Text="•••" FontSize="20"
+                 TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+        </Grid>
+
+        <!-- Main body -->
+        <Grid Grid.Row="1" ColumnDefinitions="0.9*,1.1*" ColumnSpacing="20">
+
+          <!-- Left illustration -->
+          <Border Grid.Column="0" Style="{StaticResource Card}" Padding="16">
+            <VerticalStackLayout VerticalOptions="Center" Spacing="8">
+              <Label Text="💻" FontSize="72" HorizontalOptions="Center" />
+              <Label Text="OneVo Workspace" FontSize="12" FontAttributes="Bold"
+                     TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
+              <Label Text="Live monitoring active"
+                     FontSize="10" TextColor="{StaticResource TextSecondary}"
+                     HorizontalOptions="Center" />
+            </VerticalStackLayout>
+          </Border>
+
+          <!-- Right status + actions -->
+          <VerticalStackLayout Grid.Column="1" Spacing="12">
+
+            <Label Text="{Binding HeaderTitle}"
+                   FontSize="22" FontAttributes="Bold"
+                   TextColor="{StaticResource TextPrimary}" />
+            <Label Text="{Binding HeaderSubtitle}"
+                   FontSize="12" TextColor="{StaticResource TextSecondary}" />
+
+            <!-- Status + Primary timer -->
+            <Border Style="{StaticResource Card}" Padding="14">
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                  <Label Text="Status" FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                  <HorizontalStackLayout Spacing="8">
+                    <Ellipse WidthRequest="10" HeightRequest="10"
+                             Fill="{StaticResource StatusGreen}"
+                             VerticalOptions="Center">
+                      <Ellipse.Triggers>
+                        <DataTrigger TargetType="Ellipse" Binding="{Binding IsOnBreak}" Value="True">
+                          <Setter Property="Fill" Value="{StaticResource StatusOrange}" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Ellipse" Binding="{Binding IsOnBreak}" Value="False">
+                          <Setter Property="Fill" Value="{StaticResource StatusGreen}" />
+                        </DataTrigger>
+                      </Ellipse.Triggers>
+                    </Ellipse>
+                    <Label Text="{Binding StatusText}" FontSize="16" FontAttributes="Bold"
+                           TextColor="{StaticResource TextPrimary}" />
+                  </HorizontalStackLayout>
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                  <Label Text="{Binding PrimaryTimerLabel}"
+                         FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding PrimaryTimer}"
+                         FontSize="22" FontAttributes="Bold"
+                         TextColor="{StaticResource TextPrimary}" />
+                </VerticalStackLayout>
+              </Grid>
+            </Border>
+
+            <!-- Start time + schedule -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Border Grid.Column="0" Style="{StaticResource Card}" Padding="12">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="🕐  Start Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding StartTimeDisplay}" FontSize="14" FontAttributes="Bold"
+                         TextColor="{StaticResource Primary}" />
+                </VerticalStackLayout>
+              </Border>
+              <Border Grid.Column="1" Style="{StaticResource Card}" Padding="12">
+                <VerticalStackLayout Spacing="2">
+                  <Label Text="📅  Today's Schedule" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                  <Label Text="{Binding ScheduleDisplay}" FontSize="12" FontAttributes="Bold"
+                         TextColor="{StaticResource TextPrimary}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+              </Border>
+            </Grid>
+
+            <!-- Action buttons -->
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,4,0,0">
+              <!-- Break (working only) -->
+              <Button Grid.Column="0"
+                      Text="☕  Break"
+                      Command="{Binding RequestBreakCommand}"
+                      IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}"
+                      BackgroundColor="{StaticResource StatusOrange}"
+                      TextColor="White"
+                      FontAttributes="Bold"
+                      CornerRadius="24"
+                      HeightRequest="48" />
+
+              <!-- End Break (break only) -->
+              <Button Grid.Column="0"
+                      Text="☕  End Break"
+                      Command="{Binding EndBreakCommand}"
+                      IsVisible="{Binding IsOnBreak}"
+                      BackgroundColor="{StaticResource StatusOrange}"
+                      TextColor="White"
+                      FontAttributes="Bold"
+                      CornerRadius="24"
+                      HeightRequest="48" />
+
+              <Button Grid.Column="1"
+                      Text="⏻  Clock Out"
+                      Command="{Binding ClockOutCommand}"
+                      BackgroundColor="{StaticResource StatusRed}"
+                      TextColor="White"
+                      FontAttributes="Bold"
+                      CornerRadius="24"
+                      HeightRequest="48" />
+
+              <Button Grid.Column="2"
+                      Text="📊  Dashboard"
+                      Command="{Binding OpenDashboardCommand}"
+                      Style="{StaticResource OutlineButton}"
+                      HeightRequest="48"
+                      CornerRadius="24"
+                      FontSize="13" />
+            </Grid>
+
+            <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}"
+                   FontSize="12"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+            <Label Text="{Binding SyncMessage}" TextColor="{StaticResource TextSecondary}"
+                   FontSize="11"
+                   IsVisible="{Binding SyncMessage, Converter={StaticResource IsNotNullConverter}}" />
+            <ActivityIndicator IsRunning="{Binding IsBusyAction}"
+                               IsVisible="{Binding IsBusyAction}"
+                               Color="{StaticResource Primary}" />
+          </VerticalStackLayout>
+        </Grid>
+
+        <!-- Today's Summary strip -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,16,0,8" Padding="14">
+          <VerticalStackLayout Spacing="10">
+            <Label Text="Today's Summary" FontSize="13" FontAttributes="Bold"
+                   TextColor="{StaticResource TextPrimary}" />
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+              <VerticalStackLayout Grid.Column="0" Spacing="2">
+                <Label Text="Work Duration" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="{Binding WorkDurationDisplay}" FontSize="14" FontAttributes="Bold"
+                       TextColor="{StaticResource StatusGreen}" />
+              </VerticalStackLayout>
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Break Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="{Binding BreakTimeDisplay}" FontSize="14" FontAttributes="Bold"
+                       TextColor="{StaticResource StatusOrange}" />
+              </VerticalStackLayout>
+              <VerticalStackLayout Grid.Column="2" Spacing="2">
+                <Label Text="Productive Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="{Binding ProductiveTimeDisplay}" FontSize="14" FontAttributes="Bold"
+                       TextColor="{StaticResource Primary}" />
+              </VerticalStackLayout>
+              <VerticalStackLayout Grid.Column="3" Spacing="2">
+                <Label Text="Tasks" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="{Binding TasksCompletedDisplay}" FontSize="14" FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" />
+              </VerticalStackLayout>
+            </Grid>
+          </VerticalStackLayout>
+        </Border>
+
+        <!-- Footer -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Padding="0,4,0,0">
+          <Label Grid.Column="0" Text="Settings" FontSize="11"
+                 TextColor="{StaticResource TextMuted}" />
+          <Label Grid.Column="1" Text="Version 1.0.0" FontSize="11"
+                 TextColor="{StaticResource TextMuted}" HorizontalOptions="Center" />
+          <HorizontalStackLayout Grid.Column="2" Spacing="6">
+            <Ellipse WidthRequest="8" HeightRequest="8"
+                     Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            <Label Text="Connected to OneVo Server" FontSize="11"
+                   TextColor="{StaticResource TextSecondary}" />
+          </HorizontalStackLayout>
+        </Grid>
+      </Grid>
+    </ScrollView>
+
+    <!-- Break confirmation overlay -->
+    <Grid IsVisible="{Binding IsBreakConfirmVisible}"
+          BackgroundColor="#80000000">
+      <Border Style="{StaticResource Card}"
+              WidthRequest="360"
+              HorizontalOptions="Center"
+              VerticalOptions="Center"
+              Padding="24">
+        <VerticalStackLayout Spacing="12">
+          <Label Text="❓" FontSize="28" HorizontalOptions="Center" />
+          <Label Text="Start Break?"
+                 FontSize="18" FontAttributes="Bold"
+                 TextColor="{StaticResource TextPrimary}"
+                 HorizontalOptions="Center" />
+          <Label Text="Your work timer will be paused and the break timer will begin."
+                 FontSize="12" TextColor="{StaticResource TextSecondary}"
+                 HorizontalTextAlignment="Center" />
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,8,0,0">
+            <Button Grid.Column="0" Text="Cancel"
+                    Command="{Binding CancelBreakConfirmCommand}"
+                    Style="{StaticResource OutlineButton}"
+                    HeightRequest="44" />
+            <Button Grid.Column="1" Text="Start Break"
+                    Command="{Binding ConfirmStartBreakCommand}"
+                    BackgroundColor="{StaticResource Primary}"
+                    TextColor="White"
+                    FontAttributes="Bold"
+                    CornerRadius="22"
+                    HeightRequest="44" />
+          </Grid>
+        </VerticalStackLayout>
+      </Border>
     </Grid>
-
-    <Label Text="{Binding SyncMessage}" TextColor="Gray" FontSize="12"
-           IsVisible="{Binding SyncMessage, Converter={StaticResource IsNotNullConverter}}" />
-
-    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-      <Button Grid.Column="0" Text="Start Break"
-              Command="{Binding StartBreakCommand}" />
-      <Button Grid.Column="1" Text="End Work Session"
-              Command="{Binding EndWorkSessionCommand}"
-              BackgroundColor="OrangeRed" TextColor="White" />
-    </Grid>
-  </VerticalStackLayout>
+  </Grid>
 </ContentPage>

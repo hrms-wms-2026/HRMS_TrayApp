@@ -1,31 +1,45 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-
 public sealed partial class ReviewSetupViewModel : BaseViewModel
 {
-    [ObservableProperty] private string _fullName          = string.Empty;
-    [ObservableProperty] private string _workEmail         = string.Empty;
-    [ObservableProperty] private string _department        = string.Empty;
-    [ObservableProperty] private string _manager           = string.Empty;
-    [ObservableProperty] private string _workLocation      = string.Empty;
-    [ObservableProperty] private string _monitoringManager = string.Empty;
-    [ObservableProperty] private string _registeredDevice  = string.Empty;
-    [ObservableProperty] private DateTimeOffset _lastUpdated = DateTimeOffset.UtcNow;
-    [ObservableProperty] private bool _hasSetupErrors;
+    [ObservableProperty] private string _fullName     = string.Empty;
+    [ObservableProperty] private string _workEmail    = string.Empty;
+    [ObservableProperty] private string _employeeId   = string.Empty;
+    [ObservableProperty] private string _workLocation = string.Empty;
 
-    public ReviewSetupViewModel() { Title = "Review Your Setup"; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FaceVerificationStatusText))]
+    private bool _faceVerificationCompleted;
 
-    [RelayCommand]
-    private static void EditSetup()
+    public string FaceVerificationStatusText =>
+        FaceVerificationCompleted ? "Completed" : "Pending";
+
+    public ReviewSetupViewModel() { Title = "Confirm Your Details"; }
+
+    public void OnAppearing()
     {
-        // Navigate back to PrepareWorkspacePage
+        try
+        {
+            FullName                  = Preferences.Get("onevo.employee_display_name", string.Empty);
+            WorkEmail                 = Preferences.Get("onevo.employee_email",         string.Empty);
+            EmployeeId                = Preferences.Get("onevo.employee_id",            string.Empty);
+            WorkLocation              = Preferences.Get("onevo.work_location_display",  string.Empty);
+            FaceVerificationCompleted = Preferences.Get("onevo.face_verified",          false);
+        }
+        catch { /* no MAUI Preferences host in unit tests */ }
     }
 
     [RelayCommand]
-    private static void ConfirmSetup()
+    private async Task Back()
     {
-        // Navigate to PrivacyConsentPage
+        try { await Shell.Current.GoToAsync("//prepare"); }
+        catch { /* unit tests */ }
+    }
+
+    [RelayCommand]
+    private async Task ConfirmAndContinue()
+    {
+        try { await Shell.Current.GoToAsync("//policy"); }
+        catch { /* unit tests */ }
     }
 }

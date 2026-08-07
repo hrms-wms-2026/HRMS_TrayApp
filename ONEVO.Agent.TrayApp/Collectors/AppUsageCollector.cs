@@ -48,7 +48,7 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
             while (await timer.WaitForNextTickAsync(ct))
                 await EmitSampleAsync(ct);
         }

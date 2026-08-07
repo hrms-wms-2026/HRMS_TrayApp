@@ -15,4 +15,11 @@ public partial class ReviewSetupPage : ContentPage
         if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
             BindingContext = sp.GetRequiredService<ReviewSetupViewModel>();
     }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is ReviewSetupViewModel vm)
+            vm.OnAppearing();
+    }
 }

@@ -20,4 +20,13 @@ public sealed class AgentOptions
     /// Must stay false in production.
     /// </summary>
     public bool ForceMonitoringActive { get; set; }
+
+    /// <summary>
+    /// Development helper: allow ClockIn without all nine LifecycleGate conditions
+    /// (enrollment/backend not complete yet). Production must keep this false.
+    /// </summary>
+    public bool AllowLocalLifecycleWithoutFullGates { get; set; }
+
+    /// <summary>Default schedule label shown on Active Session UI.</summary>
+    public string DefaultScheduleDisplay { get; set; } = "09:00 AM – 06:00 PM";
 }

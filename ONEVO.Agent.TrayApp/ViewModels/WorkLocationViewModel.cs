@@ -1,16 +1,13 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-
 public sealed partial class WorkLocationViewModel : BaseViewModel
 {
     public IReadOnlyList<WorkLocationOption> ApprovedLocations { get; } =
     [
-        new("Central Office",   "HQ"),
-        new("Singapore Office", "SG"),
-        new("Hyderabad Office", "HYD"),
-        new("Remote Work",      "REMOTE")
+        new("Chennai Office",   "CHENNAI",   "Tamil Nadu, India"),
+        new("Bangalore Office", "BANGALORE", "Karnataka, India"),
+        new("Hyderabad Office", "HYDERABAD", "Telangana, India"),
+        new("Work From Home",   "WFH",       "Remote Location")
     ];
 
     [ObservableProperty]
@@ -31,12 +28,20 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
     public WorkLocationViewModel() { Title = "Select Your Work Location"; }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private static void SaveAndContinue()
+    private async Task SaveAndContinue()
     {
-        // Navigation wired in AppShell
+        try
+        {
+            Preferences.Set("onevo.work_location_code",    SelectedLocation!.Code);
+            Preferences.Set("onevo.work_location_display", SelectedLocation.DisplayName);
+        }
+        catch { /* no MAUI Preferences host in unit tests */ }
+
+        try { await Shell.Current.GoToAsync("//photo"); }
+        catch { /* unit tests */ }
     }
 
     private bool HasSelection => SelectedLocation is not null;
 }
 
-public sealed record WorkLocationOption(string DisplayName, string Code);
+public sealed record WorkLocationOption(string DisplayName, string Code, string SubTitle);

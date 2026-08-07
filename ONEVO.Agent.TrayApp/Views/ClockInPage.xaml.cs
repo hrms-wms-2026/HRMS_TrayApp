@@ -15,4 +15,11 @@ public partial class ClockInPage : ContentPage
         if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
             BindingContext = sp.GetRequiredService<ClockInViewModel>();
     }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is ClockInViewModel vm)
+            vm.OnAppearing();
+    }
 }

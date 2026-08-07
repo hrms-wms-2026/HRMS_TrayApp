@@ -15,4 +15,11 @@ public partial class PrivacyConsentPage : ContentPage
         if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
             BindingContext = sp.GetRequiredService<PrivacyConsentViewModel>();
     }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is PrivacyConsentViewModel vm)
+            vm.OnAppearing();
+    }
 }

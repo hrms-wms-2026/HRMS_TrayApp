@@ -15,4 +15,18 @@ public partial class EndSessionPage : ContentPage
         if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
             BindingContext = sp.GetRequiredService<EndSessionViewModel>();
     }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is EndSessionViewModel vm)
+            vm.OnAppearing();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is EndSessionViewModel vm)
+            vm.OnDisappearing();
+    }
 }

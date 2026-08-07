@@ -12,6 +12,7 @@
             <conv:InvertBoolConverter x:Key="InvertBoolConverter" />
             <conv:IsNotNullConverter x:Key="IsNotNullConverter" />
             <conv:BoolToCheckmarkConverter x:Key="BoolToCheckmarkConverter" />
+            <conv:BoolToColorConverter x:Key="BoolToColorConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

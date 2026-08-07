@@ -13,10 +13,20 @@ public partial class ActiveSessionPage : ContentPage
     {
         base.OnHandlerChanged();
         if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
-        {
-            var vm = sp.GetRequiredService<ActiveSessionViewModel>();
-            BindingContext = vm;
-            vm.StartSession(DateTimeOffset.UtcNow);
-        }
+            BindingContext = sp.GetRequiredService<ActiveSessionViewModel>();
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        if (BindingContext is ActiveSessionViewModel vm)
+            vm.OnAppearing();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        if (BindingContext is ActiveSessionViewModel vm)
+            vm.OnDisappearing();
     }
 }

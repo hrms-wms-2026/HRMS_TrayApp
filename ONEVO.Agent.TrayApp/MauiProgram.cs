@@ -11,6 +11,10 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
+        builder.ConfigureMauiHandlers(h =>
+        {
+            h.AddHandler<Controls.CameraPreview, Platforms.Windows.CameraPreviewHandler>();
+        });
 
         // Infrastructure
         builder.Services.AddSingleton<TrayIconService>();
@@ -18,6 +22,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<INamedPipeClient>(sp =>
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<ICameraService, CameraService>();
 
         // Collectors
         builder.Services.AddSingleton<ActivityCountCollector>();

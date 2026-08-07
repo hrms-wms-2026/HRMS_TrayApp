@@ -1,4 +1,86 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Card container -->
+    <Style x:Key="Card" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="Stroke" Value="{StaticResource Separator}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
+
+    <!-- Gradient button wrapper Border -->
+    <Style x:Key="GradientButtonBorder" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 28" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                    <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
+                    <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Transparent overlay button on top of gradient border -->
+    <Style x:Key="GradientButtonOverlay" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="HorizontalOptions" Value="Fill" />
+    </Style>
+
+    <!-- Outline secondary button -->
+    <Style x:Key="OutlineButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{StaticResource Primary}" />
+        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
+        <Setter Property="BorderWidth" Value="1.5" />
+        <Setter Property="CornerRadius" Value="28" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="FontSize" Value="15" />
+    </Style>
+
+    <!-- Page heading — black portion -->
+    <Style x:Key="PageTitle" TargetType="Label">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Page heading — blue accent portion -->
+    <Style x:Key="PageTitleAccent" TargetType="Label">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource Primary}" />
+    </Style>
+
+    <!-- Page subtitle / description -->
+    <Style x:Key="PageSubtitle" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="HorizontalTextAlignment" Value="Center" />
+    </Style>
+
+    <!-- Row field label (left column in info cards) -->
+    <Style x:Key="FieldLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- Row field value (right column in info cards) -->
+    <Style x:Key="FieldValue" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
 </ResourceDictionary>
