@@ -138,8 +138,13 @@
 
       <!-- Location action row -->
       <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="12,14">
+        <Border.GestureRecognizers>
+          <TapGestureRecognizer Command="{Binding NavigateToLocationCommand}" />
+        </Border.GestureRecognizers>
         <Grid ColumnDefinitions="32,*,Auto" ColumnSpacing="10">
-          <Label Grid.Column="0" Text="📍" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center" />
+          <Label Grid.Column="0" Text="&#xE81D;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                 TextColor="{StaticResource Primary}"
+                 HorizontalOptions="Center" VerticalOptions="Center" />
           <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
             <Label Text="Location" FontAttributes="Bold"
                    TextColor="{StaticResource TextPrimary}" FontSize="13" />
@@ -153,8 +158,13 @@
 
       <!-- Profile Picture action row -->
       <Border Style="{StaticResource Card}" Margin="0,0,0,28" Padding="12,14">
+        <Border.GestureRecognizers>
+          <TapGestureRecognizer Command="{Binding NavigateToPhotoCommand}" />
+        </Border.GestureRecognizers>
         <Grid ColumnDefinitions="32,*,Auto" ColumnSpacing="10">
-          <Label Grid.Column="0" Text="🤳" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center" />
+          <Label Grid.Column="0" Text="&#xE722;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                 TextColor="{StaticResource Primary}"
+                 HorizontalOptions="Center" VerticalOptions="Center" />
           <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
             <Label Text="Profile Picture" FontAttributes="Bold"
                    TextColor="{StaticResource TextPrimary}" FontSize="13" />

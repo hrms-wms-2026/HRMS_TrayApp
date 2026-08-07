@@ -331,7 +331,9 @@ public sealed class AgentWorker : BackgroundService
         {
             if (record.RecordType is not (CollectionRecordTypes.ActivitySnapshot
                 or CollectionRecordTypes.AppUsageSnapshot
-                or CollectionRecordTypes.DeviceStateSnapshot))
+                or CollectionRecordTypes.DeviceStateSnapshot
+                or CollectionRecordTypes.Screenshot
+                or CollectionRecordTypes.FacePhoto))
                 continue;
 
             if (_activityBuffer.TryEnqueue(record))

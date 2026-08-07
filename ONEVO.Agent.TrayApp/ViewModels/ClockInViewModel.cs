@@ -25,11 +25,15 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     [ObservableProperty] private bool _isClockinIn;
     [ObservableProperty] private string? _errorMessage;
 
+    private AgentPolicy? _currentPolicy;
+
     public ClockInViewModel(INamedPipeClient pipe)
     {
         Title    = "Ready to Start Work";
         _pipe    = pipe;
         Greeting = GetGreeting();
+        _currentPolicy = pipe.LastKnownPolicy;
+        _pipe.OnPolicyReceived += HandlePolicyReceived;
         // Enrollment saves the real name; fall back to Windows username.
         EmployeeName = Preferences.Get("onevo.employee_display_name",
             string.IsNullOrWhiteSpace(Environment.UserName) ? "Employee" : Environment.UserName);
@@ -96,6 +100,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         }
     }
 
+    private void HandlePolicyReceived(AgentPolicy policy) => _currentPolicy = policy;
+
     private static string GetGreeting()
     {
         var hour = DateTime.Now.Hour;
@@ -109,6 +115,14 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         ErrorMessage = null;
         try
         {
+            // Camera verification required — photo page completes the lifecycle command.
+            if (_currentPolicy?.CameraVerificationEnabled == true)
+            {
+                try { await Shell.Current.GoToAsync("//photo?context=clockin"); }
+                catch { /* unit tests */ }
+                return;
+            }
+
             var result = await _pipe.SendLifecycleAsync(LifecycleAction.ClockIn, ct);
             if (result is null)
             {
@@ -145,7 +159,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 
     public void Dispose()
     {
-        _pipe.OnDisconnected -= OnDisconnected;
+        _pipe.OnDisconnected   -= OnDisconnected;
+        _pipe.OnPolicyReceived -= HandlePolicyReceived;
         _clockTimer.Stop();
         _clockTimer.Dispose();
     }

@@ -38,6 +38,20 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
         OnPropertyChanged(nameof(CanContinue));
     }
 
+    [RelayCommand]
+    private async Task NavigateToLocation()
+    {
+        try { await Shell.Current.GoToAsync("//location"); }
+        catch { /* unit tests */ }
+    }
+
+    [RelayCommand]
+    private async Task NavigateToPhoto()
+    {
+        try { await Shell.Current.GoToAsync("//photo"); }
+        catch { /* unit tests */ }
+    }
+
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private async Task ContinueSetup()
     {

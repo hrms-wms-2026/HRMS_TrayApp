@@ -1,0 +1,330 @@
+{
+  "info": {
+    "name": "ONEVO Tray + Monitoring (Local)",
+    "description": "Local Postman collection for tray activation, activity ingest, check-in, and HR query APIs.\n\nBase URL: https://localhost:7229\n\nFlow:\n1) Tenant Login (or use cookie/token from portal)\n2) Generate activation code (employee JWT)\n3) Exchange code (anonymous) → tray access_token\n4) Ingest activity snapshots with Bearer tray token\n5) Optional: check-in, refresh token, HR query snapshots",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://localhost:7229" },
+    { "key": "tenant_email", "value": "siyasiyamala932@gmail.com" },
+    { "key": "tenant_password", "value": "Password123!" },
+    { "key": "tenant_access_token", "value": "" },
+    { "key": "login_challenge", "value": "" },
+    { "key": "workspace_slug", "value": "acme" },
+    { "key": "activation_code", "value": "" },
+    { "key": "tray_access_token", "value": "" },
+    { "key": "tray_refresh_token", "value": "" },
+    { "key": "device_fingerprint", "value": "dev-fingerprint-tray-001" },
+    { "key": "device_name", "value": "DEV-PC-Tray" },
+    { "key": "device_os", "value": "Windows 11" },
+    { "key": "employee_id", "value": "" },
+    { "key": "check_in_id", "value": "" },
+    { "key": "activity_date", "value": "2026-08-06" }
+  ],
+  "item": [
+    {
+      "name": "0. Health",
+      "item": [
+        {
+          "name": "Swagger",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/swagger/index.html"
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Tenant Auth",
+      "item": [
+        {
+          "name": "Login (base host)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (pm.response.code === 202 && json.login_challenge) {",
+                  "  pm.collectionVariables.set('login_challenge', json.login_challenge);",
+                  "  console.log('Workspace selection required. login_challenge saved.');",
+                  "}",
+                  "if (json.access_token) {",
+                  "  pm.collectionVariables.set('tenant_access_token', json.access_token);",
+                  "}",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('tenant_access_token', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{tenant_email}}\",\n  \"password\": \"{{tenant_password}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/login",
+            "description": "Base-host password login. May return 202 + login_challenge if multiple workspaces."
+          }
+        },
+        {
+          "name": "Select Workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.access_token) pm.collectionVariables.set('tenant_access_token', json.access_token);",
+                  "if (json.token) pm.collectionVariables.set('tenant_access_token', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loginChallenge\": \"{{login_challenge}}\",\n  \"workspace\": \"{{workspace_slug}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/auth/login/select-workspace",
+            "description": "Only if Login returned 202 workspace selection."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Tray Activation",
+      "item": [
+        {
+          "name": "Generate Activation Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.code) {",
+                  "  pm.collectionVariables.set('activation_code', json.code);",
+                  "  console.log('activation_code =', json.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tenant_access_token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": "{{base_url}}/api/v1/monitoring/activation/generate",
+            "description": "Employee/portal call. Needs TenantPolicy JWT (Bearer tenant_access_token). Returns 8-char code."
+          }
+        },
+        {
+          "name": "Exchange Activation Code (Tray)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.access_token) pm.collectionVariables.set('tray_access_token', json.access_token);",
+                  "if (json.refresh_token) pm.collectionVariables.set('tray_refresh_token', json.refresh_token);",
+                  "console.log('tray tokens saved');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{activation_code}}\",\n  \"deviceName\": \"{{device_name}}\",\n  \"deviceOs\": \"{{device_os}}\",\n  \"deviceFingerprint\": \"{{device_fingerprint}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/monitoring/activation/exchange",
+            "description": "Anonymous. Code must be 8 chars A-Z2-9. Returns tray access_token + refresh_token."
+          }
+        },
+        {
+          "name": "Refresh Tray Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.access_token) pm.collectionVariables.set('tray_access_token', json.access_token);",
+                  "if (json.refresh_token) pm.collectionVariables.set('tray_refresh_token', json.refresh_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{tray_refresh_token}}\",\n  \"deviceFingerprint\": \"{{device_fingerprint}}\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/monitoring/activation/refresh"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Tray Ingest (Device JWT)",
+      "item": [
+        {
+          "name": "Ingest Activity Snapshots",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"snapshots\": [\n    {\n      \"captured_at\": \"2026-08-06T04:00:00Z\",\n      \"keyboard_events_count\": 12,\n      \"mouse_events_count\": 34,\n      \"active_seconds\": 15,\n      \"idle_seconds\": 0,\n      \"intensity_score\": 0.42,\n      \"foreground_process_name\": \"Code\"\n    },\n    {\n      \"captured_at\": \"2026-08-06T04:00:15Z\",\n      \"keyboard_events_count\": 3,\n      \"mouse_events_count\": 8,\n      \"active_seconds\": 10,\n      \"idle_seconds\": 5,\n      \"intensity_score\": 0.18,\n      \"foreground_process_name\": \"msedge\"\n    }\n  ]\n}"
+            },
+            "url": "{{base_url}}/api/v1/monitoring/activity/snapshots",
+            "description": "Tray device JWT required (TrayDevicePolicy). Success = 202 Accepted. Writes activity_snapshots in Postgres."
+          }
+        },
+        {
+          "name": "Submit Check-In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) pm.collectionVariables.set('check_in_id', json.id);",
+                  "if (json.check_in_id) pm.collectionVariables.set('check_in_id', json.check_in_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 6.9271,\n  \"longitude\": 79.8612,\n  \"location_accuracy\": 25.0,\n  \"location_address\": \"Colombo\",\n  \"device_serial_number\": \"DEV-SERIAL-001\"\n}"
+            },
+            "url": "{{base_url}}/api/v1/monitoring/check-in"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. HR Query (Tenant JWT)",
+      "item": [
+        {
+          "name": "Get Activity Snapshots",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tenant_access_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/monitoring/activity/snapshots?employeeId={{employee_id}}&date={{activity_date}}&page=1&pageSize=100",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "monitoring", "activity", "snapshots"],
+              "query": [
+                { "key": "employeeId", "value": "{{employee_id}}" },
+                { "key": "date", "value": "{{activity_date}}" },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "100" }
+              ]
+            },
+            "description": "Needs TenantPolicy + monitoring:read. Set employee_id from your tenant employee."
+          }
+        },
+        {
+          "name": "Get Daily Summary",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tenant_access_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/monitoring/activity/daily-summary?employeeId={{employee_id}}&date={{activity_date}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "monitoring", "activity", "daily-summary"],
+              "query": [
+                { "key": "employeeId", "value": "{{employee_id}}" },
+                { "key": "date", "value": "{{activity_date}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Daily Range",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tenant_access_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/monitoring/activity/daily-range?employeeId={{employee_id}}&from=2026-08-01&to=2026-08-06",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "monitoring", "activity", "daily-range"],
+              "query": [
+                { "key": "employeeId", "value": "{{employee_id}}" },
+                { "key": "from", "value": "2026-08-01" },
+                { "key": "to", "value": "2026-08-06" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

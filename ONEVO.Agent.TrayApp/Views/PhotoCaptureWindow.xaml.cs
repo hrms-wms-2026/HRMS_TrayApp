@@ -2,7 +2,7 @@ namespace ONEVO.Agent.TrayApp.Views;
 
 using ONEVO.Agent.TrayApp.ViewModels;
 
-public partial class PhotoCaptureWindow : ContentPage
+public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
 {
     private readonly PhotoCaptureWindowViewModel _vm;
     private Animation? _scanAnimation;
@@ -23,6 +23,24 @@ public partial class PhotoCaptureWindow : ContentPage
                     StopScanAnimation();
             }
         };
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("context", out var ctx))
+            _vm.SetContext(ctx?.ToString());
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await _vm.StartPreviewAsync();
+    }
+
+    protected override async void OnDisappearing()
+    {
+        base.OnDisappearing();
+        await _vm.StopPreviewAsync();
     }
 
     private void StartScanAnimation()

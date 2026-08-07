@@ -15,9 +15,10 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
     private bool _isCaptured;
 
-    [ObservableProperty] private bool   _isCapturing;
-    [ObservableProperty] private bool   _isScanAnimating;
-    [ObservableProperty] private string _captureStatusText =
+    [ObservableProperty] private bool    _isCapturing;
+    [ObservableProperty] private bool    _isScanAnimating;
+    [ObservableProperty] private object? _previewFrameSource;
+    [ObservableProperty] private string  _captureStatusText =
         "Look at the camera and keep your face within the frame.";
 
     public PhotoCaptureWindowViewModel(ICameraService camera, INamedPipeClient pipe)
@@ -33,11 +34,21 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     /// </summary>
     public void SetContext(string? context)
     {
-        _captureContext = context;
-        // Reset state so each entry starts clean.
+        _captureContext   = context;
         _capturedBytes    = null;
         IsCaptured        = false;
         CaptureStatusText = "Look at the camera and keep your face within the frame.";
+    }
+
+    public async Task StartPreviewAsync()
+    {
+        PreviewFrameSource = await _camera.StartPreviewAsync();
+    }
+
+    public async Task StopPreviewAsync()
+    {
+        PreviewFrameSource = null; // signals handler to release MediaPlayer first
+        await _camera.StopPreviewAsync();
     }
 
     [RelayCommand]

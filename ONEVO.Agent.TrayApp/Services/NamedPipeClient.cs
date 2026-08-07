@@ -23,6 +23,9 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
 
+    public StatusResponsePayload? LastKnownStatus { get; private set; }
+    public AgentPolicy? LastKnownPolicy { get; private set; }
+
     public NamedPipeClient(ILogger<NamedPipeClient> logger)
     {
         _logger = logger;
@@ -228,6 +231,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         var status = envelope.Payload?.Deserialize<StatusResponsePayload>();
                         if (status is not null)
                         {
+                            LastKnownStatus = status;
                             OnStatusReceived?.Invoke(status);
                             OnStateReceived?.Invoke(status.State);
                         }
@@ -242,8 +246,10 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                             OnStateReceived?.Invoke(result.State);
                             if (result.Session is not null)
                             {
-                                OnStatusReceived?.Invoke(new StatusResponsePayload(
-                                    result.State, DateTimeOffset.UtcNow, result.Session));
+                                var synth = new StatusResponsePayload(
+                                    result.State, DateTimeOffset.UtcNow, result.Session);
+                                LastKnownStatus = synth;
+                                OnStatusReceived?.Invoke(synth);
                             }
                         }
                         break;
@@ -252,7 +258,10 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                     {
                         var policyPayload = envelope.Payload?.Deserialize<PolicyPushPayload>();
                         if (policyPayload?.Policy is not null)
+                        {
+                            LastKnownPolicy = policyPayload.Policy;
                             OnPolicyReceived?.Invoke(policyPayload.Policy);
+                        }
                         break;
                     }
                     case IpcMessageTypes.CollectionRecordAck:

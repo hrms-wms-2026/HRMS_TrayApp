@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.PhotoCaptureWindow"
              x:DataType="vm:PhotoCaptureWindowViewModel"
              BackgroundColor="{StaticResource Background}"
@@ -42,12 +43,11 @@
           <Grid WidthRequest="272" HeightRequest="272"
                 HorizontalOptions="Center" VerticalOptions="Center">
 
-            <!-- Face placeholder (shown when not captured) -->
-            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                 IsVisible="{Binding IsCaptured, Converter={StaticResource InvertBoolConverter}}">
-              <Label Text="👤" FontSize="100" HorizontalOptions="Center"
-                     TextColor="{StaticResource Separator}" />
-            </VerticalStackLayout>
+            <!-- Live camera preview (shown before capture) -->
+            <controls:CameraPreview
+                FrameSource="{Binding PreviewFrameSource}"
+                HorizontalOptions="Fill" VerticalOptions="Fill"
+                IsVisible="{Binding IsCaptured, Converter={StaticResource InvertBoolConverter}}" />
 
             <!-- Success checkmark (shown when captured) -->
             <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"

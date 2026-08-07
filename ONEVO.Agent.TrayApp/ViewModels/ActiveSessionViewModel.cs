@@ -47,6 +47,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             _subscribed = true;
         }
 
+        // Apply cached status immediately so the timer starts with the right ClockInAt
+        // even before the StatusRequest round-trip completes.
+        if (_pipe.LastKnownStatus is { } cached)
+            ApplySession(cached.Session, cached.State == ONEVO.Agent.Shared.Models.MonitoringState.Paused);
+
         // Pull latest status so we resync after navigation.
         _ = _pipe.SendEnvelopeAsync(
             new IpcEnvelope { Type = IpcMessageTypes.StatusRequest },
