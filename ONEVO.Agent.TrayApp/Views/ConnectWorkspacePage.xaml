@@ -2,164 +2,179 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.ConnectWorkspacePage"
              x:DataType="vm:ConnectWorkspaceViewModel"
              BackgroundColor="{StaticResource Background}"
-             Title="Connect OneVo Workspace">
+             Title="Connect Onexso Workspace">
 
-  <Grid ColumnDefinitions="5*,6*">
+  <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
 
-    <!-- Left: brand panel -->
-    <Border Grid.Column="0" StrokeThickness="0">
-      <Border.Background>
-        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-          <GradientStop Color="#1A5FF7" Offset="0" />
-          <GradientStop Color="#7B3FE4" Offset="1" />
-        </LinearGradientBrush>
-      </Border.Background>
-      <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                           Spacing="16" Padding="32">
-        <!-- OV logo circle -->
-        <Border WidthRequest="72" HeightRequest="72"
-                StrokeShape="RoundRectangle 36" StrokeThickness="0"
-                BackgroundColor="#FFFFFF22"
-                HorizontalOptions="Center">
-          <Label Text="OV" FontSize="26" FontAttributes="Bold"
-                 TextColor="White"
-                 HorizontalOptions="Center" VerticalOptions="Center" />
-        </Border>
+    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
 
-        <Label Text="OneVo Workspace" FontSize="18" FontAttributes="Bold"
-               TextColor="White" HorizontalOptions="Center" />
-        <Label Text="Secure enterprise desktop agent for work-presence monitoring."
-               FontSize="11" TextColor="#AACEFF"
-               HorizontalTextAlignment="Center" />
+    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="24">
 
-        <!-- feature bullets -->
-        <VerticalStackLayout Spacing="8" Margin="0,16,0,0">
-          <HorizontalStackLayout Spacing="8">
-            <Label Text="✓" TextColor="#AACEFF" FontSize="12" VerticalOptions="Center" />
-            <Label Text="Enterprise-grade encryption" TextColor="#DDEEFF" FontSize="12" />
-          </HorizontalStackLayout>
-          <HorizontalStackLayout Spacing="8">
-            <Label Text="✓" TextColor="#AACEFF" FontSize="12" VerticalOptions="Center" />
-            <Label Text="Policy-driven monitoring" TextColor="#DDEEFF" FontSize="12" />
-          </HorizontalStackLayout>
-          <HorizontalStackLayout Spacing="8">
-            <Label Text="✓" TextColor="#AACEFF" FontSize="12" VerticalOptions="Center" />
-            <Label Text="Employee transparency" TextColor="#DDEEFF" FontSize="12" />
-          </HorizontalStackLayout>
-        </VerticalStackLayout>
-      </VerticalStackLayout>
-    </Border>
+      <!-- Left: illustration panel -->
+      <Border x:Name="LeftPane" Grid.Column="0" StrokeThickness="0" StrokeShape="RoundRectangle 24"
+              BackgroundColor="{StaticResource IllustrationTint}"
+              MinimumWidthRequest="0">
+        <Grid>
+          <Ellipse WidthRequest="220" HeightRequest="220"
+                   HorizontalOptions="Center" VerticalOptions="Center" Opacity="0.35">
+            <Ellipse.Fill>
+              <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+                <GradientStop Color="#B8C9FF" Offset="0" />
+                <GradientStop Color="#B8C9FF00" Offset="1" />
+              </RadialGradientBrush>
+            </Ellipse.Fill>
+          </Ellipse>
 
-    <!-- Right: form panel -->
-    <ScrollView Grid.Column="1" BackgroundColor="{StaticResource Background}">
-      <VerticalStackLayout Padding="40,40,40,32" Spacing="0">
-
-        <!-- Header -->
-        <Label Text="Welcome to" Style="{StaticResource PageTitle}" />
-        <Label Text="OneVo Workspace" Style="{StaticResource PageTitleAccent}"
-               Margin="0,0,0,8" />
-        <Label Text="Paste your activation code below to securely connect your desktop application."
-               Style="{StaticResource PageSubtitle}"
-               HorizontalTextAlignment="Start"
-               Margin="0,0,0,28" />
-
-        <!-- Activation code card -->
-        <Border Style="{StaticResource Card}" Margin="0,0,0,8">
-          <VerticalStackLayout Spacing="10">
-            <Label Text="Activation Code" FontAttributes="Bold"
-                   TextColor="{StaticResource TextPrimary}" FontSize="13" />
-            <Border BackgroundColor="{StaticResource RowBackground}"
-                    StrokeShape="RoundRectangle 8"
-                    Stroke="{StaticResource Separator}" StrokeThickness="1"
-                    Padding="12,0">
-              <Entry Placeholder="Paste your activation code here..."
-                     Text="{Binding ActivationCode}"
-                     IsEnabled="{Binding IsConnecting, Converter={StaticResource InvertBoolConverter}}"
-                     FontSize="14"
-                     PlaceholderColor="{StaticResource TextMuted}"
-                     BackgroundColor="Transparent" />
+          <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10" Padding="24">
+            <!-- Cloud lock stack -->
+            <Border WidthRequest="88" HeightRequest="64"
+                    StrokeShape="RoundRectangle 20" StrokeThickness="0"
+                    BackgroundColor="#E8EEFF" HorizontalOptions="Center" Margin="0,0,0,4">
+              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="32" TextColor="{StaticResource Primary}"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
-            <Label Text="ℹ  Paste the activation code copied from the OneVo Workspace web portal."
-                   FontSize="11" TextColor="{StaticResource TextSecondary}" />
+
+            <Label Text="💻" FontSize="72" HorizontalOptions="Center" />
+            <Border StrokeShape="RoundRectangle 14" StrokeThickness="0"
+                    BackgroundColor="{StaticResource CardBackground}" Padding="12,8"
+                    HorizontalOptions="Center">
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="logo_onexso.png"
+                       Aspect="AspectFit"
+                       WidthRequest="28" HeightRequest="28"
+                       VerticalOptions="Center" />
+                <Label Text="Connected" FontSize="12" FontAttributes="Bold"
+                       TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+            </Border>
           </VerticalStackLayout>
-        </Border>
-
-        <!-- Error -->
-        <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}"
-               FontSize="12" Margin="4,4,0,4"
-               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
-
-        <!-- Connect button -->
-        <Border Style="{StaticResource GradientButtonBorder}" Margin="0,12,0,0">
-          <Button Text="🔗  Connect"
-                  Command="{Binding VerifyAndConnectCommand}"
-                  Style="{StaticResource GradientButtonOverlay}" />
-        </Border>
-
-        <!-- Open Activation Website -->
-        <Button Text="🌐  Open Activation Website"
-                Command="{Binding OpenEmployeePortalCommand}"
-                Style="{StaticResource OutlineButton}"
-                Margin="0,12,0,0" />
-
-        <ActivityIndicator IsRunning="{Binding IsConnecting}"
-                           IsVisible="{Binding IsConnecting}"
-                           Color="{StaticResource Primary}"
-                           Margin="0,10,0,0" />
-
-        <!-- Info cards -->
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,28,0,0">
-          <Border Grid.Column="0" Style="{StaticResource Card}" Padding="14,12">
-            <VerticalStackLayout Spacing="6">
-              <HorizontalStackLayout Spacing="8">
-                <Border WidthRequest="28" HeightRequest="28"
-                        StrokeShape="RoundRectangle 14" BackgroundColor="#EEF2FF"
-                        StrokeThickness="0">
-                  <Label Text="?" FontSize="14" FontAttributes="Bold"
-                         TextColor="{StaticResource Primary}"
-                         HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
-                <Label Text="Need Help?" FontAttributes="Bold"
-                       TextColor="{StaticResource TextPrimary}" FontSize="13"
-                       VerticalOptions="Center" />
-              </HorizontalStackLayout>
-              <Label Text="If you don't have an activation code, open the OneVo Workspace web portal and generate one."
-                     FontSize="11" TextColor="{StaticResource TextSecondary}" />
-            </VerticalStackLayout>
-          </Border>
-          <Border Grid.Column="1" Style="{StaticResource Card}" Padding="14,12">
-            <VerticalStackLayout Spacing="6">
-              <HorizontalStackLayout Spacing="8">
-                <Border WidthRequest="28" HeightRequest="28"
-                        StrokeShape="RoundRectangle 14" BackgroundColor="#EEF2FF"
-                        StrokeThickness="0">
-                  <Label Text="🛡" FontSize="13"
-                         HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
-                <Label Text="Secure Connection" FontAttributes="Bold"
-                       TextColor="{StaticResource TextPrimary}" FontSize="13"
-                       VerticalOptions="Center" />
-              </HorizontalStackLayout>
-              <Label Text="All communication is encrypted and protected using enterprise-grade security."
-                     FontSize="11" TextColor="{StaticResource TextSecondary}" />
-            </VerticalStackLayout>
-          </Border>
         </Grid>
+      </Border>
 
-        <!-- Footer -->
-        <Grid ColumnDefinitions="*,Auto" Margin="0,28,0,0">
-          <Label Grid.Column="0" Text="ℹ  Version 1.0.0"
-                 FontSize="11" TextColor="{StaticResource TextMuted}" />
-          <HorizontalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center">
-            <Ellipse WidthRequest="8" HeightRequest="8" Fill="{StaticResource TextMuted}" />
-            <Label Text="Not Connected" FontSize="11" TextColor="{StaticResource TextMuted}" />
+      <!-- Right: form -->
+      <ScrollView x:Name="RightPane" Grid.Column="1">
+        <VerticalStackLayout Spacing="0" Padding="4,0,0,0">
+
+          <HorizontalStackLayout Spacing="6" Margin="0,0,0,6">
+            <Label Text="Welcome to " Style="{StaticResource PageTitle}" />
+            <Label Text="Onexso Workspace" Style="{StaticResource PageTitleAccent}" />
           </HorizontalStackLayout>
-        </Grid>
+          <Label Text="Paste your activation code below to securely&#x0a;connect your desktop application."
+                 Style="{StaticResource PageSubtitle}"
+                 HorizontalTextAlignment="Start"
+                 Margin="0,0,0,22" />
 
-      </VerticalStackLayout>
-    </ScrollView>
+          <Border Style="{StaticResource GlassCard}" Margin="0,0,0,10">
+            <VerticalStackLayout Spacing="10">
+              <Label Text="Activation Code" FontAttributes="Bold"
+                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
+
+              <Border BackgroundColor="{StaticResource RowBackground}"
+                      StrokeShape="RoundRectangle 12"
+                      Stroke="{StaticResource Separator}" StrokeThickness="1"
+                      Padding="12,4">
+                <Grid ColumnDefinitions="*,Auto">
+                  <Entry Grid.Column="0"
+                         Placeholder="Paste your activation code here..."
+                         Text="{Binding ActivationCode}"
+                         IsEnabled="{Binding IsConnecting, Converter={StaticResource InvertBoolConverter}}"
+                         FontSize="15"
+                         FontAttributes="Bold"
+                         TextColor="{StaticResource TextPrimary}"
+                         PlaceholderColor="{StaticResource TextMuted}"
+                         BackgroundColor="Transparent"
+                         Keyboard="Text" />
+                  <Button Grid.Column="1"
+                          Text="{StaticResource IconPaste}"
+                          FontFamily="Segoe MDL2 Assets"
+                          FontSize="16"
+                          TextColor="{StaticResource Primary}"
+                          BackgroundColor="Transparent"
+                          WidthRequest="40" HeightRequest="40"
+                          Command="{Binding PasteActivationCodeCommand}"
+                          ToolTipProperties.Text="Paste from clipboard" />
+                </Grid>
+              </Border>
+
+              <HorizontalStackLayout Spacing="6">
+                <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+                <Label Text="{Binding HintText}"
+                       FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </HorizontalStackLayout>
+            </VerticalStackLayout>
+          </Border>
+
+          <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}"
+                 FontSize="12" Margin="4,4,0,4"
+                 IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+          <Border Style="{StaticResource GradientButtonBorder}" Margin="0,8,0,0">
+            <Button Text="🔗  Connect"
+                    Command="{Binding VerifyAndConnectCommand}"
+                    Style="{StaticResource GradientButtonOverlay}" />
+          </Border>
+
+          <Button Text="🌐  Open Activation Website"
+                  Command="{Binding OpenEmployeePortalCommand}"
+                  Style="{StaticResource OutlineButton}"
+                  Margin="0,12,0,0" />
+
+          <ActivityIndicator IsRunning="{Binding IsConnecting}"
+                             IsVisible="{Binding IsConnecting}"
+                             Color="{StaticResource Primary}"
+                             Margin="0,12,0,0" />
+
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,24,0,0">
+            <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="14,12">
+              <VerticalStackLayout Spacing="6">
+                <HorizontalStackLayout Spacing="8">
+                  <Border WidthRequest="28" HeightRequest="28"
+                          StrokeShape="RoundRectangle 14" BackgroundColor="{StaticResource PrimarySoft}"
+                          StrokeThickness="0">
+                    <Label Text="{StaticResource IconHelp}" FontFamily="Segoe MDL2 Assets"
+                           FontSize="13" TextColor="{StaticResource Primary}"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                  </Border>
+                  <Label Text="Need Help?" FontAttributes="Bold"
+                         TextColor="{StaticResource TextPrimary}" FontSize="13"
+                         VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Text="If you don't have an activation code, open the Onexso Workspace web portal and generate one."
+                       FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+            </Border>
+            <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="14,12">
+              <VerticalStackLayout Spacing="6">
+                <HorizontalStackLayout Spacing="8">
+                  <Border WidthRequest="28" HeightRequest="28"
+                          StrokeShape="RoundRectangle 14" BackgroundColor="{StaticResource PrimarySoft}"
+                          StrokeThickness="0">
+                    <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
+                           FontSize="13" TextColor="{StaticResource Primary}"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                  </Border>
+                  <Label Text="Secure Connection" FontAttributes="Bold"
+                         TextColor="{StaticResource TextPrimary}" FontSize="13"
+                         VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Text="All communication is encrypted and protected using enterprise-grade security."
+                       FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+            </Border>
+          </Grid>
+        </VerticalStackLayout>
+      </ScrollView>
+    </Grid>
+
+    <controls:FooterStatusBar Grid.Row="2"
+                              VersionText="{Binding VersionText}"
+                              ConnectionLabel="{Binding ConnectionLabel}"
+                              IsConnected="{Binding IsConnected}" />
   </Grid>
 </ContentPage>

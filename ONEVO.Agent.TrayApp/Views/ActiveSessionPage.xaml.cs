@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.Views;
 
+using ONEVO.Agent.TrayApp.Controls;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class ActiveSessionPage : ContentPage
@@ -7,6 +8,7 @@ public partial class ActiveSessionPage : ContentPage
     public ActiveSessionPage()
     {
         InitializeComponent();
+        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
     }
 
     protected override void OnHandlerChanged()

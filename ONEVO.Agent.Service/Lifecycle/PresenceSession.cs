@@ -112,12 +112,17 @@ public sealed class PresenceSession
     {
         lock (_lock)
         {
-            var breakTotal = _accumulatedBreak;
+            // Closed breaks only — tray adds open break locally so the UI can tick every second.
+            var closedBreak = _accumulatedBreak;
+            if (closedBreak < TimeSpan.Zero)
+                closedBreak = TimeSpan.Zero;
+
+            var breakTotalForWork = closedBreak;
             if (_isOnBreak && _currentBreakStartedAt is not null)
             {
                 var open = now - _currentBreakStartedAt.Value;
                 if (open > TimeSpan.Zero)
-                    breakTotal += open;
+                    breakTotalForWork += open;
             }
 
             TimeSpan work = TimeSpan.Zero;
@@ -125,7 +130,7 @@ public sealed class PresenceSession
             {
                 var end = _clockOutAt ?? now;
                 var wall = end - _clockInAt.Value;
-                work = wall - breakTotal;
+                work = wall - breakTotalForWork;
                 if (work < TimeSpan.Zero)
                     work = TimeSpan.Zero;
             }
@@ -135,7 +140,7 @@ public sealed class PresenceSession
                 ClockOutAt: _clockOutAt,
                 IsOnBreak: _isOnBreak,
                 CurrentBreakStartedAt: _currentBreakStartedAt,
-                AccumulatedBreak: breakTotal,
+                AccumulatedBreak: closedBreak,
                 AccumulatedWork: work,
                 ScheduleDisplay: _scheduleDisplay,
                 BreakSessionCount: _breakSessionCount);

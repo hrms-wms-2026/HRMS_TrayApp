@@ -120,6 +120,47 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public Task SendEnvelopeAsync(IpcEnvelope envelope, CancellationToken ct) =>
         WriteEnvelopeAsync(envelope, ct);
 
+    public async Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.ActivationCodeSubmit,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new ActivationCodeSubmitPayload(code.Trim().ToUpperInvariant()))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Activation timed out waiting for EnrollmentResult");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<EnrollmentResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task<LifecycleResultPayload?> SendLifecycleAsync(
         LifecycleAction action,
         CancellationToken ct,

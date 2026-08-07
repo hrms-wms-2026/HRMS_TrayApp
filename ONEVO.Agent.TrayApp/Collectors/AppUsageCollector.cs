@@ -13,14 +13,20 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
 
     private readonly ILogger<AppUsageCollector> _logger;
     private readonly INamedPipeClient _pipe;
+    private readonly ISessionDayMetrics _dayMetrics;
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private bool _running;
+    private static readonly TimeSpan SampleWindow = TimeSpan.FromSeconds(60);
 
-    public AppUsageCollector(ILogger<AppUsageCollector> logger, INamedPipeClient pipe)
+    public AppUsageCollector(
+        ILogger<AppUsageCollector> logger,
+        INamedPipeClient pipe,
+        ISessionDayMetrics dayMetrics)
     {
-        _logger = logger;
-        _pipe   = pipe;
+        _logger     = logger;
+        _pipe       = pipe;
+        _dayMetrics = dayMetrics;
     }
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
@@ -48,7 +54,7 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+            using var timer = new PeriodicTimer(SampleWindow);
             while (await timer.WaitForNextTickAsync(ct))
                 await EmitSampleAsync(ct);
         }
@@ -63,6 +69,8 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
             if (hwnd == IntPtr.Zero) return;
 
             string? processName = PrivacyScrubber.GetForegroundProcessNameSafe();
+            if (!string.IsNullOrWhiteSpace(processName))
+                _dayMetrics.AddAppUsageSample(processName, SampleWindow);
 
             // Hash window title in memory immediately — raw title is never stored or sent (§8.3)
             var buf = new StringBuilder(512);

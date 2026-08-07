@@ -30,7 +30,7 @@ public sealed class PresenceSessionTests
     }
 
     [Fact]
-    public void Snapshot_WhileOnBreak_IncludesOpenBreak()
+    public void Snapshot_WhileOnBreak_ClosedBreakOnly_OpenBreakInWorkMath()
     {
         var session = new PresenceSession();
         var t0 = new DateTimeOffset(2026, 8, 6, 9, 0, 0, TimeSpan.Zero);
@@ -42,8 +42,12 @@ public sealed class PresenceSessionTests
 
         var snap = session.Snapshot(now);
         Assert.True(snap.IsOnBreak);
-        Assert.Equal(TimeSpan.FromMinutes(5), snap.AccumulatedBreak);
+        Assert.Equal(t1, snap.CurrentBreakStartedAt);
+        // Closed break only — tray ticks open break from CurrentBreakStartedAt.
+        Assert.Equal(TimeSpan.Zero, snap.AccumulatedBreak);
         Assert.Equal(1, snap.BreakSessionCount);
+        // Work = 1h05m wall - 5m open break = 1h
+        Assert.Equal(TimeSpan.FromHours(1), snap.AccumulatedWork);
     }
 
     [Fact]

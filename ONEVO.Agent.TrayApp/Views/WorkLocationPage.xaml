@@ -2,97 +2,153 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.WorkLocationPage"
              x:DataType="vm:WorkLocationViewModel"
              BackgroundColor="{StaticResource Background}"
              Title="Select Your Work Location">
 
-  <Grid ColumnDefinitions="4*,6*">
+  <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
+    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
 
-    <!-- Left: illustration panel -->
-    <Border Grid.Column="0" StrokeThickness="0"
-            BackgroundColor="{StaticResource Background}">
-      <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                           Spacing="12" Padding="24">
-        <Label Text="📍" FontSize="96" HorizontalOptions="Center" />
-        <Label Text="Choose where you work today."
-               FontSize="12" TextColor="{StaticResource TextSecondary}"
-               HorizontalTextAlignment="Center" />
-      </VerticalStackLayout>
-    </Border>
+    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="4*,6*" ColumnSpacing="24">
 
-    <!-- Right: form panel -->
-    <ScrollView Grid.Column="1" BackgroundColor="{StaticResource Background}">
-      <VerticalStackLayout Padding="36,36,36,28" Spacing="0">
+      <!-- Left illustration -->
+      <Border x:Name="LeftPane" Grid.Column="0" StrokeThickness="0" StrokeShape="RoundRectangle 24"
+              BackgroundColor="{StaticResource IllustrationTint}"
+              MinimumWidthRequest="0">
+        <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12" Padding="24">
+          <Border WidthRequest="120" HeightRequest="120" StrokeShape="RoundRectangle 60"
+                  StrokeThickness="0" BackgroundColor="#DCE6FF" HorizontalOptions="Center">
+            <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
+                   FontSize="56" TextColor="{StaticResource Primary}"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
+          </Border>
+          <Label Text="Choose where you work today."
+                 FontSize="12" TextColor="{StaticResource TextSecondary}"
+                 HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+      </Border>
 
-        <!-- Header -->
-        <HorizontalStackLayout Spacing="6">
-          <Label Text="Select Your " Style="{StaticResource PageTitle}" />
-          <Label Text="Work Location" Style="{StaticResource PageTitleAccent}" />
-        </HorizontalStackLayout>
-        <Label Text="Choose your current work location before continuing."
-               Style="{StaticResource PageSubtitle}"
-               HorizontalTextAlignment="Start"
-               Margin="0,6,0,20" />
-
-        <!-- Search bar -->
-        <Border BackgroundColor="{StaticResource CardBackground}"
-                StrokeShape="RoundRectangle 10"
-                Stroke="{StaticResource Separator}" StrokeThickness="1"
-                Padding="12,4" Margin="0,0,0,14">
-          <HorizontalStackLayout Spacing="10">
-            <Label Text="🔍" FontSize="16" VerticalOptions="Center" />
-            <Entry Placeholder="Search location..."
-                   Text="{Binding SearchText}"
-                   BackgroundColor="Transparent"
-                   PlaceholderColor="{StaticResource TextMuted}"
-                   FontSize="14"
-                   HorizontalOptions="Fill" />
+      <ScrollView x:Name="RightPane" Grid.Column="1">
+        <VerticalStackLayout Padding="8,0,0,0" Spacing="0">
+          <HorizontalStackLayout Spacing="6">
+            <Label Text="Select Your " Style="{StaticResource PageTitle}" />
+            <Label Text="Work Location" Style="{StaticResource PageTitleAccent}" />
           </HorizontalStackLayout>
-        </Border>
+          <Label Text="Choose your current work location before continuing."
+                 Style="{StaticResource PageSubtitle}"
+                 HorizontalTextAlignment="Start"
+                 Margin="0,6,0,12" />
 
-        <!-- Location list -->
-        <CollectionView ItemsSource="{Binding FilteredLocations}"
-                        SelectedItem="{Binding SelectedLocation}"
-                        SelectionMode="Single"
-                        Margin="0,0,0,20">
-          <CollectionView.ItemTemplate>
-            <DataTemplate x:DataType="vm:WorkLocationOption">
-              <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="14,14">
-                <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="12">
-                  <Border Grid.Column="0" WidthRequest="36" HeightRequest="36"
-                          StrokeShape="RoundRectangle 10" BackgroundColor="#EEF2FF"
-                          StrokeThickness="0">
-                    <Label Text="📍" FontSize="18"
-                           HorizontalOptions="Center" VerticalOptions="Center" />
-                  </Border>
-                  <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                    <Label Text="{Binding DisplayName}"
-                           FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="14" />
-                    <Label Text="{Binding SubTitle}"
-                           TextColor="{StaticResource TextSecondary}" FontSize="11" />
-                  </VerticalStackLayout>
-                  <!-- Selection radio indicator -->
-                  <Border Grid.Column="2"
-                          WidthRequest="20" HeightRequest="20"
-                          StrokeShape="RoundRectangle 10"
-                          Stroke="{StaticResource Primary}" StrokeThickness="2"
-                          BackgroundColor="Transparent"
-                          VerticalOptions="Center" />
-                </Grid>
-              </Border>
-            </DataTemplate>
-          </CollectionView.ItemTemplate>
-        </CollectionView>
+          <!-- Live GPS -->
+          <Border Style="{StaticResource GlassCard}" Padding="12,10" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" RowDefinitions="Auto,Auto">
+              <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
+                <Label Text="Live location"
+                       FontAttributes="Bold" FontSize="13"
+                       TextColor="{StaticResource TextPrimary}" />
+                <Label Text="{Binding LiveLocationStatus}"
+                       FontSize="11" TextColor="{StaticResource TextSecondary}"
+                       LineBreakMode="WordWrap" />
+              </VerticalStackLayout>
+              <Button Grid.Row="0" Grid.Column="1"
+                      Text="📍 Detect"
+                      Command="{Binding DetectLiveLocationCommand}"
+                      IsEnabled="{Binding IsDetectingLocation, Converter={StaticResource InvertBoolConverter}}"
+                      BackgroundColor="{StaticResource PrimarySoft}"
+                      TextColor="{StaticResource Primary}"
+                      FontAttributes="Bold"
+                      FontSize="12"
+                      CornerRadius="18"
+                      HeightRequest="40"
+                      Padding="14,0"
+                      VerticalOptions="Center" />
+              <ActivityIndicator Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                 IsRunning="{Binding IsDetectingLocation}"
+                                 IsVisible="{Binding IsDetectingLocation}"
+                                 Color="{StaticResource Primary}"
+                                 HeightRequest="24"
+                                 HorizontalOptions="Start"
+                                 Margin="0,6,0,0" />
+            </Grid>
+          </Border>
 
-        <!-- Confirm Location button -->
-        <Border Style="{StaticResource GradientButtonBorder}">
-          <Button Text="📍  Confirm Location"
-                  Command="{Binding SaveAndContinueCommand}"
-                  Style="{StaticResource GradientButtonOverlay}" />
-        </Border>
+          <Border BackgroundColor="{StaticResource CardBackground}"
+                  StrokeShape="RoundRectangle 12"
+                  Stroke="{StaticResource Separator}" StrokeThickness="1"
+                  Padding="12,4" Margin="0,0,0,14">
+            <HorizontalStackLayout Spacing="10">
+              <Label Text="{StaticResource IconSearch}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="16" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+              <Entry Placeholder="Search location..."
+                     Text="{Binding SearchText}"
+                     BackgroundColor="Transparent"
+                     PlaceholderColor="{StaticResource TextMuted}"
+                     FontSize="14"
+                     HorizontalOptions="Fill" />
+            </HorizontalStackLayout>
+          </Border>
 
-      </VerticalStackLayout>
-    </ScrollView>
+          <CollectionView ItemsSource="{Binding FilteredLocations}"
+                          SelectedItem="{Binding SelectedLocation}"
+                          SelectionMode="Single"
+                          Margin="0,0,0,20">
+            <CollectionView.ItemTemplate>
+              <DataTemplate x:DataType="vm:WorkLocationOption">
+                <Border Style="{StaticResource GlassCard}" Margin="0,0,0,8" Padding="14,14">
+                  <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                      <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                      <Setter Property="StrokeThickness" Value="2" />
+                      <Setter Property="BackgroundColor" Value="{StaticResource PrimarySoft}" />
+                    </DataTrigger>
+                  </Border.Triggers>
+                  <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="12">
+                    <Border Grid.Column="0" WidthRequest="36" HeightRequest="36"
+                            StrokeShape="RoundRectangle 10" BackgroundColor="{StaticResource PrimarySoft}"
+                            StrokeThickness="0">
+                      <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
+                             FontSize="16" TextColor="{StaticResource Primary}"
+                             HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                      <Label Text="{Binding DisplayName}"
+                             FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="14" />
+                      <Label Text="{Binding SubTitle}"
+                             TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                    </VerticalStackLayout>
+                    <Border Grid.Column="2"
+                            WidthRequest="22" HeightRequest="22"
+                            StrokeShape="RoundRectangle 11"
+                            Stroke="{StaticResource Primary}" StrokeThickness="2"
+                            BackgroundColor="Transparent"
+                            VerticalOptions="Center">
+                      <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                          <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                        </DataTrigger>
+                      </Border.Triggers>
+                      <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                             FontSize="12" TextColor="White"
+                             HorizontalOptions="Center" VerticalOptions="Center"
+                             IsVisible="{Binding IsSelected}" />
+                    </Border>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </CollectionView.ItemTemplate>
+          </CollectionView>
+
+          <Border Style="{StaticResource GradientButtonBorder}">
+            <Button Text="📍  Confirm Location"
+                    Command="{Binding SaveAndContinueCommand}"
+                    Style="{StaticResource GradientButtonOverlay}" />
+          </Border>
+        </VerticalStackLayout>
+      </ScrollView>
+    </Grid>
+
+    <controls:FooterStatusBar Grid.Row="2" ConnectionLabel="Connected" />
   </Grid>
 </ContentPage>

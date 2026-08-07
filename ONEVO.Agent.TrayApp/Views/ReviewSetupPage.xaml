@@ -2,15 +2,18 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.ReviewSetupPage"
              x:DataType="vm:ReviewSetupViewModel"
              BackgroundColor="{StaticResource Background}"
              Title="Confirm Your Details">
 
-  <Grid ColumnDefinitions="4*,6*">
+  <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
+  <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
+  <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="4*,6*" ColumnSpacing="20">
 
     <!-- Left: gradient illustration panel -->
-    <Border Grid.Column="0" StrokeThickness="0">
+    <Border x:Name="LeftPane" Grid.Column="0" StrokeThickness="0" MinimumWidthRequest="0">
       <Grid>
         <Grid.Background>
           <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -88,8 +91,8 @@
     </Border>
 
     <!-- Right: form panel -->
-    <ScrollView Grid.Column="1" BackgroundColor="{StaticResource Background}">
-      <VerticalStackLayout Padding="36,36,36,28" Spacing="0">
+    <ScrollView x:Name="RightPane" Grid.Column="1" BackgroundColor="{StaticResource Background}">
+      <VerticalStackLayout Padding="16,8,8,16" Spacing="0">
 
         <!-- Header -->
         <HorizontalStackLayout Spacing="6">
@@ -191,7 +194,7 @@
 
         <!-- Confirm & Continue button -->
         <Border Style="{StaticResource GradientButtonBorder}" Margin="0,0,0,14">
-          <Button Text="Confirm &amp; Continue"
+          <Button Text="🛡  Confirm &amp; Continue"
                   Command="{Binding ConfirmAndContinueCommand}"
                   Style="{StaticResource GradientButtonOverlay}" />
         </Border>
@@ -206,5 +209,7 @@
 
       </VerticalStackLayout>
     </ScrollView>
+  </Grid>
+  <controls:FooterStatusBar Grid.Row="2" ConnectionLabel="Connected" />
   </Grid>
 </ContentPage>

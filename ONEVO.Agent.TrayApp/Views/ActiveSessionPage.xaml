@@ -13,19 +13,16 @@
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
           <HorizontalStackLayout Grid.Column="0" Spacing="10">
-            <Border WidthRequest="32" HeightRequest="32"
-                    StrokeShape="RoundRectangle 8" StrokeThickness="0">
-              <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                  <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
-                  <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
-                </LinearGradientBrush>
-              </Border.Background>
-              <Label Text="OV" FontSize="12" FontAttributes="Bold" TextColor="White"
+            <Border WidthRequest="36" HeightRequest="36"
+                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                    BackgroundColor="Transparent">
+              <Image Source="logo_onexso.png"
+                     Aspect="AspectFit"
+                     WidthRequest="36" HeightRequest="36"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout VerticalOptions="Center">
-              <Label Text="OneVo Workspace" FontSize="13" FontAttributes="Bold"
+              <Label Text="Onexso Workspace" FontSize="13" FontAttributes="Bold"
                      TextColor="{StaticResource TextPrimary}" />
               <Label Text="Your Workplace. Simplified."
                      FontSize="10" TextColor="{StaticResource TextSecondary}" />
@@ -36,22 +33,41 @@
         </Grid>
 
         <!-- Main body -->
-        <Grid Grid.Row="1" ColumnDefinitions="0.9*,1.1*" ColumnSpacing="20">
+        <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="0.9*,1.1*" ColumnSpacing="20">
 
           <!-- Left illustration -->
-          <Border Grid.Column="0" Style="{StaticResource Card}" Padding="16">
-            <VerticalStackLayout VerticalOptions="Center" Spacing="8">
+          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassCard}" Padding="16"
+                  BackgroundColor="{StaticResource IllustrationTint}" StrokeThickness="0"
+                  MinimumWidthRequest="0">
+            <VerticalStackLayout VerticalOptions="Center" Spacing="10">
               <Label Text="💻" FontSize="72" HorizontalOptions="Center" />
-              <Label Text="OneVo Workspace" FontSize="12" FontAttributes="Bold"
+              <Border WidthRequest="40" HeightRequest="40" StrokeShape="RoundRectangle 20"
+                      StrokeThickness="0" HorizontalOptions="Center"
+                      BackgroundColor="{StaticResource StatusGreen}">
+                <Border.Triggers>
+                  <DataTrigger TargetType="Border" Binding="{Binding IsOnBreak}" Value="True">
+                    <Setter Property="BackgroundColor" Value="{StaticResource StatusOrange}" />
+                  </DataTrigger>
+                </Border.Triggers>
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="18" TextColor="White"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <Label Text="Onexso Workspace" FontSize="12" FontAttributes="Bold"
                      TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
               <Label Text="Live monitoring active"
                      FontSize="10" TextColor="{StaticResource TextSecondary}"
-                     HorizontalOptions="Center" />
+                     HorizontalOptions="Center"
+                     IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}" />
+              <Label Text="On a short break"
+                     FontSize="10" TextColor="{StaticResource StatusOrange}"
+                     HorizontalOptions="Center"
+                     IsVisible="{Binding IsOnBreak}" />
             </VerticalStackLayout>
           </Border>
 
           <!-- Right status + actions -->
-          <VerticalStackLayout Grid.Column="1" Spacing="12">
+          <VerticalStackLayout x:Name="RightPane" Grid.Column="1" Spacing="12">
 
             <Label Text="{Binding HeaderTitle}"
                    FontSize="22" FontAttributes="Bold"
@@ -116,31 +132,19 @@
                       Text="☕  Break"
                       Command="{Binding RequestBreakCommand}"
                       IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}"
-                      BackgroundColor="{StaticResource StatusOrange}"
-                      TextColor="White"
-                      FontAttributes="Bold"
-                      CornerRadius="24"
-                      HeightRequest="48" />
+                      Style="{StaticResource OrangePillButton}" />
 
               <!-- End Break (break only) -->
               <Button Grid.Column="0"
                       Text="☕  End Break"
                       Command="{Binding EndBreakCommand}"
                       IsVisible="{Binding IsOnBreak}"
-                      BackgroundColor="{StaticResource StatusOrange}"
-                      TextColor="White"
-                      FontAttributes="Bold"
-                      CornerRadius="24"
-                      HeightRequest="48" />
+                      Style="{StaticResource OrangePillButton}" />
 
               <Button Grid.Column="1"
                       Text="⏻  Clock Out"
                       Command="{Binding ClockOutCommand}"
-                      BackgroundColor="{StaticResource StatusRed}"
-                      TextColor="White"
-                      FontAttributes="Bold"
-                      CornerRadius="24"
-                      HeightRequest="48" />
+                      Style="{StaticResource RedPillButton}" />
 
               <Button Grid.Column="2"
                       Text="📊  Dashboard"
@@ -164,10 +168,17 @@
         </Grid>
 
         <!-- Today's Summary strip -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,16,0,8" Padding="14">
+        <Border Grid.Row="2" Style="{StaticResource GlassCard}" Margin="0,16,0,8" Padding="14">
           <VerticalStackLayout Spacing="10">
-            <Label Text="Today's Summary" FontSize="13" FontAttributes="Bold"
-                   TextColor="{StaticResource TextPrimary}" />
+            <HorizontalStackLayout Spacing="8">
+              <Label Text="📈" FontSize="16" VerticalOptions="Center" />
+              <VerticalStackLayout VerticalOptions="Center">
+                <Label Text="Today's Summary" FontSize="13" FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Here's how your day is shaping up."
+                       FontSize="10" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+            </HorizontalStackLayout>
             <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
               <VerticalStackLayout Grid.Column="0" Spacing="2">
                 <Label Text="Work Duration" FontSize="10" TextColor="{StaticResource TextSecondary}" />
@@ -185,7 +196,7 @@
                        TextColor="{StaticResource Primary}" />
               </VerticalStackLayout>
               <VerticalStackLayout Grid.Column="3" Spacing="2">
-                <Label Text="Tasks" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="Tasks Completed" FontSize="10" TextColor="{StaticResource TextSecondary}" />
                 <Label Text="{Binding TasksCompletedDisplay}" FontSize="14" FontAttributes="Bold"
                        TextColor="{StaticResource TextPrimary}" />
               </VerticalStackLayout>
@@ -202,7 +213,7 @@
           <HorizontalStackLayout Grid.Column="2" Spacing="6">
             <Ellipse WidthRequest="8" HeightRequest="8"
                      Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
-            <Label Text="Connected to OneVo Server" FontSize="11"
+            <Label Text="Connected to Onexso Server" FontSize="11"
                    TextColor="{StaticResource TextSecondary}" />
           </HorizontalStackLayout>
         </Grid>

@@ -4,6 +4,6 @@ public sealed partial class LoginWindowViewModel : BaseViewModel
 {
     public LoginWindowViewModel()
     {
-        Title = "Connect ONEVO WorkPulse";
+        Title = "Connect Onexso WorkPulse";
     }
 }

@@ -1,24 +1,63 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using System.Text.Json;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.Shared.IPC;
 
 public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 {
+    /// <summary>Local/dev demo code so employee can proceed without portal when Service allows local enrollment.</summary>
+    public const string DemoActivationCode = "ONEXSO12";
+
     private readonly INamedPipeClient _pipe;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(VerifyAndConnectCommand))]
-    private string _activationCode = string.Empty;
+    private string _activationCode = DemoActivationCode;
 
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private bool _isConnecting;
+    [ObservableProperty] private bool _isConnected;
+    [ObservableProperty] private string _connectionLabel = "Not Connected";
+    [ObservableProperty] private string _versionText = "Version 1.0.0";
+    [ObservableProperty] private string _hintText =
+        "Dev/local code is pre-filled (ONEXSO12). Or paste the 8-char code from the employee portal.";
 
     public ConnectWorkspaceViewModel(INamedPipeClient pipe)
     {
-        Title = "Connect OneVo Workspace";
+        Title = "Connect Onexso Workspace";
         _pipe = pipe;
+        _pipe.OnDisconnected += () =>
+        {
+            try
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    IsConnected = false;
+                    ConnectionLabel = "Not Connected";
+                });
+            }
+            catch
+            {
+                IsConnected = false;
+                ConnectionLabel = "Not Connected";
+            }
+        };
+        _pipe.OnStateReceived += _ =>
+        {
+            try
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                {
+                    IsConnected = true;
+                    ConnectionLabel = "Connected";
+                });
+            }
+            catch
+            {
+                IsConnected = true;
+                ConnectionLabel = "Connected";
+            }
+        };
     }
 
     private bool CanVerify =>
@@ -32,19 +71,46 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         ErrorMessage = null;
         try
         {
-            var payload  = new ActivationCodeSubmitPayload(ActivationCode.Trim().ToUpperInvariant());
-            var envelope = new IpcEnvelope
+            var code = ActivationCode.Trim().ToUpperInvariant();
+            var result = await _pipe.SendActivationAsync(code, ct);
+
+            if (result is null)
             {
-                Type    = IpcMessageTypes.ActivationCodeSubmit,
-                Payload = JsonSerializer.SerializeToElement(payload)
-            };
-            await _pipe.SendEnvelopeAsync(envelope, ct);
+                ErrorMessage = "No response from Onexso Agent Service. Is the service running?";
+                IsConnected = false;
+                ConnectionLabel = "Not Connected";
+                return;
+            }
+
+            if (!result.Success)
+            {
+                ErrorMessage = result.ErrorCode switch
+                {
+                    "INVALID_CODE" => "Invalid activation code. Use at least 6 characters (portal codes are 8).",
+                    "LOCKED" => "Device is locked. Contact your admin.",
+                    _ => result.ErrorCode ?? "Activation failed."
+                };
+                IsConnected = false;
+                ConnectionLabel = "Not Connected";
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.EmployeeName))
+            {
+                try { Preferences.Set("onevo.employee_display_name", result.EmployeeName); }
+                catch { /* unit tests */ }
+            }
+
+            IsConnected = true;
+            ConnectionLabel = "Connected";
             try { await Shell.Current.GoToAsync("//prepare"); }
             catch { /* unit tests */ }
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Connection failed: {ex.Message}";
+            IsConnected = false;
+            ConnectionLabel = "Not Connected";
         }
         finally
         {
@@ -53,10 +119,28 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     }
 
     [RelayCommand]
+    private async Task PasteActivationCodeAsync()
+    {
+        try
+        {
+            if (Clipboard.Default.HasText)
+            {
+                var text = await Clipboard.Default.GetTextAsync();
+                if (!string.IsNullOrWhiteSpace(text))
+                    ActivationCode = text.Trim().ToUpperInvariant();
+            }
+        }
+        catch
+        {
+            // Clipboard unavailable in unit tests / restricted hosts.
+        }
+    }
+
+    [RelayCommand]
     private static void OpenEmployeePortal() =>
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
-            FileName        = "https://app.onevo.com",
+            FileName        = "https://app.onexsoworkspace.com",
             UseShellExecute = true
         });
 }

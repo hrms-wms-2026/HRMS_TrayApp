@@ -41,7 +41,7 @@ public class ActivitySyncServiceTests
     [Fact]
     public async Task FlushAsync_EmptyBuffer_DoesNothing()
     {
-        var buffer = new ActivityRecordBuffer();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
         var svc = Build(buffer);
 
         await svc.FlushAsync(CancellationToken.None);
@@ -52,7 +52,7 @@ public class ActivitySyncServiceTests
     [Fact]
     public async Task FlushAsync_NoJwt_RequeusBatch()
     {
-        var buffer = new ActivityRecordBuffer();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
         buffer.TryEnqueue(MakeRecord(
             CollectionRecordTypes.AppUsageSnapshot,
             CollectionSchemaVersions.AppUsageSnapshotV1,
@@ -69,7 +69,7 @@ public class ActivitySyncServiceTests
     [Fact]
     public async Task FlushAsync_NoApiBaseUrl_RequeusBatch()
     {
-        var buffer = new ActivityRecordBuffer();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
         buffer.TryEnqueue(MakeRecord(
             CollectionRecordTypes.DeviceStateSnapshot,
             CollectionSchemaVersions.DeviceStateSnapshotV1,
@@ -86,7 +86,7 @@ public class ActivitySyncServiceTests
     public async Task FlushAsync_EmptyBuffer_HttpClientNeverCalled()
     {
         var factory = new RecordingHttpClientFactory(HttpStatusCode.OK);
-        var buffer  = new ActivityRecordBuffer();
+        var buffer  = ActivityRecordBuffer.CreateInMemory();
         var svc     = Build(buffer, factory);
 
         await svc.FlushAsync(CancellationToken.None);
@@ -97,7 +97,7 @@ public class ActivitySyncServiceTests
     [Fact]
     public void ActivityRecordBuffer_AcceptsAllThreeRecordTypes()
     {
-        var buffer = new ActivityRecordBuffer();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
 
         var activity = MakeRecord(
             CollectionRecordTypes.ActivitySnapshot,

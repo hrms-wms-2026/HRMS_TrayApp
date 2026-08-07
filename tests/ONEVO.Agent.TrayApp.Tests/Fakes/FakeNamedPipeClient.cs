@@ -35,6 +35,30 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
         return Task.CompletedTask;
     }
 
+    /// <summary>Optional canned enrollment result. Null = auto-success.</summary>
+    public EnrollmentResultPayload? NextEnrollmentResult { get; set; }
+
+    public Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.ActivationCodeSubmit,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new ActivationCodeSubmitPayload(code.Trim().ToUpperInvariant()))
+        });
+
+        if (NextEnrollmentResult is not null)
+            return Task.FromResult<EnrollmentResultPayload?>(NextEnrollmentResult);
+
+        return Task.FromResult<EnrollmentResultPayload?>(
+            new EnrollmentResultPayload
+            {
+                Success = true,
+                ErrorCode = null,
+                EmployeeName = "Test Employee"
+            });
+    }
+
     public Task<LifecycleResultPayload?> SendLifecycleAsync(
         LifecycleAction action,
         CancellationToken ct,

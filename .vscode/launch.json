@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Agent Service",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-service",
+      "program": "${workspaceFolder}/ONEVO.Agent.Service/bin/Debug/net10.0-windows/ONEVO.Agent.Service.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/ONEVO.Agent.Service",
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": "Tray App",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-tray",
+      "program": "${workspaceFolder}/ONEVO.Agent.TrayApp/bin/Debug/net10.0-windows10.0.19041.0/win-x64/ONEVO.Agent.TrayApp.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/ONEVO.Agent.TrayApp",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Service + Tray App",
+      "configurations": ["Agent Service", "Tray App"],
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "group": "",
+        "order": 1
+      }
+    }
+  ]
+}

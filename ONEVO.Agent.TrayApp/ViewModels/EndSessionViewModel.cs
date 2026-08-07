@@ -1,13 +1,17 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
+public sealed record TopAppItem(string Name, string Duration);
+
 public sealed partial class EndSessionViewModel : BaseViewModel
 {
     private readonly INamedPipeClient _pipe;
+    private readonly ISessionDayMetrics _dayMetrics;
     private bool _subscribed;
 
     [ObservableProperty] private string _clockInDisplay     = "—";
@@ -22,11 +26,19 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     [ObservableProperty] private string? _message;
     [ObservableProperty] private string? _errorMessage;
 
-    public EndSessionViewModel(INamedPipeClient pipe)
+    public ObservableCollection<TopAppItem> TopApps { get; } = [];
+
+    public EndSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics)
     {
         Title = "Workday Completed";
         _pipe = pipe;
+        _dayMetrics = dayMetrics;
+        Message = "Here is your daily monitoring summary for today.";
     }
+
+    /// <summary>Test helper.</summary>
+    public EndSessionViewModel(INamedPipeClient pipe)
+        : this(pipe, new SessionDayMetrics()) { }
 
     public void OnAppearing()
     {
@@ -35,6 +47,14 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             _pipe.OnStatusReceived += OnStatus;
             _subscribed = true;
         }
+
+        // Prefer last completed session from Clock Out (most accurate).
+        if (_dayMetrics.LastCompletedSession is { } completed)
+            LoadFromSnapshot(completed);
+        else if (_pipe.LastKnownStatus?.Session is { } cached)
+            LoadFromSnapshot(cached);
+
+        RefreshTopAppsAndIdle();
 
         _ = _pipe.SendEnvelopeAsync(
             new IpcEnvelope { Type = IpcMessageTypes.StatusRequest },
@@ -52,24 +72,61 @@ public sealed partial class EndSessionViewModel : BaseViewModel
 
     private void OnStatus(StatusResponsePayload status)
     {
+        // After clock-out state is Stopped; still load session if present.
         if (status.Session is null) return;
-        void Apply() => LoadFromSnapshot(status.Session);
-        if (MainThread.IsMainThread) Apply();
-        else MainThread.BeginInvokeOnMainThread(Apply);
+
+        // Don't wipe a good completed snapshot with an empty/live one missing clock-out.
+        if (status.Session.ClockOutAt is null
+            && _dayMetrics.LastCompletedSession is { ClockOutAt: not null })
+            return;
+
+        void Apply()
+        {
+            LoadFromSnapshot(status.Session);
+            RefreshTopAppsAndIdle();
+        }
+
+        try
+        {
+            if (MainThread.IsMainThread) Apply();
+            else MainThread.BeginInvokeOnMainThread(Apply);
+        }
+        catch { Apply(); }
     }
 
     public void LoadFromSnapshot(SessionSnapshot session)
     {
         if (session.ClockInAt is not null)
             ClockInDisplay = session.ClockInAt.Value.ToLocalTime().ToString("hh:mm tt");
+        else
+            ClockInDisplay = "—";
+
         if (session.ClockOutAt is not null)
             ClockOutDisplay = session.ClockOutAt.Value.ToLocalTime().ToString("hh:mm tt");
+        else
+            ClockOutDisplay = "—";
 
-        BreakTimeDisplay      = Format(session.AccumulatedBreak);
-        WorkingTimeDisplay    = Format(session.AccumulatedWork);
-        ProductiveTimeDisplay = Format(session.AccumulatedWork); // stub until productivity model
-        IdleTimeDisplay       = "00:00:00";                      // stub
-        BreakSessionsDisplay  = session.BreakSessionCount.ToString();
+        var breakTime = session.AccumulatedBreak < TimeSpan.Zero
+            ? TimeSpan.Zero
+            : session.AccumulatedBreak;
+        var workTime = session.AccumulatedWork < TimeSpan.Zero
+            ? TimeSpan.Zero
+            : session.AccumulatedWork;
+
+        // Recompute work from anchors if service sent zero but times exist.
+        if (workTime == TimeSpan.Zero
+            && session.ClockInAt is not null
+            && session.ClockOutAt is not null)
+        {
+            var wall = session.ClockOutAt.Value - session.ClockInAt.Value;
+            if (wall < TimeSpan.Zero) wall = TimeSpan.Zero;
+            workTime = wall - breakTime;
+            if (workTime < TimeSpan.Zero) workTime = TimeSpan.Zero;
+        }
+
+        BreakTimeDisplay   = Format(breakTime);
+        WorkingTimeDisplay = Format(workTime);
+        BreakSessionsDisplay = Math.Max(0, session.BreakSessionCount).ToString();
 
         if (session.ClockInAt is not null && session.ClockOutAt is not null)
         {
@@ -77,9 +134,47 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             if (shift < TimeSpan.Zero) shift = TimeSpan.Zero;
             TotalShiftDisplay = Format(shift);
         }
+        else
+        {
+            TotalShiftDisplay = Format(workTime + breakTime);
+        }
+
+        // Productive ≈ work minus measured idle (clamped).
+        var idle = _dayMetrics.TotalIdle;
+        if (idle > workTime) idle = workTime;
+        var productive = workTime - idle;
+        if (productive < TimeSpan.Zero) productive = TimeSpan.Zero;
+
+        IdleTimeDisplay       = Format(idle);
+        ProductiveTimeDisplay = Format(productive);
 
         StatusText = "Clocked Out";
         Message    = "Here is your daily monitoring summary for today.";
+
+        RefreshTopAppsAndIdle();
+    }
+
+    private void RefreshTopAppsAndIdle()
+    {
+        TopApps.Clear();
+        var top = _dayMetrics.GetTopApps(5);
+        if (top.Count == 0)
+        {
+            TopApps.Add(new TopAppItem("No app activity yet", "00:00:00"));
+            return;
+        }
+
+        foreach (var (name, duration) in top)
+            TopApps.Add(new TopAppItem(PrettyProcessName(name), Format(duration)));
+    }
+
+    private static string PrettyProcessName(string processName)
+    {
+        var n = processName.Trim();
+        if (n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            n = n[..^4];
+        if (n.Length == 0) return "Unknown";
+        return char.ToUpperInvariant(n[0]) + n[1..];
     }
 
     /// <summary>Legacy helper used by older tests / call sites.</summary>
@@ -95,7 +190,6 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             AccumulatedWork: (clockOut - clockIn) - breakTime - afkTime,
             ScheduleDisplay: null,
             BreakSessionCount: breakTime > TimeSpan.Zero ? 1 : 0));
-        _ = afkTime;
         _ = meetingTime;
     }
 
@@ -109,7 +203,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = "https://onevo.example.com/dashboard",
+                FileName = "https://app.onexsoworkspace.com/dashboard",
                 UseShellExecute = true
             });
         }
@@ -126,16 +220,21 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             if (!Directory.Exists(dir))
                 dir = downloads;
 
-            var path = Path.Combine(dir, $"ONEVO-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+            var path = Path.Combine(dir, $"Onexso-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
             var sb = new StringBuilder();
-            sb.AppendLine("ONEVO WorkPulse — Daily Work Summary");
+            sb.AppendLine("Onexso WorkPulse — Daily Work Summary");
             sb.AppendLine($"Status: {StatusText}");
             sb.AppendLine($"Clock In:  {ClockInDisplay}");
             sb.AppendLine($"Clock Out: {ClockOutDisplay}");
             sb.AppendLine($"Total Shift: {TotalShiftDisplay}");
             sb.AppendLine($"Working: {WorkingTimeDisplay}");
             sb.AppendLine($"Break: {BreakTimeDisplay}");
+            sb.AppendLine($"Productive: {ProductiveTimeDisplay}");
+            sb.AppendLine($"Idle: {IdleTimeDisplay}");
             sb.AppendLine($"Break Sessions: {BreakSessionsDisplay}");
+            sb.AppendLine("Top Apps:");
+            foreach (var app in TopApps)
+                sb.AppendLine($"  - {app.Name}: {app.Duration}");
             await File.WriteAllTextAsync(path, sb.ToString());
             Message = $"Summary saved to {path}";
         }

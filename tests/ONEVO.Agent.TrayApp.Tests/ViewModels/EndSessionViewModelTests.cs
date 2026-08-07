@@ -27,6 +27,33 @@ public sealed class EndSessionViewModelTests
         Assert.Equal("09:00:00", vm.TotalShiftDisplay);
         Assert.NotEqual("—", vm.ClockInDisplay);
         Assert.NotEqual("—", vm.ClockOutDisplay);
+        // Productive starts as work when no idle samples.
+        Assert.Equal("08:10:00", vm.ProductiveTimeDisplay);
+    }
+
+    [Fact]
+    public void LoadFromSnapshot_UsesDayMetricsForIdleAndTopApps()
+    {
+        var metrics = new ONEVO.Agent.TrayApp.Services.SessionDayMetrics();
+        metrics.AddIdleSample(TimeSpan.FromMinutes(20));
+        metrics.AddAppUsageSample("chrome.exe", TimeSpan.FromMinutes(45));
+        metrics.AddAppUsageSample("Code.exe", TimeSpan.FromMinutes(90));
+
+        var pipe = new FakeNamedPipeClient();
+        var vm = new EndSessionViewModel(pipe, metrics);
+        var clockIn  = new DateTimeOffset(2026, 8, 6, 9, 0, 0, TimeSpan.Zero);
+        var clockOut = new DateTimeOffset(2026, 8, 6, 12, 0, 0, TimeSpan.Zero);
+        vm.LoadFromSnapshot(new SessionSnapshot(
+            clockIn, clockOut, false, null,
+            TimeSpan.FromMinutes(10),
+            TimeSpan.FromHours(2) + TimeSpan.FromMinutes(50),
+            null, 1));
+
+        Assert.Equal("00:20:00", vm.IdleTimeDisplay);
+        Assert.Equal("02:30:00", vm.ProductiveTimeDisplay); // 2h50m - 20m idle
+        Assert.Contains(vm.TopApps, a => a.Name.Contains("Code", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(vm.TopApps, a => a.Name.Contains("chrome", StringComparison.OrdinalIgnoreCase)
+                                      || a.Name.Contains("Chrome", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

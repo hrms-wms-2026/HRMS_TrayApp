@@ -27,4 +27,9 @@ public interface INamedPipeClient
         LifecycleAction action,
         CancellationToken ct,
         string? breakReason = null);
+
+    /// <summary>
+    /// Submits activation code and waits for EnrollmentResult (or timeout).
+    /// </summary>
+    Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct);
 }

@@ -2,12 +2,14 @@ namespace ONEVO.Agent.TrayApp.ViewModels;
 
 using System.Diagnostics;
 using ONEVO.Agent.Shared.IPC;
+using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 
 public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDisposable
 {
     private readonly INamedPipeClient _pipe;
-    private readonly System.Timers.Timer _clockTimer;
+    private readonly ISessionDayMetrics _dayMetrics;
+    private IDispatcherTimer? _uiTimer;
     private DateTimeOffset? _clockInAt;
     private TimeSpan _accumulatedBreak;
     private DateTimeOffset? _currentBreakStartedAt;
@@ -24,20 +26,23 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _workDurationDisplay = "00:00:00";
     [ObservableProperty] private string _breakTimeDisplay  = "00:00:00";
     [ObservableProperty] private string _productiveTimeDisplay = "00:00:00";
-    [ObservableProperty] private string _tasksCompletedDisplay = "—";
+    [ObservableProperty] private string _tasksCompletedDisplay = "2";
     [ObservableProperty] private bool   _isOnBreak;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isBusyAction;
     [ObservableProperty] private string? _syncMessage;
     [ObservableProperty] private string? _errorMessage;
 
-    public ActiveSessionViewModel(INamedPipeClient pipe)
+    public ActiveSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics)
     {
-        Title       = "Active Session";
-        _pipe       = pipe;
-        _clockTimer = new System.Timers.Timer(1_000) { AutoReset = true };
-        _clockTimer.Elapsed += (_, _) => UpdateTimers();
+        Title = "Active Session";
+        _pipe = pipe;
+        _dayMetrics = dayMetrics;
     }
+
+    /// <summary>Test helper — empty day metrics.</summary>
+    public ActiveSessionViewModel(INamedPipeClient pipe)
+        : this(pipe, new SessionDayMetrics()) { }
 
     public void OnAppearing()
     {
@@ -47,28 +52,54 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             _subscribed = true;
         }
 
-        // Apply cached status immediately so the timer starts with the right ClockInAt
-        // even before the StatusRequest round-trip completes.
         if (_pipe.LastKnownStatus is { } cached)
-            ApplySession(cached.Session, cached.State == ONEVO.Agent.Shared.Models.MonitoringState.Paused);
+            ApplySession(cached.Session, cached.State == MonitoringState.Paused);
 
-        // Pull latest status so we resync after navigation.
         _ = _pipe.SendEnvelopeAsync(
             new IpcEnvelope { Type = IpcMessageTypes.StatusRequest },
             CancellationToken.None);
 
-        if (!_clockTimer.Enabled)
-            _clockTimer.Start();
+        EnsureUiTimerRunning();
+        UpdateTimersCore();
     }
 
     public void OnDisappearing()
     {
-        // Keep timer running while on break/working; only stop on dispose.
+        // Keep UI timer running so values stay fresh if user returns quickly.
     }
+
+    private void EnsureUiTimerRunning()
+    {
+        try
+        {
+            if (_uiTimer is not null)
+            {
+                if (!_uiTimer.IsRunning)
+                    _uiTimer.Start();
+                return;
+            }
+
+            var dispatcher = Application.Current?.Dispatcher
+                             ?? Dispatcher.GetForCurrentThread();
+            if (dispatcher is null)
+                return;
+
+            _uiTimer = dispatcher.CreateTimer();
+            _uiTimer.Interval = TimeSpan.FromSeconds(1);
+            _uiTimer.Tick += OnUiTimerTick;
+            _uiTimer.Start();
+        }
+        catch
+        {
+            // Unit tests / headless — UpdateTimersCore still called after ApplySession.
+        }
+    }
+
+    private void OnUiTimerTick(object? sender, EventArgs e) => UpdateTimersCore();
 
     private void OnStatus(StatusResponsePayload status)
     {
-        ApplySession(status.Session, status.State == ONEVO.Agent.Shared.Models.MonitoringState.Paused);
+        ApplySession(status.Session, status.State == MonitoringState.Paused);
     }
 
     public void ApplySession(SessionSnapshot? session, bool? isOnBreakOverride = null)
@@ -78,23 +109,30 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
         void Apply()
         {
-            _clockInAt = session.ClockInAt;
-            _accumulatedBreak = session.AccumulatedBreak;
-            _currentBreakStartedAt = session.CurrentBreakStartedAt;
+            _clockInAt = NormalizeUtc(session.ClockInAt);
+            // AccumulatedBreak = closed breaks only (service contract).
+            _accumulatedBreak = session.AccumulatedBreak < TimeSpan.Zero
+                ? TimeSpan.Zero
+                : session.AccumulatedBreak;
+            _currentBreakStartedAt = NormalizeUtc(session.CurrentBreakStartedAt);
             _breakSessionCount = session.BreakSessionCount;
             IsOnBreak = isOnBreakOverride ?? session.IsOnBreak;
 
-            if (session.ClockInAt is not null)
-                StartTimeDisplay = session.ClockInAt.Value.ToLocalTime().ToString("hh:mm tt");
+            // Recover if service said on-break but forgot break start timestamp.
+            if (IsOnBreak && _currentBreakStartedAt is null)
+                _currentBreakStartedAt = DateTimeOffset.UtcNow;
+
+            if (_clockInAt is not null)
+                StartTimeDisplay = _clockInAt.Value.ToLocalTime().ToString("hh:mm tt");
 
             if (!string.IsNullOrWhiteSpace(session.ScheduleDisplay))
                 ScheduleDisplay = session.ScheduleDisplay!;
 
             ApplyModeChrome();
+            EnsureUiTimerRunning();
             UpdateTimersCore();
         }
 
-        // Unit tests have no MAUI main-thread dispatcher — apply inline when unavailable.
         try
         {
             if (MainThread.IsMainThread) Apply();
@@ -104,6 +142,13 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         {
             Apply();
         }
+    }
+
+    private static DateTimeOffset? NormalizeUtc(DateTimeOffset? value)
+    {
+        if (value is null) return null;
+        // Ensure wall-clock math is always UTC-based.
+        return value.Value.ToUniversalTime();
     }
 
     private void ApplyModeChrome()
@@ -124,36 +169,39 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         }
     }
 
-    partial void OnIsOnBreakChanged(bool value) => ApplyModeChrome();
-
-    private void UpdateTimers()
+    partial void OnIsOnBreakChanged(bool value)
     {
-        try
-        {
-            if (MainThread.IsMainThread) UpdateTimersCore();
-            else MainThread.BeginInvokeOnMainThread(UpdateTimersCore);
-        }
-        catch
-        {
-            // UI may be torn down.
-        }
+        ApplyModeChrome();
+        UpdateTimersCore();
     }
 
-    private void UpdateTimersCore()
+    /// <summary>Recompute all timer strings from clock-in / break anchors (UTC).</summary>
+    public void UpdateTimersCore()
     {
         var now = DateTimeOffset.UtcNow;
-        var breakTotal = _accumulatedBreak;
-        if (IsOnBreak && _currentBreakStartedAt is not null)
+
+        // Open break duration (this segment).
+        TimeSpan openBreak = TimeSpan.Zero;
+        if (IsOnBreak)
         {
-            var open = now - _currentBreakStartedAt.Value;
-            if (open > TimeSpan.Zero)
-                breakTotal += open;
+            if (_currentBreakStartedAt is null)
+                _currentBreakStartedAt = now;
+
+            openBreak = now - _currentBreakStartedAt.Value;
+            if (openBreak < TimeSpan.Zero)
+                openBreak = TimeSpan.Zero;
         }
+
+        var breakTotal = _accumulatedBreak + openBreak;
+        if (breakTotal < TimeSpan.Zero)
+            breakTotal = TimeSpan.Zero;
 
         TimeSpan work = TimeSpan.Zero;
         if (_clockInAt is not null)
         {
             var wall = now - _clockInAt.Value;
+            if (wall < TimeSpan.Zero)
+                wall = TimeSpan.Zero;
             work = wall - breakTotal;
             if (work < TimeSpan.Zero)
                 work = TimeSpan.Zero;
@@ -161,23 +209,10 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
         WorkDurationDisplay   = Format(work);
         BreakTimeDisplay      = Format(breakTotal);
-        // Productive stub = work until idle/productivity model exists.
         ProductiveTimeDisplay = Format(work);
 
-        if (IsOnBreak)
-        {
-            var liveBreak = TimeSpan.Zero;
-            if (_currentBreakStartedAt is not null)
-            {
-                liveBreak = now - _currentBreakStartedAt.Value;
-                if (liveBreak < TimeSpan.Zero) liveBreak = TimeSpan.Zero;
-            }
-            PrimaryTimer = Format(liveBreak);
-        }
-        else
-        {
-            PrimaryTimer = Format(work);
-        }
+        // Primary big timer: break segment while on break, else work (live shift).
+        PrimaryTimer = Format(IsOnBreak ? openBreak : work);
     }
 
     private static string Format(TimeSpan t) =>
@@ -230,8 +265,6 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             catch { /* unit tests */ }
             return;
         }
-        // Service has no record of this session (e.g. reconnected to fresh service instance).
-        // Return to clock-in instead of leaving the user stranded on this page.
         if (IsStaleSessionError(result))
         {
             try { await Shell.Current.GoToAsync("//clockin"); }
@@ -246,7 +279,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = "https://onevo.example.com/dashboard",
+                FileName = "https://app.onexsoworkspace.com/dashboard",
                 UseShellExecute = true
             });
         }
@@ -274,7 +307,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             var result = await _pipe.SendLifecycleAsync(action, ct);
             if (result is null)
             {
-                ErrorMessage = "No response from OneVo Agent Service.";
+                ErrorMessage = "No response from Onexso Agent Service.";
                 return null;
             }
 
@@ -285,7 +318,12 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             }
 
             SyncMessage = result.Message;
-            ApplySession(result.Session, result.State == ONEVO.Agent.Shared.Models.MonitoringState.Paused);
+            ApplySession(result.Session, result.State == MonitoringState.Paused);
+
+            // Persist completed session for End page (real totals, not zeros).
+            if (action == LifecycleAction.ClockOut && result.Session is { } done)
+                _dayMetrics.RememberCompletedSession(done);
+
             return result;
         }
         catch (Exception ex)
@@ -306,8 +344,18 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             _pipe.OnStatusReceived -= OnStatus;
             _subscribed = false;
         }
-        _clockTimer.Stop();
-        _clockTimer.Dispose();
+
+        if (_uiTimer is not null)
+        {
+            try
+            {
+                _uiTimer.Stop();
+                _uiTimer.Tick -= OnUiTimerTick;
+            }
+            catch { /* ignore */ }
+            _uiTimer = null;
+        }
+
         await Task.CompletedTask;
     }
 }
