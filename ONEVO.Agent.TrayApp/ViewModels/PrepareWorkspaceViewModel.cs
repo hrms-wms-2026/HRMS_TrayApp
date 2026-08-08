@@ -36,11 +36,13 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
         EmployeeEmail    = _preferences.Get("onevo.employee_email", string.Empty);
         EmployeeId       = _preferences.Get("onevo.employee_id", string.Empty);
         OnPropertyChanged(nameof(CanContinue));
+        ContinueSetupCommand.NotifyCanExecuteChanged();
 
         await Task.Delay(500, ct);
         WorkspacePrepared = true;
         IsLoading         = false;
         OnPropertyChanged(nameof(CanContinue));
+        ContinueSetupCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand]

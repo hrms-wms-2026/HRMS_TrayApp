@@ -87,4 +87,17 @@ public sealed class PrepareWorkspaceViewModelTests
         Assert.Equal(string.Empty, vm.EmployeeEmail);
         Assert.Equal(string.Empty, vm.EmployeeId);
     }
+
+    [Fact]
+    public async Task LoadAsync_NotifiesContinueSetupCommandCanExecuteChanged()
+    {
+        var vm = new PrepareWorkspaceViewModel(new FakePreferencesStore());
+        var fired = false;
+        vm.ContinueSetupCommand.CanExecuteChanged += (_, _) => fired = true;
+
+        await vm.LoadAsync(CancellationToken.None);
+
+        Assert.True(fired, "Continue button must be told to re-check CanExecute once setup finishes");
+        Assert.True(vm.ContinueSetupCommand.CanExecute(null));
+    }
 }
