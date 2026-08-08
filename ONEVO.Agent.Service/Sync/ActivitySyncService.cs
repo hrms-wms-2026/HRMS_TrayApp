@@ -116,8 +116,88 @@ public sealed class ActivitySyncService : BackgroundService
             batch.Where(r => r.RecordType == CollectionRecordTypes.WorkSession).ToList(),
             jwt, ct));
 
+        requeue.AddRange(await FlushScreenshotsAsync(
+            batch.Where(r => r.RecordType == CollectionRecordTypes.Screenshot).ToList(),
+            jwt, ct));
+
         if (requeue.Count > 0)
             _buffer.RequeueFront(requeue);
+    }
+
+    /// <summary>
+    /// One POST per screenshot (multipart — each carries a full image, no JSON batching).
+    /// </summary>
+    private async Task<List<CollectionRecord>> FlushScreenshotsAsync(
+        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    {
+        if (records.Count == 0) return [];
+
+        var requeue = new List<CollectionRecord>();
+        foreach (var record in records)
+        {
+            ScreenshotPayload? shot;
+            byte[] bytes;
+            try
+            {
+                shot = record.Payload.Deserialize<ScreenshotPayload>(JsonOptions);
+                if (shot is null) continue;
+                bytes = Convert.FromBase64String(shot.Data);
+            }
+            catch (Exception ex) when (ex is JsonException or FormatException)
+            {
+                _logger.LogWarning("Corrupt screenshot record quarantined eventId={EventId}", record.EventId);
+                continue;
+            }
+
+            using var content = new MultipartFormDataContent();
+            using var fileContent = new ByteArrayContent(bytes);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue($"image/{shot.Format}");
+            content.Add(fileContent, "file", $"{record.EventId}.{shot.Format}");
+            content.Add(new StringContent(shot.CapturedAt.ToString("O")), "capturedAt");
+
+            var failed = await PostFormAsync(AgentApiRoutes.ScreenshotSubmit, jwt, content, [record], ct);
+            requeue.AddRange(failed);
+        }
+
+        return requeue;
+    }
+
+    private async Task<List<CollectionRecord>> PostFormAsync(
+        string route, string jwt, HttpContent content, List<CollectionRecord> records, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = content };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "HTTP failed for {Route} — re-queue {Count}", route, records.Count);
+            return records;
+        }
+
+        if (response.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK)
+        {
+            _logger.LogInformation("Batch accepted for {Route}. Count={Count}", route, records.Count);
+            return [];
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            _logger.LogWarning(
+                "Rejected status={Status} for {Route} — dropping pending re-enrollment",
+                (int)response.StatusCode, route);
+            return [];
+        }
+
+        _logger.LogWarning(
+            "Non-success status={Status} for {Route} — re-queue {Count}",
+            (int)response.StatusCode, route, records.Count);
+        return records;
     }
 
     private async Task<List<CollectionRecord>> FlushActivitySnapshotsAsync(

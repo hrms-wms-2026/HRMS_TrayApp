@@ -6,10 +6,10 @@ namespace ONEVO.Agent.Service.Tests;
 public class PolicyCacheTests
 {
     [Fact]
-    public void Default_enables_activity_signal()
+    public void Default_enables_activity_signal_and_screenshots()
     {
         var cache = new PolicyCache();
         Assert.True(cache.Current.ActivitySignalEnabled);
-        Assert.False(cache.Current.ScreenshotEnabled);
+        Assert.True(cache.Current.ScreenshotEnabled);
     }
 }
