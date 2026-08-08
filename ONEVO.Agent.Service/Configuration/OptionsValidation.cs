@@ -20,6 +20,11 @@ public sealed class OptionsValidation : IValidateOptions<AgentOptions>
         if (options.HttpTimeoutSeconds is < 5 or > 300)
             errors.Add("HttpTimeoutSeconds must be between 5 and 300");
 
+        if (string.IsNullOrWhiteSpace(options.ApiBaseUrl))
+            errors.Add("ApiBaseUrl must be set — enrollment/login cannot reach the backend without it");
+        else if (!Uri.TryCreate(options.ApiBaseUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            errors.Add("ApiBaseUrl must be an absolute https:// URL");
+
         return errors.Count > 0
             ? ValidateOptionsResult.Fail(errors)
             : ValidateOptionsResult.Success;

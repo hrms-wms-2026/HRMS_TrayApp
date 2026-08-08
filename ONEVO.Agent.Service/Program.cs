@@ -1,5 +1,9 @@
+using System.Net;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+using Polly;
 using ONEVO.Agent.Service;
+using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.IPC;
@@ -34,17 +38,69 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<NamedPipeAuthenticator>();
         services.AddSingleton<NamedPipeServer>();
 
+        // packages-guide §9 — Polly v8 via Microsoft.Extensions.Http.Resilience
         services.AddHttpClient("OnevoApi", (sp, client) =>
         {
             var options = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
             if (!string.IsNullOrWhiteSpace(options.ApiBaseUrl))
                 client.BaseAddress = new Uri(options.ApiBaseUrl.TrimEnd('/') + "/");
-            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.HttpTimeoutSeconds, 5, 300));
+            // Overall timeout handled by resilience pipeline attempt timeout + retries
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        })
+        .AddResilienceHandler("onevo-api-pipeline", (builder, context) =>
+        {
+            var httpTimeout = context.ServiceProvider
+                .GetRequiredService<IOptions<AgentOptions>>().Value.HttpTimeoutSeconds;
+            var attemptTimeout = TimeSpan.FromSeconds(Math.Clamp(httpTimeout, 5, 120));
+
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 4,
+                BackoffType = DelayBackoffType.Exponential,
+                Delay = TimeSpan.FromSeconds(1),
+                MaxDelay = TimeSpan.FromSeconds(30),
+                UseJitter = true,
+                ShouldHandle = args =>
+                {
+                    if (args.Outcome.Exception is HttpRequestException or TaskCanceledException)
+                        return PredicateResult.True();
+                    var code = args.Outcome.Result?.StatusCode;
+                    if (code is HttpStatusCode.TooManyRequests)
+                        return PredicateResult.True();
+                    if (code is >= HttpStatusCode.InternalServerError)
+                        return PredicateResult.True();
+                    return PredicateResult.False();
+                },
+                // Honor Retry-After on 429 when present; else exponential default.
+                DelayGenerator = args =>
+                {
+                    if (args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests
+                        && args.Outcome.Result.Headers.RetryAfter?.Delta is { } ra
+                        && ra > TimeSpan.Zero)
+                        return new ValueTask<TimeSpan?>(ra);
+                    return new ValueTask<TimeSpan?>((TimeSpan?)null);
+                }
+            });
+
+            builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            {
+                SamplingDuration = TimeSpan.FromMinutes(2),
+                MinimumThroughput = 5,
+                FailureRatio = 0.5,
+                BreakDuration = TimeSpan.FromMinutes(1)
+            });
+
+            builder.AddTimeout(attemptTimeout);
         });
+
+        services.AddSingleton<OnevoApiClient>();
 
         services.AddHostedService<AgentWorker>();
         services.AddHostedService<ActivitySyncService>();
         services.AddHostedService<HeartbeatService>();
+        services.AddHostedService<TokenRefreshService>();
+        // packages-guide §1 — SignalR remote commands (waits for JWT)
+        services.AddHostedService<AgentCommandListener>();
     })
     .Build();
 

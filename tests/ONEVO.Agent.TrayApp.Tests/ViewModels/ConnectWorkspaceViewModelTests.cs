@@ -9,10 +9,10 @@ public sealed class ConnectWorkspaceViewModelTests
         new(new FakeNamedPipeClient());
 
     [Fact]
-    public void ActivationCode_DefaultsToDemoCode()
+    public void ActivationCode_DefaultsToEmpty()
     {
         var vm = Make();
-        Assert.Equal(ConnectWorkspaceViewModel.DemoActivationCode, vm.ActivationCode);
+        Assert.Equal(string.Empty, vm.ActivationCode);
     }
 
     [Fact]

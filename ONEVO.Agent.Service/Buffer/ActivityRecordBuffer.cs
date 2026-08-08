@@ -146,7 +146,50 @@ public sealed class ActivityRecordBuffer : IDisposable
             cmd.Parameters.AddWithValue("$device", record.DeviceId);
             cmd.Parameters.AddWithValue("$payload", record.Payload.GetRawText());
             cmd.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
-            return cmd.ExecuteNonQuery() > 0;
+            var ok = cmd.ExecuteNonQuery() > 0;
+            if (ok)
+                EnforceSizeLimitUnlocked();
+            return ok;
+        }
+    }
+
+    /// <summary>
+    /// packages-guide §8: if DB file &gt; 100MB, drop oldest pending rows and VACUUM.
+    /// No-op for in-memory databases.
+    /// </summary>
+    private void EnforceSizeLimitUnlocked()
+    {
+        try
+        {
+            if (_databasePath.Contains("mode=memory", StringComparison.OrdinalIgnoreCase)
+                || _databasePath == ":memory:"
+                || !File.Exists(_databasePath))
+                return;
+
+            var size = new FileInfo(_databasePath).Length;
+            if (size <= 100L * 1024 * 1024)
+                return;
+
+            using var del = _conn.CreateCommand();
+            del.CommandText =
+                """
+                DELETE FROM collection_records
+                WHERE id IN (
+                    SELECT id FROM collection_records
+                    WHERE status = 'pending'
+                    ORDER BY id ASC
+                    LIMIT 1000
+                );
+                """;
+            del.ExecuteNonQuery();
+
+            using var vac = _conn.CreateCommand();
+            vac.CommandText = "VACUUM;";
+            vac.ExecuteNonQuery();
+        }
+        catch
+        {
+            // Best-effort; never fail enqueue because of vacuum.
         }
     }
 

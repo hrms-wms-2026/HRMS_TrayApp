@@ -115,6 +115,17 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             new LifecycleResultPayload(true, null, "ok", state, session));
     }
 
+    /// <summary>Optional canned logout result. Null = auto-success.</summary>
+    public LogoutResultPayload? NextLogoutResult { get; set; }
+
+    public Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.LogoutRequest });
+
+        return Task.FromResult<LogoutResultPayload?>(
+            NextLogoutResult ?? new LogoutResultPayload(true, null));
+    }
+
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();
     public void SimulateState(MonitoringState s)  => OnStateReceived?.Invoke(s);
     public void SimulateStatus(StatusResponsePayload s)

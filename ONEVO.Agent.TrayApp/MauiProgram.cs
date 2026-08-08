@@ -54,7 +54,6 @@ public static class MauiProgram
         builder.Services.AddTransient<ActiveSessionViewModel>();
         builder.Services.AddTransient<EndSessionViewModel>();
         builder.Services.AddTransient<StatusPopupViewModel>();
-        builder.Services.AddTransient<LoginWindowViewModel>();
         builder.Services.AddTransient<PhotoCaptureWindowViewModel>();
 
         // Views

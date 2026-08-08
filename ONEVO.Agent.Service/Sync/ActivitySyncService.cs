@@ -112,6 +112,10 @@ public sealed class ActivitySyncService : BackgroundService
             batch.Where(r => r.RecordType == CollectionRecordTypes.DeviceStateSnapshot).ToList(),
             jwt, ct));
 
+        requeue.AddRange(await FlushWorkSessionsAsync(
+            batch.Where(r => r.RecordType == CollectionRecordTypes.WorkSession).ToList(),
+            jwt, ct));
+
         if (requeue.Count > 0)
             _buffer.RequeueFront(requeue);
     }
@@ -226,6 +230,50 @@ public sealed class ActivitySyncService : BackgroundService
             AgentApiRoutes.DeviceStateSnapshots, jwt,
             new DeviceStateIngestRequest { Snapshots = items },
             used, ct);
+    }
+
+    /// <summary>
+    /// One POST per completed session (no batching — sessions are rare compared to
+    /// activity snapshots). Each is upserted server-side by SessionId, so a retried
+    /// delivery after a dropped response is a no-op, never a duplicate row.
+    /// </summary>
+    private async Task<List<CollectionRecord>> FlushWorkSessionsAsync(
+        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    {
+        if (records.Count == 0) return [];
+
+        var requeue = new List<CollectionRecord>();
+        foreach (var record in records)
+        {
+            WorkSessionPayload? session;
+            try
+            {
+                session = record.Payload.Deserialize<WorkSessionPayload>(JsonOptions);
+            }
+            catch (JsonException)
+            {
+                _logger.LogWarning("Corrupt work-session record quarantined eventId={EventId}", record.EventId);
+                continue;
+            }
+
+            if (session is null) continue;
+
+            var body = new WorkSessionSubmitRequest
+            {
+                SessionId = session.SessionId,
+                ClockInAt = session.ClockInAt,
+                ClockOutAt = session.ClockOutAt,
+                AccumulatedBreakSeconds = (int)session.AccumulatedBreak.TotalSeconds,
+                AccumulatedWorkSeconds = (int)session.AccumulatedWork.TotalSeconds,
+                BreakSessionCount = session.BreakSessionCount,
+                ScheduleDisplay = session.ScheduleDisplay
+            };
+
+            var failed = await PostBatchAsync(AgentApiRoutes.WorkSessionSubmit, jwt, body, [record], ct);
+            requeue.AddRange(failed);
+        }
+
+        return requeue;
     }
 
     private async Task<List<CollectionRecord>> PostBatchAsync(

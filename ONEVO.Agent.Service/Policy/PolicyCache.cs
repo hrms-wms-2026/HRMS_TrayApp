@@ -25,7 +25,7 @@ public sealed class PolicyCache
     {
         Version = "local-default-1",
         ActivitySignalEnabled = true,
-        AppUsageEnabled = false,
+        AppUsageEnabled = true,
         ScreenshotEnabled = false,
         CameraVerificationEnabled = false,
         ValidUntil = DateTimeOffset.UtcNow.AddHours(24)

@@ -27,14 +27,15 @@ public sealed class AgentStateMachine
     private static bool IsValidTransition(MonitoringState from, MonitoringState to) =>
         (from, to) switch
         {
-            (MonitoringState.Unenrolled, MonitoringState.Stopped) => true,
-            (MonitoringState.Stopped,    MonitoringState.Active)  => true,
-            (MonitoringState.Active,     MonitoringState.Paused)  => true,
-            (MonitoringState.Active,     MonitoringState.Stopped) => true,
-            (MonitoringState.Paused,     MonitoringState.Active)  => true,
-            (MonitoringState.Paused,     MonitoringState.Stopped) => true,
-            (MonitoringState.Locked,     MonitoringState.Stopped) => true,
-            (_,                          MonitoringState.Locked)  => true,
+            (MonitoringState.Unenrolled, MonitoringState.Stopped)    => true,
+            (MonitoringState.Stopped,    MonitoringState.Active)    => true,
+            (MonitoringState.Active,     MonitoringState.Paused)    => true,
+            (MonitoringState.Active,     MonitoringState.Stopped)   => true,
+            (MonitoringState.Paused,     MonitoringState.Active)    => true,
+            (MonitoringState.Paused,     MonitoringState.Stopped)   => true,
+            (MonitoringState.Locked,     MonitoringState.Stopped)   => true,
+            (MonitoringState.Stopped,    MonitoringState.Unenrolled) => true, // sign-out
+            (_,                          MonitoringState.Locked)    => true,
             _ => false
         };
 }

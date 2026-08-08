@@ -2,11 +2,13 @@ namespace ONEVO.Agent.Service;
 
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
+using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
@@ -20,6 +22,9 @@ public sealed class AgentWorker : BackgroundService
     private readonly PresenceSession _presenceSession;
     private readonly LifecycleGate _lifecycleGate;
     private readonly AgentOptions _options;
+    private readonly OnevoApiClient _apiClient;
+    private readonly CredentialStore _credentials;
+    private readonly DeviceIdentityStore _deviceIdentityStore;
 
     public AgentWorker(
         ILogger<AgentWorker> logger,
@@ -29,7 +34,10 @@ public sealed class AgentWorker : BackgroundService
         ActivityRecordBuffer activityBuffer,
         PresenceSession presenceSession,
         LifecycleGate lifecycleGate,
-        IOptions<AgentOptions> options)
+        IOptions<AgentOptions> options,
+        OnevoApiClient apiClient,
+        CredentialStore credentials,
+        DeviceIdentityStore deviceIdentityStore)
     {
         _logger = logger;
         _pipeServer = pipeServer;
@@ -39,6 +47,9 @@ public sealed class AgentWorker : BackgroundService
         _presenceSession = presenceSession;
         _lifecycleGate = lifecycleGate;
         _options = options.Value;
+        _apiClient = apiClient;
+        _credentials = credentials;
+        _deviceIdentityStore = deviceIdentityStore;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -47,10 +58,73 @@ public sealed class AgentWorker : BackgroundService
 
         _presenceSession.SetScheduleDisplay(_options.DefaultScheduleDisplay);
 
+        if (_stateMachine.CurrentState == MonitoringState.Unenrolled)
+            await TryResumeSessionAsync(stoppingToken);
+
         _pipeServer.MessageReceived += HandleMessageAsync;
         await _pipeServer.StartAsync(stoppingToken);
         _logger.LogInformation("ONEVO Agent Service ready. State: {State}", _stateMachine.CurrentState);
         await Task.Delay(Timeout.Infinite, stoppingToken);
+    }
+
+    /// <summary>
+    /// "Login": if a device identity and refresh token survived a restart, resume
+    /// the session silently instead of showing the connect screen again (§9).
+    /// </summary>
+    private async Task TryResumeSessionAsync(CancellationToken ct)
+    {
+        var identity = _deviceIdentityStore.Load();
+        var refreshToken = _credentials.ReadRefreshToken();
+        if (identity is null || string.IsNullOrWhiteSpace(refreshToken))
+            return;
+
+        var result = await _apiClient.RefreshTokenAsync(refreshToken, identity.DeviceFingerprint, ct);
+        if (!result.Success || result.Auth is null)
+        {
+            _logger.LogWarning(
+                "Silent session resume failed ({ErrorCode}) — clearing stored credentials", result.ErrorCode);
+            ClearStoredCredentials();
+            return;
+        }
+
+        PersistAuth(identity, result.Auth);
+        ApplyEnrollmentGates();
+        _stateMachine.TryTransition(MonitoringState.Stopped, out _);
+        _logger.LogInformation("Session resumed silently on startup. State={State}", _stateMachine.CurrentState);
+    }
+
+    private void PersistAuth(DeviceIdentity identity, TrayAuthPayload auth)
+    {
+        // Write the new refresh token before anything else — if the process dies
+        // mid-refresh, the worst case is re-using a token the backend already
+        // rotated away, not losing the credential entirely.
+        _credentials.StoreRefreshToken(auth.RefreshToken);
+        _credentials.StoreDeviceJwt(auth.AccessToken);
+        _deviceIdentityStore.Save(identity);
+    }
+
+    private void ClearStoredCredentials()
+    {
+        _credentials.ClearDeviceJwt();
+        _credentials.ClearRefreshToken();
+        _deviceIdentityStore.Clear();
+    }
+
+    private void ApplyEnrollmentGates()
+    {
+        _lifecycleGate.SetDeviceEnrolled(true);
+        _lifecycleGate.SetCredentialValid(true);
+        _lifecycleGate.SetDeviceApproved(true);
+
+        // Consent capture and server policy-fetch are not yet built (§23 gap) — until
+        // they exist, a successful backend-verified login is the strongest signal we
+        // have, so these stay true post-enrollment same as before. Replace with real
+        // sources once those features land; do not silently regress Clock In in the
+        // meantime by leaving them false.
+        _lifecycleGate.SetEmployeeSessionActive(true);
+        _lifecycleGate.SetConsentValid(true);
+        _lifecycleGate.SetPolicyAllowsCollection(true);
+        _lifecycleGate.SetNotOnApprovedTimeOff(true);
     }
 
     private void ApplyDevBootstrapIfConfigured()
@@ -102,6 +176,10 @@ public sealed class AgentWorker : BackgroundService
 
             case IpcMessageTypes.LifecycleCommand:
                 await HandleLifecycleCommandAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.LogoutRequest:
+                await HandleLogoutRequestAsync(envelope, reply);
                 break;
         }
     }
@@ -220,7 +298,7 @@ public sealed class AgentWorker : BackgroundService
         _lifecycleGate.SetPresenceSessionActive(false);
         _lifecycleGate.SetNotOnBreak(true);
 
-        // Durable SQL history for completed day.
+        // Durable SQL history for completed day (local audit copy).
         try
         {
             var snap = _presenceSession.Snapshot(now);
@@ -235,6 +313,8 @@ public sealed class AgentWorker : BackgroundService
                 "Session saved to SQLite Work={Work} Break={Break} Breaks={Count} Db={Db}",
                 snap.AccumulatedWork, snap.AccumulatedBreak, snap.BreakSessionCount,
                 _activityBuffer.DatabasePath);
+
+            EnqueueWorkSessionSync(snap);
         }
         catch (Exception ex)
         {
@@ -242,6 +322,45 @@ public sealed class AgentWorker : BackgroundService
         }
 
         return (true, null, "Clocked out. Workday completed.", MonitoringState.Stopped);
+    }
+
+    /// <summary>
+    /// Queues the completed session onto the same durable buffer used for activity/app-usage/
+    /// device-state records, so it gets the existing offline-safe retry and ordering for free
+    /// (§11) instead of a bespoke sync path. SessionId doubles as the CollectionRecord EventId —
+    /// the backend upserts on it, so a retried delivery is a no-op, never a duplicate row.
+    /// </summary>
+    private void EnqueueWorkSessionSync(SessionSnapshot snap)
+    {
+        if (snap.ClockInAt is null || snap.ClockOutAt is null)
+            return;
+
+        var sessionId = _presenceSession.CurrentSessionId;
+        var payload = new WorkSessionPayload
+        {
+            SessionId = sessionId,
+            ClockInAt = snap.ClockInAt.Value,
+            ClockOutAt = snap.ClockOutAt.Value,
+            AccumulatedBreak = snap.AccumulatedBreak,
+            AccumulatedWork = snap.AccumulatedWork,
+            BreakSessionCount = snap.BreakSessionCount,
+            ScheduleDisplay = snap.ScheduleDisplay
+        };
+
+        var record = new CollectionRecord
+        {
+            EventId = sessionId.ToString("N"),
+            RecordType = CollectionRecordTypes.WorkSession,
+            SchemaVersion = CollectionSchemaVersions.WorkSessionV1,
+            CaptureTimestamp = snap.ClockOutAt.Value,
+            DeviceId = _deviceIdentityStore.Load()?.DeviceId ?? "unknown",
+            Payload = JsonSerializer.SerializeToElement(payload)
+        };
+
+        if (_activityBuffer.TryEnqueue(record))
+            _logger.LogInformation("Work session queued for backend sync SessionId={SessionId}", sessionId);
+        else
+            _logger.LogWarning("Activity buffer full — dropping work session SessionId={SessionId}", sessionId);
     }
 
     private async Task ReplyLifecycleAsync(
@@ -385,85 +504,117 @@ public sealed class AgentWorker : BackgroundService
         var payload = envelope.Payload?.Deserialize<ActivationCodeSubmitPayload>();
         var code = payload?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
 
-        // Local / Phase-1: accept any code with length >= 6 (portal uses 8).
-        // Later: exchange against backend API when ApiBaseUrl + credentials are ready.
         if (code.Length < 6)
         {
-            await reply(new IpcEnvelope
-            {
-                Type = IpcMessageTypes.EnrollmentResult,
-                CorrelationId = envelope.CorrelationId,
-                Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
-                {
-                    Success = false,
-                    ErrorCode = "INVALID_CODE",
-                    EmployeeName = null
-                })
-            });
+            await ReplyEnrollmentAsync(envelope, reply, false, "INVALID_CODE", null);
             return;
         }
 
         var current = _stateMachine.CurrentState;
-        if (current == MonitoringState.Unenrolled)
+        if (current is MonitoringState.Locked)
         {
-            if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
-            {
-                await reply(new IpcEnvelope
-                {
-                    Type = IpcMessageTypes.EnrollmentResult,
-                    CorrelationId = envelope.CorrelationId,
-                    Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
-                    {
-                        Success = false,
-                        ErrorCode = "INVALID_STATE",
-                        EmployeeName = null
-                    })
-                });
-                return;
-            }
-        }
-        else if (current is MonitoringState.Locked)
-        {
-            await reply(new IpcEnvelope
-            {
-                Type = IpcMessageTypes.EnrollmentResult,
-                CorrelationId = envelope.CorrelationId,
-                Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
-                {
-                    Success = false,
-                    ErrorCode = "LOCKED",
-                    EmployeeName = null
-                })
-            });
+            await ReplyEnrollmentAsync(envelope, reply, false, "LOCKED", null);
             return;
         }
-        // Already enrolled (Stopped/Active/Paused) — treat as success so tray can continue.
 
-        _lifecycleGate.SetDeviceEnrolled(true);
-        _lifecycleGate.SetCredentialValid(true);
-        _lifecycleGate.SetDeviceApproved(true);
-        _lifecycleGate.SetEmployeeSessionActive(true);
-        _lifecycleGate.SetConsentValid(true);
-        _lifecycleGate.SetPolicyAllowsCollection(true);
-        _lifecycleGate.SetNotOnApprovedTimeOff(true);
+        if (current is MonitoringState.Stopped or MonitoringState.Active or MonitoringState.Paused)
+        {
+            // Already enrolled — treat as success so tray can continue.
+            await ReplyEnrollmentAsync(envelope, reply, true, null, null);
+            return;
+        }
 
-        _logger.LogInformation(
-            "Activation accepted (local). CodeLength={Len} State={State}",
-            code.Length, _stateMachine.CurrentState);
+        var fingerprint = DeviceFingerprint.Compute();
+        var result = await _apiClient.ExchangeActivationCodeAsync(
+            code, Environment.MachineName, "Windows", fingerprint, CancellationToken.None);
 
+        if (!result.Success || result.Auth is null)
+        {
+            var errorCode = result.ErrorCode == "UNAUTHORIZED" ? "INVALID_CODE" : result.ErrorCode;
+            _logger.LogWarning("Activation exchange failed. ErrorCode={ErrorCode}", errorCode);
+            await ReplyEnrollmentAsync(envelope, reply, false, errorCode, null);
+            return;
+        }
+
+        var (deviceId, tenantId) = JwtClaimsReader.ReadDeviceClaims(result.Auth.AccessToken);
+        var identity = new DeviceIdentity
+        {
+            // Backend has no separate "AgentId" concept yet for a tray device — reuse
+            // DeviceId until/unless the backend response grows a distinct field.
+            DeviceId = deviceId ?? Guid.NewGuid().ToString("N"),
+            AgentId = deviceId ?? Guid.NewGuid().ToString("N"),
+            TenantId = tenantId ?? string.Empty,
+            DeviceFingerprint = fingerprint
+        };
+
+        PersistAuth(identity, result.Auth);
+
+        if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
+        {
+            await ReplyEnrollmentAsync(envelope, reply, false, "INVALID_STATE", null);
+            return;
+        }
+
+        ApplyEnrollmentGates();
+
+        _logger.LogInformation("Activation succeeded via backend exchange. State={State}", _stateMachine.CurrentState);
+
+        await ReplyEnrollmentAsync(envelope, reply, true, null, null);
+
+        // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
+        await reply(BuildStatusEnvelope(correlationId: null));
+    }
+
+    private async Task ReplyEnrollmentAsync(
+        IpcEnvelope request,
+        Func<IpcEnvelope, Task> reply,
+        bool success,
+        string? errorCode,
+        string? employeeName)
+    {
         await reply(new IpcEnvelope
         {
             Type = IpcMessageTypes.EnrollmentResult,
-            CorrelationId = envelope.CorrelationId,
+            CorrelationId = request.CorrelationId,
             Payload = JsonSerializer.SerializeToElement(new EnrollmentResultPayload
             {
-                Success = true,
-                ErrorCode = null,
-                EmployeeName = "Pirakeerthan"
+                Success = success,
+                ErrorCode = errorCode,
+                EmployeeName = employeeName
             })
         });
+    }
 
-        // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
+    private async Task HandleLogoutRequestAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var current = _stateMachine.CurrentState;
+
+        // Never jump straight from Active/Paused to Unenrolled — stop collection first.
+        if (current is MonitoringState.Active or MonitoringState.Paused)
+            _stateMachine.TryTransition(MonitoringState.Stopped, out _);
+
+        var accessToken = _credentials.ReadDeviceJwt();
+        if (!string.IsNullOrWhiteSpace(accessToken))
+            await _apiClient.RevokeDeviceAsync(accessToken, CancellationToken.None);
+
+        // Best-effort: the employee is leaving either way, so clear local state
+        // regardless of whether the revoke call reached the backend.
+        ClearStoredCredentials();
+        _lifecycleGate.SetDeviceEnrolled(false);
+        _lifecycleGate.SetCredentialValid(false);
+        _lifecycleGate.SetDeviceApproved(false);
+
+        var success = _stateMachine.TryTransition(MonitoringState.Unenrolled, out _);
+        _logger.LogInformation("Logout processed. Success={Success} State={State}", success, _stateMachine.CurrentState);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LogoutResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new LogoutResultPayload(success, success ? null : "INVALID_STATE"))
+        });
+
         await reply(BuildStatusEnvelope(correlationId: null));
     }
 

@@ -10,10 +10,11 @@
 using System;
 using System.Reflection;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleToAttribute("ONEVO.Agent.TrayApp.Tests")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("ONEVO.Agent.TrayApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b7018aa9ce57f2ff8628636e57634a95a4f333aa")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cf20eb03e38ec9fbec8a8c666358d3bf7a2ed24b")]
 [assembly: System.Reflection.AssemblyProductAttribute("ONEVO.Agent.TrayApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ONEVO.Agent.TrayApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

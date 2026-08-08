@@ -5,14 +5,11 @@ using ONEVO.Agent.Shared.IPC;
 
 public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 {
-    /// <summary>Local/dev demo code so employee can proceed without portal when Service allows local enrollment.</summary>
-    public const string DemoActivationCode = "ONEXSO12";
-
     private readonly INamedPipeClient _pipe;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(VerifyAndConnectCommand))]
-    private string _activationCode = DemoActivationCode;
+    private string _activationCode = string.Empty;
 
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private bool _isConnecting;
@@ -20,7 +17,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     [ObservableProperty] private string _connectionLabel = "Not Connected";
     [ObservableProperty] private string _versionText = "Version 1.0.0";
     [ObservableProperty] private string _hintText =
-        "Dev/local code is pre-filled (ONEXSO12). Or paste the 8-char code from the employee portal.";
+        "Paste the 8-character code from the employee portal, or tap below to open it.";
 
     public ConnectWorkspaceViewModel(INamedPipeClient pipe)
     {
@@ -86,8 +83,9 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
             {
                 ErrorMessage = result.ErrorCode switch
                 {
-                    "INVALID_CODE" => "Invalid activation code. Use at least 6 characters (portal codes are 8).",
+                    "INVALID_CODE" => "Invalid or expired activation code. Get a new one from the employee portal.",
                     "LOCKED" => "Device is locked. Contact your admin.",
+                    "SERVICE_UNAVAILABLE" => "Can't reach the Onexso backend right now. Check your connection and try again.",
                     _ => result.ErrorCode ?? "Activation failed."
                 };
                 IsConnected = false;
