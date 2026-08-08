@@ -55,7 +55,9 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             {
                 Success = true,
                 ErrorCode = null,
-                EmployeeName = "Test Employee"
+                EmployeeName = "Test Employee",
+                EmployeeEmail = "test.employee@test.dev",
+                EmployeeNumber = "EMP-TEST-01"
             });
     }
 
@@ -113,6 +115,17 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
 
         return Task.FromResult<LifecycleResultPayload?>(
             new LifecycleResultPayload(true, null, "ok", state, session));
+    }
+
+    /// <summary>Optional canned logout result. Null = auto-success.</summary>
+    public LogoutResultPayload? NextLogoutResult { get; set; }
+
+    public Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.LogoutRequest });
+
+        return Task.FromResult<LogoutResultPayload?>(
+            NextLogoutResult ?? new LogoutResultPayload(true, null));
     }
 
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();

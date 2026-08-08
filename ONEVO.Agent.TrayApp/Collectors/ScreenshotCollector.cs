@@ -79,14 +79,20 @@ public sealed class ScreenshotCollector : IAgentCollector, IAsyncDisposable
             using var ms = new MemoryStream();
             bmp.Save(ms, ImageFormat.Jpeg);
             var dataBase64 = Convert.ToBase64String(ms.ToArray());
+            var capturedAt = DateTimeOffset.UtcNow;
 
-            var payload = new { format = "jpeg", data = dataBase64 };
+            var payload = new ScreenshotPayload
+            {
+                CapturedAt = capturedAt,
+                Format = "jpeg",
+                Data = dataBase64
+            };
             var record  = new ONEVO.Agent.Shared.Models.CollectionRecord
             {
                 EventId         = Guid.NewGuid().ToString("N"),
                 RecordType      = CollectionRecordTypes.Screenshot,
                 SchemaVersion   = CollectionSchemaVersions.ScreenshotV1,
-                CaptureTimestamp = DateTimeOffset.UtcNow,
+                CaptureTimestamp = capturedAt,
                 DeviceId        = _deviceId,
                 Payload         = JsonSerializer.SerializeToElement(payload)
             };

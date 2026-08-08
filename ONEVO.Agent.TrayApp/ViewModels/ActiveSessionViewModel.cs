@@ -258,13 +258,14 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [RelayCommand]
     private async Task ClockOutAsync(CancellationToken ct)
     {
+        // Navigation on success is owned entirely by App.xaml.cs's state-driven router
+        // (fed by OnStateReceived/OnStatusReceived) — not here. Two navigation sources
+        // racing on the same transition was the cause of the "//end" screen sometimes
+        // rendering before RememberCompletedSession had run.
         var result = await RunLifecycleAsync(LifecycleAction.ClockOut, ct);
         if (result?.Success == true)
-        {
-            try { await Shell.Current.GoToAsync("//end"); }
-            catch { /* unit tests */ }
             return;
-        }
+
         if (IsStaleSessionError(result))
         {
             try { await Shell.Current.GoToAsync("//clockin"); }

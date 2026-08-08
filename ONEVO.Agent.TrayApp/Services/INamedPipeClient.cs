@@ -32,4 +32,9 @@ public interface INamedPipeClient
     /// Submits activation code and waits for EnrollmentResult (or timeout).
     /// </summary>
     Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct);
+
+    /// <summary>
+    /// Requests sign-out and waits for LogoutResult (or timeout).
+    /// </summary>
+    Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct);
 }

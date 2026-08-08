@@ -14,6 +14,7 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly TrayIconService _trayIcon;
     private readonly NamedPipeClient _pipeClient;
     private readonly CollectorCoordinator _collectors;
+    private readonly ISessionDayMetrics _dayMetrics;
     private readonly ILogger<App> _logger;
     private bool _allowExit;
 
@@ -21,12 +22,14 @@ public partial class App : Microsoft.Maui.Controls.Application
         TrayIconService trayIcon,
         NamedPipeClient pipeClient,
         CollectorCoordinator collectors,
+        ISessionDayMetrics dayMetrics,
         ILogger<App> logger)
     {
         InitializeComponent();
         _trayIcon   = trayIcon;
         _pipeClient = pipeClient;
         _collectors = collectors;
+        _dayMetrics = dayMetrics;
         _logger     = logger;
         BootLog("App ctor completed");
 
@@ -65,6 +68,13 @@ public partial class App : Microsoft.Maui.Controls.Application
                 && status.Session?.ClockOutAt is not null
                 && status.Session.ClockInAt is not null)
             {
+                // Record the completed session HERE — synchronously, on this same
+                // thread, before the OnStateReceived below can trigger navigation to
+                // //end. ActiveSessionViewModel.RunLifecycleAsync also calls
+                // RememberCompletedSession, but that resumes on a ConfigureAwait(false)
+                // continuation racing against this exact navigation — this call is the
+                // one guaranteed to land first.
+                _dayMetrics.RememberCompletedSession(status.Session);
                 showEndAfterClockOut = true;
             }
             if (status.State == MonitoringState.Active)

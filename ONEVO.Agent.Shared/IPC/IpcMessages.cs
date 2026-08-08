@@ -29,6 +29,12 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: result of a lifecycle action.</summary>
     public const string LifecycleResult = "LifecycleResult";
+
+    /// <summary>Tray → Service: employee requested sign-out.</summary>
+    public const string LogoutRequest = "LogoutRequest";
+
+    /// <summary>Service → Tray: result of a sign-out attempt.</summary>
+    public const string LogoutResult = "LogoutResult";
 }
 
 public enum LifecycleAction
@@ -90,6 +96,10 @@ public sealed record ActivationCodeSubmitPayload(string Code);
 public sealed record EnrollmentResultPayload
 {
     public required bool Success { get; init; }
-    public string? ErrorCode { get; init; }   // "INVALID_CODE" | "EXPIRED" | "ALREADY_ENROLLED"
-    public string? EmployeeName { get; init; } // set on success for greeting
+    public string? ErrorCode { get; init; }   // "INVALID_CODE" | "EXPIRED" | "ALREADY_ENROLLED" | "SERVICE_UNAVAILABLE"
+    public string? EmployeeName { get; init; }   // set on success for greeting
+    public string? EmployeeEmail { get; init; }  // set on success for the workspace-setup screen
+    public string? EmployeeNumber { get; init; } // set on success for the workspace-setup screen
 }
+
+public sealed record LogoutResultPayload(bool Success, string? ErrorCode);

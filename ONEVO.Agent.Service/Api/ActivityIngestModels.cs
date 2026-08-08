@@ -70,3 +70,28 @@ public sealed class DeviceStateIngestItem
     [JsonPropertyName("is_idle")]
     public bool IsIdle { get; set; }
 }
+
+/// <summary>Wire format for POST /api/v1/monitoring/work-sessions.</summary>
+public sealed class WorkSessionSubmitRequest
+{
+    [JsonPropertyName("session_id")]
+    public Guid SessionId { get; set; }
+
+    [JsonPropertyName("clock_in_at")]
+    public DateTimeOffset ClockInAt { get; set; }
+
+    [JsonPropertyName("clock_out_at")]
+    public DateTimeOffset ClockOutAt { get; set; }
+
+    [JsonPropertyName("accumulated_break_seconds")]
+    public int AccumulatedBreakSeconds { get; set; }
+
+    [JsonPropertyName("accumulated_work_seconds")]
+    public int AccumulatedWorkSeconds { get; set; }
+
+    [JsonPropertyName("break_session_count")]
+    public int BreakSessionCount { get; set; }
+
+    [JsonPropertyName("schedule_display")]
+    public string? ScheduleDisplay { get; set; }
+}

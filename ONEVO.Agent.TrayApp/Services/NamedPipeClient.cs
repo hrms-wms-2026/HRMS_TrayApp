@@ -161,6 +161,45 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public async Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LogoutRequest,
+                CorrelationId = correlationId
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Logout timed out waiting for LogoutResult");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<LogoutResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task<LifecycleResultPayload?> SendLifecycleAsync(
         LifecycleAction action,
         CancellationToken ct,
@@ -260,7 +299,8 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                     && envelope.Type is IpcMessageTypes.LifecycleResult
                         or IpcMessageTypes.StatusResponse
                         or IpcMessageTypes.CollectionRecordAck
-                        or IpcMessageTypes.EnrollmentResult)
+                        or IpcMessageTypes.EnrollmentResult
+                        or IpcMessageTypes.LogoutResult)
                 {
                     pending.TrySetResult(envelope);
                 }
@@ -280,11 +320,14 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                     }
                     case IpcMessageTypes.LifecycleResult:
                     {
-                        // Also surface state from lifecycle result for navigation.
+                        // Fire OnStatusReceived before OnStateReceived — same order as the
+                        // StatusResponse case below. Listeners (e.g. App.xaml.cs's navigation
+                        // router) that derive routing flags from OnStatusReceived must see
+                        // that update before OnStateReceived triggers the actual navigation,
+                        // or they'll route on stale state.
                         var result = envelope.Payload?.Deserialize<LifecycleResultPayload>();
                         if (result is not null)
                         {
-                            OnStateReceived?.Invoke(result.State);
                             if (result.Session is not null)
                             {
                                 var synth = new StatusResponsePayload(
@@ -292,6 +335,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                                 LastKnownStatus = synth;
                                 OnStatusReceived?.Invoke(synth);
                             }
+                            OnStateReceived?.Invoke(result.State);
                         }
                         break;
                     }

@@ -23,6 +23,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     [ObservableProperty] private bool   _isConnected      = true;
 
     [ObservableProperty] private bool _isClockinIn;
+    [ObservableProperty] private bool _isSigningOut;
     [ObservableProperty] private string? _errorMessage;
 
     private AgentPolicy? _currentPolicy;
@@ -156,6 +157,48 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         finally
         {
             IsClockinIn = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SignOutAsync(CancellationToken ct)
+    {
+        if (IsSigningOut) return;
+        IsSigningOut = true;
+        ErrorMessage = null;
+        try
+        {
+            var result = await _pipe.SendLogoutAsync(ct);
+            if (result is null)
+            {
+                ErrorMessage = "No response from Onexso Agent Service. Is the service running?";
+                return;
+            }
+
+            if (!result.Success)
+            {
+                ErrorMessage = result.ErrorCode ?? "Sign-out failed.";
+                return;
+            }
+
+            try
+            {
+                Preferences.Remove("onevo.employee_display_name");
+                Preferences.Remove("onevo.employee_email");
+                Preferences.Remove("onevo.employee_id");
+            }
+            catch { /* unit tests */ }
+
+            try { await Shell.Current.GoToAsync("//connect"); }
+            catch { /* unit tests */ }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsSigningOut = false;
         }
     }
 

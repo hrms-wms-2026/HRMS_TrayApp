@@ -9,6 +9,7 @@ public static class CollectionRecordTypes
     public const string DeviceStateSnapshot = "device_state_snapshot";
     public const string Screenshot          = "screenshot";
     public const string FacePhoto           = "face_photo";
+    public const string WorkSession         = "work_session";
 }
 
 public static class CollectionSchemaVersions
@@ -18,6 +19,23 @@ public static class CollectionSchemaVersions
     public const string DeviceStateSnapshotV1 = "1.0";
     public const string ScreenshotV1          = "1.0";
     public const string FacePhotoV1           = "1.0";
+    public const string WorkSessionV1         = "1.0";
+}
+
+/// <summary>
+/// A completed clock-in/break/clock-out session, queued once at ClockOut. SessionId
+/// (== the enclosing CollectionRecord.EventId) is the idempotency key the backend
+/// upserts on, so a retried delivery after a dropped response never double-inserts.
+/// </summary>
+public sealed record WorkSessionPayload
+{
+    public required Guid SessionId { get; init; }
+    public required DateTimeOffset ClockInAt { get; init; }
+    public required DateTimeOffset ClockOutAt { get; init; }
+    public required TimeSpan AccumulatedBreak { get; init; }
+    public required TimeSpan AccumulatedWork { get; init; }
+    public required int BreakSessionCount { get; init; }
+    public string? ScheduleDisplay { get; init; }
 }
 
 public sealed record CollectionRecord

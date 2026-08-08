@@ -16,10 +16,18 @@ public sealed class PresenceSession
     private TimeSpan _accumulatedBreak;
     private int _breakSessionCount;
     private string _scheduleDisplay = "09:00 AM – 06:00 PM";
+    private Guid _sessionId;
 
     public bool HasActiveSession
     {
         get { lock (_lock) return _clockInAt is not null && _clockOutAt is null; }
+    }
+
+    /// <summary>Stable id for the current/most-recent session — the backend upsert key
+    /// for the completed-session sync record enqueued at ClockOut.</summary>
+    public Guid CurrentSessionId
+    {
+        get { lock (_lock) return _sessionId; }
     }
 
     public void ClockIn(DateTimeOffset at)
@@ -32,6 +40,7 @@ public sealed class PresenceSession
             _currentBreakStartedAt = null;
             _accumulatedBreak = TimeSpan.Zero;
             _breakSessionCount = 0;
+            _sessionId = Guid.NewGuid();
         }
     }
 

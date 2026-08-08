@@ -21,7 +21,7 @@ public sealed class CollectorCoordinator : IAsyncDisposable
     {
         Version = "tray-local-default",
         ActivitySignalEnabled = true,
-        AppUsageEnabled = false,
+        AppUsageEnabled = true,
         ScreenshotEnabled = false,
         CameraVerificationEnabled = false,
         ValidUntil = DateTimeOffset.UtcNow.AddDays(1)

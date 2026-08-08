@@ -21,6 +21,7 @@ public class AgentStateMachineTests
     [InlineData(MonitoringState.Paused,     MonitoringState.Active)]
     [InlineData(MonitoringState.Paused,     MonitoringState.Stopped)]
     [InlineData(MonitoringState.Locked,     MonitoringState.Stopped)]
+    [InlineData(MonitoringState.Stopped,    MonitoringState.Unenrolled)]
     public void LegalTransition_Succeeds(MonitoringState from, MonitoringState to)
     {
         var sm = BuildAt(from);
@@ -36,6 +37,7 @@ public class AgentStateMachineTests
     [InlineData(MonitoringState.Stopped,    MonitoringState.Paused)]
     [InlineData(MonitoringState.Active,     MonitoringState.Unenrolled)]
     [InlineData(MonitoringState.Paused,     MonitoringState.Unenrolled)]
+    [InlineData(MonitoringState.Unenrolled, MonitoringState.Unenrolled)]
     public void IllegalTransition_Fails_StateUnchanged(MonitoringState from, MonitoringState to)
     {
         var sm = BuildAt(from);

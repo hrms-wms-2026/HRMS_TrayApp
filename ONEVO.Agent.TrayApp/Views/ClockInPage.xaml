@@ -364,8 +364,15 @@
     <!-- ── Footer ────────────────────────────────────────────────────────── -->
     <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Padding="2,2,2,0">
       <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
-        <Label Text="⚙" FontSize="12" TextColor="{StaticResource TextMuted}" />
-        <Label Text="Settings" FontSize="11" TextColor="{StaticResource TextMuted}" />
+        <HorizontalStackLayout.GestureRecognizers>
+          <TapGestureRecognizer Command="{Binding SignOutCommand}" />
+        </HorizontalStackLayout.GestureRecognizers>
+        <Label Text="⎋" FontSize="12" TextColor="{StaticResource TextMuted}" />
+        <Label Text="Sign Out" FontSize="11" TextColor="{StaticResource TextMuted}" />
+        <ActivityIndicator IsRunning="{Binding IsSigningOut}"
+                           IsVisible="{Binding IsSigningOut}"
+                           Color="{StaticResource TextMuted}"
+                           WidthRequest="12" HeightRequest="12" />
       </HorizontalStackLayout>
 
       <Label Grid.Column="1" Text="Version 1.0.0" FontSize="11"
