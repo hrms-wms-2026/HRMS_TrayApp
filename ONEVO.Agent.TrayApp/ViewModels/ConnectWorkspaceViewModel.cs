@@ -6,6 +6,7 @@ using ONEVO.Agent.Shared.IPC;
 public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 {
     private readonly INamedPipeClient _pipe;
+    private readonly IPreferencesStore _preferences;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(VerifyAndConnectCommand))]
@@ -19,10 +20,11 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     [ObservableProperty] private string _hintText =
         "Paste the 8-character code from the employee portal, or tap below to open it.";
 
-    public ConnectWorkspaceViewModel(INamedPipeClient pipe)
+    public ConnectWorkspaceViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
         Title = "Connect Onexso Workspace";
         _pipe = pipe;
+        _preferences = preferences;
         _pipe.OnDisconnected += () =>
         {
             try
@@ -94,10 +96,11 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
             }
 
             if (!string.IsNullOrWhiteSpace(result.EmployeeName))
-            {
-                try { Preferences.Set("onevo.employee_display_name", result.EmployeeName); }
-                catch { /* unit tests */ }
-            }
+                _preferences.Set("onevo.employee_display_name", result.EmployeeName);
+            if (!string.IsNullOrWhiteSpace(result.EmployeeEmail))
+                _preferences.Set("onevo.employee_email", result.EmployeeEmail);
+            if (!string.IsNullOrWhiteSpace(result.EmployeeNumber))
+                _preferences.Set("onevo.employee_id", result.EmployeeNumber);
 
             IsConnected = true;
             ConnectionLabel = "Connected";

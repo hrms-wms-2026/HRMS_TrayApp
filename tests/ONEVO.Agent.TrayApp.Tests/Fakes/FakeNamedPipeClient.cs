@@ -55,7 +55,9 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             {
                 Success = true,
                 ErrorCode = null,
-                EmployeeName = "Test Employee"
+                EmployeeName = "Test Employee",
+                EmployeeEmail = "test.employee@test.dev",
+                EmployeeNumber = "EMP-TEST-01"
             });
     }
 

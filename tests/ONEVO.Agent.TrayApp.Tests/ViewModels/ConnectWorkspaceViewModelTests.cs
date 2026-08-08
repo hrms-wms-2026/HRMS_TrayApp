@@ -6,7 +6,7 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 public sealed class ConnectWorkspaceViewModelTests
 {
     private static ConnectWorkspaceViewModel Make() =>
-        new(new FakeNamedPipeClient());
+        new(new FakeNamedPipeClient(), new FakePreferencesStore());
 
     [Fact]
     public void ActivationCode_DefaultsToEmpty()
@@ -59,7 +59,7 @@ public sealed class ConnectWorkspaceViewModelTests
     public async Task VerifyAndConnectCommand_SendsActivationToPipe()
     {
         var pipe = new FakeNamedPipeClient();
-        var vm   = new ConnectWorkspaceViewModel(pipe);
+        var vm   = new ConnectWorkspaceViewModel(pipe, new FakePreferencesStore());
         vm.ActivationCode = "ABC123";
         await vm.VerifyAndConnectCommand.ExecuteAsync(null);
         Assert.Single(pipe.SentEnvelopes);
@@ -77,12 +77,36 @@ public sealed class ConnectWorkspaceViewModelTests
                 ErrorCode = "INVALID_CODE"
             }
         };
-        var vm = new ConnectWorkspaceViewModel(pipe);
+        var vm = new ConnectWorkspaceViewModel(pipe, new FakePreferencesStore());
         vm.ActivationCode = "BAD";
         // length < 6 disables command — use long enough invalid path via canned fail with 6 chars
         vm.ActivationCode = "BADBAD";
         await vm.VerifyAndConnectCommand.ExecuteAsync(null);
         Assert.NotNull(vm.ErrorMessage);
         Assert.False(vm.IsConnected);
+    }
+
+    [Fact]
+    public async Task VerifyAndConnectCommand_OnSuccess_CachesEmployeeEmailAndId()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextEnrollmentResult = new ONEVO.Agent.Shared.IPC.EnrollmentResultPayload
+            {
+                Success = true,
+                EmployeeName = "Priya Employee",
+                EmployeeEmail = "priya@test.dev",
+                EmployeeNumber = "EMP-0001"
+            }
+        };
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        vm.ActivationCode = "ABC123";
+
+        await vm.VerifyAndConnectCommand.ExecuteAsync(null);
+
+        Assert.Equal("Priya Employee", preferences.Get("onevo.employee_display_name", string.Empty));
+        Assert.Equal("priya@test.dev", preferences.Get("onevo.employee_email", string.Empty));
+        Assert.Equal("EMP-0001", preferences.Get("onevo.employee_id", string.Empty));
     }
 }
