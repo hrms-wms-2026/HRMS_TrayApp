@@ -181,7 +181,12 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
                 return;
             }
 
-            try { Preferences.Remove("onevo.employee_display_name"); }
+            try
+            {
+                Preferences.Remove("onevo.employee_display_name");
+                Preferences.Remove("onevo.employee_email");
+                Preferences.Remove("onevo.employee_id");
+            }
             catch { /* unit tests */ }
 
             try { await Shell.Current.GoToAsync("//connect"); }
