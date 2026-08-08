@@ -110,6 +110,9 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("access_token")] string AccessToken,
     [property: JsonPropertyName("expires_in_seconds")] int ExpiresInSeconds,
     [property: JsonPropertyName("refresh_token")] string RefreshToken,
-    [property: JsonPropertyName("refresh_expires_in_seconds")] int RefreshExpiresInSeconds);
+    [property: JsonPropertyName("refresh_expires_in_seconds")] int RefreshExpiresInSeconds,
+    [property: JsonPropertyName("employee_name")] string? EmployeeName,
+    [property: JsonPropertyName("employee_email")] string? EmployeeEmail,
+    [property: JsonPropertyName("employee_number")] string? EmployeeNumber);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
