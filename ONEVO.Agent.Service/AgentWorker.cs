@@ -559,7 +559,9 @@ public sealed class AgentWorker : BackgroundService
 
         _logger.LogInformation("Activation succeeded via backend exchange. State={State}", _stateMachine.CurrentState);
 
-        await ReplyEnrollmentAsync(envelope, reply, true, null, null);
+        await ReplyEnrollmentAsync(
+            envelope, reply, true, null,
+            result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber);
 
         // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
         await reply(BuildStatusEnvelope(correlationId: null));
@@ -570,7 +572,9 @@ public sealed class AgentWorker : BackgroundService
         Func<IpcEnvelope, Task> reply,
         bool success,
         string? errorCode,
-        string? employeeName)
+        string? employeeName,
+        string? employeeEmail = null,
+        string? employeeNumber = null)
     {
         await reply(new IpcEnvelope
         {
@@ -580,7 +584,9 @@ public sealed class AgentWorker : BackgroundService
             {
                 Success = success,
                 ErrorCode = errorCode,
-                EmployeeName = employeeName
+                EmployeeName = employeeName,
+                EmployeeEmail = employeeEmail,
+                EmployeeNumber = employeeNumber
             })
         });
     }

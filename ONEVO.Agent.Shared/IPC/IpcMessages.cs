@@ -97,7 +97,9 @@ public sealed record EnrollmentResultPayload
 {
     public required bool Success { get; init; }
     public string? ErrorCode { get; init; }   // "INVALID_CODE" | "EXPIRED" | "ALREADY_ENROLLED" | "SERVICE_UNAVAILABLE"
-    public string? EmployeeName { get; init; } // set on success for greeting
+    public string? EmployeeName { get; init; }   // set on success for greeting
+    public string? EmployeeEmail { get; init; }  // set on success for the workspace-setup screen
+    public string? EmployeeNumber { get; init; } // set on success for the workspace-setup screen
 }
 
 public sealed record LogoutResultPayload(bool Success, string? ErrorCode);
