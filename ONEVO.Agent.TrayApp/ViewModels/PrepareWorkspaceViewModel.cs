@@ -1,7 +1,11 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
+using ONEVO.Agent.TrayApp.Services;
+
 public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
 {
+    private readonly IPreferencesStore _preferences;
+
     [ObservableProperty] private bool _activationVerified;
     [ObservableProperty] private bool _userDetailsFetched;
     [ObservableProperty] private bool _workspacePrepared;
@@ -13,7 +17,11 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
 
     public bool CanContinue => ActivationVerified && UserDetailsFetched && WorkspacePrepared;
 
-    public PrepareWorkspaceViewModel() { Title = "Setting Up Your Workspace"; }
+    public PrepareWorkspaceViewModel(IPreferencesStore preferences)
+    {
+        _preferences = preferences;
+        Title = "Setting Up Your Workspace";
+    }
 
     public async Task LoadAsync(CancellationToken ct = default)
     {
@@ -24,16 +32,9 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
 
         await Task.Delay(900, ct);
         UserDetailsFetched = true;
-        EmployeeFullName   = "Pirakeerthan";
-        EmployeeEmail      = "pirakeerthan@onexso.com";
-        EmployeeId         = "ONEXSO1234";
-        try
-        {
-            Preferences.Set("onevo.employee_display_name", EmployeeFullName);
-            Preferences.Set("onevo.employee_email",        EmployeeEmail);
-            Preferences.Set("onevo.employee_id",           EmployeeId);
-        }
-        catch { /* no MAUI context in unit tests */ }
+        EmployeeFullName = _preferences.Get("onevo.employee_display_name", string.Empty);
+        EmployeeEmail    = _preferences.Get("onevo.employee_email", string.Empty);
+        EmployeeId       = _preferences.Get("onevo.employee_id", string.Empty);
         OnPropertyChanged(nameof(CanContinue));
 
         await Task.Delay(500, ct);
