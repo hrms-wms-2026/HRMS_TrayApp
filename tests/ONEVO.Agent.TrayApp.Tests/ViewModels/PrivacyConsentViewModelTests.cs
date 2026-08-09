@@ -19,13 +19,6 @@ public sealed class PrivacyConsentViewModelTests
     }
 
     [Fact]
-    public void LocationAccessEnabled_DefaultsTrue()
-    {
-        var vm = new PrivacyConsentViewModel(new ONEVO.Agent.TrayApp.Tests.Fakes.FakeNamedPipeClient());
-        Assert.True(vm.LocationAccessEnabled);
-    }
-
-    [Fact]
     public void CameraAccessEnabled_DefaultsFalse()
     {
         var vm = new PrivacyConsentViewModel(new ONEVO.Agent.TrayApp.Tests.Fakes.FakeNamedPipeClient());
@@ -62,5 +55,23 @@ public sealed class PrivacyConsentViewModelTests
         var policy = new AgentPolicy { Version = "1", CameraVerificationEnabled = true };
         vm.ApplyPolicy(policy);
         Assert.True(vm.CameraAccessEnabled);
+    }
+
+    [Fact]
+    public void ApplyPolicy_SetsScreenMonitoring()
+    {
+        var vm     = new PrivacyConsentViewModel(new ONEVO.Agent.TrayApp.Tests.Fakes.FakeNamedPipeClient());
+        var policy = new AgentPolicy { Version = "1", ScreenshotEnabled = false };
+        vm.ApplyPolicy(policy);
+        Assert.False(vm.ScreenMonitoringEnabled);
+    }
+
+    [Fact]
+    public void ApplyPolicy_SetsKeyboardMouse()
+    {
+        var vm     = new PrivacyConsentViewModel(new ONEVO.Agent.TrayApp.Tests.Fakes.FakeNamedPipeClient());
+        var policy = new AgentPolicy { Version = "1", ActivitySignalEnabled = false };
+        vm.ApplyPolicy(policy);
+        Assert.False(vm.KeyboardMouseEnabled);
     }
 }

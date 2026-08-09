@@ -6,14 +6,11 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
 {
     private readonly INamedPipeClient _pipe;
 
-    // Always on — required by policy, toggle locked in UI
     [ObservableProperty] private bool _screenMonitoringEnabled = true;
-
-    [ObservableProperty] private bool _appTrackingEnabled    = true;
-    [ObservableProperty] private bool _locationAccessEnabled = true;
-    [ObservableProperty] private bool _cameraAccessEnabled   = false;
-    [ObservableProperty] private bool _notificationsEnabled  = true;
-    [ObservableProperty] private bool _keyboardMouseEnabled  = true;
+    [ObservableProperty] private bool _appTrackingEnabled      = true;
+    [ObservableProperty] private bool _cameraAccessEnabled     = false;
+    [ObservableProperty] private bool _notificationsEnabled    = true;
+    [ObservableProperty] private bool _keyboardMouseEnabled    = true;
 
     public PrivacyConsentViewModel(INamedPipeClient pipe)
     {
@@ -27,10 +24,18 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
             ApplyPolicy(policy);
     }
 
+    /// <summary>
+    /// All switches on this screen are display-only — they mirror the tenant-configured
+    /// AgentPolicy, they are never a per-employee opt-out (see the footer copy in
+    /// PrivacyConsentPage.xaml). Notifications has no AgentPolicy field because it isn't a
+    /// monitoring capability, so it stays at its default.
+    /// </summary>
     public void ApplyPolicy(AgentPolicy policy)
     {
-        AppTrackingEnabled  = policy.AppUsageEnabled;
-        CameraAccessEnabled = policy.CameraVerificationEnabled;
+        ScreenMonitoringEnabled = policy.ScreenshotEnabled;
+        AppTrackingEnabled      = policy.AppUsageEnabled;
+        CameraAccessEnabled     = policy.CameraVerificationEnabled;
+        KeyboardMouseEnabled    = policy.ActivitySignalEnabled;
     }
 
     [RelayCommand]

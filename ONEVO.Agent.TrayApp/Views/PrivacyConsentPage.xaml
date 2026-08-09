@@ -61,27 +61,7 @@
                      TextColor="{StaticResource TextSecondary}" FontSize="11" />
             </VerticalStackLayout>
             <Switch Grid.Column="2" IsToggled="{Binding AppTrackingEnabled}"
-                    VerticalOptions="Center" />
-          </Grid>
-          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-          <!-- Location Access -->
-          <Grid ColumnDefinitions="44,*,Auto" Padding="4,14" ColumnSpacing="12">
-            <Border Grid.Column="0" WidthRequest="38" HeightRequest="38"
-                    StrokeShape="RoundRectangle 10" StrokeThickness="0"
-                    BackgroundColor="{StaticResource Primary}">
-              <Label Text="&#xE81D;" FontFamily="Segoe MDL2 Assets" FontSize="18"
-                     TextColor="White"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-              <Label Text="Location Access" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
-              <Label Text="Helps contextualize your work environment."
-                     TextColor="{StaticResource TextSecondary}" FontSize="11" />
-            </VerticalStackLayout>
-            <Switch Grid.Column="2" IsToggled="{Binding LocationAccessEnabled}"
-                    VerticalOptions="Center" />
+                    IsEnabled="False" VerticalOptions="Center" />
           </Grid>
           <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
 
@@ -101,7 +81,7 @@
                      TextColor="{StaticResource TextSecondary}" FontSize="11" />
             </VerticalStackLayout>
             <Switch Grid.Column="2" IsToggled="{Binding CameraAccessEnabled}"
-                    VerticalOptions="Center" />
+                    IsEnabled="False" VerticalOptions="Center" />
           </Grid>
           <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
 
@@ -121,7 +101,7 @@
                      TextColor="{StaticResource TextSecondary}" FontSize="11" />
             </VerticalStackLayout>
             <Switch Grid.Column="2" IsToggled="{Binding NotificationsEnabled}"
-                    VerticalOptions="Center" />
+                    IsEnabled="False" VerticalOptions="Center" />
           </Grid>
           <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
 
