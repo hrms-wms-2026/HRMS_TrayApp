@@ -35,14 +35,18 @@
         <!-- Main body -->
         <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="0.9*,1.1*" ColumnSpacing="20">
 
-          <!-- Left illustration -->
-          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassCard}" Padding="16"
+          <!-- Left illustration — seated-at-desk artwork (Resources/Images/workspace_active.png) -->
+          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassCard}" Padding="0"
                   BackgroundColor="{StaticResource IllustrationTint}" StrokeThickness="0"
                   MinimumWidthRequest="0">
-            <VerticalStackLayout VerticalOptions="Center" Spacing="10">
-              <Label Text="💻" FontSize="72" HorizontalOptions="Center" />
-              <Border WidthRequest="40" HeightRequest="40" StrokeShape="RoundRectangle 20"
-                      StrokeThickness="0" HorizontalOptions="Center"
+            <Grid>
+              <Image Source="workspace_active.png"
+                     Aspect="AspectFill"
+                     HorizontalOptions="Fill" VerticalOptions="Fill" />
+
+              <Border WidthRequest="34" HeightRequest="34" StrokeShape="RoundRectangle 17"
+                      StrokeThickness="0" HorizontalOptions="End" VerticalOptions="Start"
+                      Margin="0,10,10,0"
                       BackgroundColor="{StaticResource StatusGreen}">
                 <Border.Triggers>
                   <DataTrigger TargetType="Border" Binding="{Binding IsOnBreak}" Value="True">
@@ -50,20 +54,24 @@
                   </DataTrigger>
                 </Border.Triggers>
                 <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
-                       FontSize="18" TextColor="White"
+                       FontSize="15" TextColor="White"
                        HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
-              <Label Text="Onexso Workspace" FontSize="12" FontAttributes="Bold"
-                     TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
-              <Label Text="Live monitoring active"
-                     FontSize="10" TextColor="{StaticResource TextSecondary}"
-                     HorizontalOptions="Center"
-                     IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}" />
-              <Label Text="On a short break"
-                     FontSize="10" TextColor="{StaticResource StatusOrange}"
-                     HorizontalOptions="Center"
-                     IsVisible="{Binding IsOnBreak}" />
-            </VerticalStackLayout>
+
+              <VerticalStackLayout VerticalOptions="End" HorizontalOptions="Center"
+                                   Spacing="0" Padding="12,8" BackgroundColor="#B3FFFFFF">
+                <Label Text="Onexso Workspace" FontSize="12" FontAttributes="Bold"
+                       TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
+                <Label Text="Live monitoring active"
+                       FontSize="10" TextColor="{StaticResource TextSecondary}"
+                       HorizontalOptions="Center"
+                       IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}" />
+                <Label Text="On a short break"
+                       FontSize="10" TextColor="{StaticResource StatusOrange}"
+                       HorizontalOptions="Center"
+                       IsVisible="{Binding IsOnBreak}" />
+              </VerticalStackLayout>
+            </Grid>
           </Border>
 
           <!-- Right status + actions -->

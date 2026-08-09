@@ -111,7 +111,7 @@
           </Border>
         </Grid>
 
-        <!-- Illustration card — gradient canvas + emoji scene -->
+        <!-- Illustration card — desk-scene artwork (Resources/Images/workspace-ready.png) -->
         <Border StrokeShape="RoundRectangle 20" StrokeThickness="1"
                 Stroke="{StaticResource Separator}"
                 Padding="0" VerticalOptions="FillAndExpand">
@@ -120,69 +120,16 @@
           </Border.Shadow>
           <!-- ClipToBounds is not a MAUI Grid property (WPF-only); parent Border StrokeShape clips. -->
           <Grid>
-            <Grid.Background>
-              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#ECF2FF" Offset="0" />
-                <GradientStop Color="#F2ECFF" Offset="1" />
-              </LinearGradientBrush>
-            </Grid.Background>
+            <Image Source="workspace_ready.png"
+                   Aspect="AspectFill"
+                   HorizontalOptions="Fill" VerticalOptions="FillAndExpand" />
 
-            <!-- Decorative blobs -->
-            <Ellipse WidthRequest="180" HeightRequest="180"
-                     HorizontalOptions="Start" VerticalOptions="End"
-                     Margin="-60,0,0,20" Opacity="0.16">
-              <Ellipse.Fill>
-                <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-                  <GradientStop Color="#7B3FE4" Offset="0" />
-                  <GradientStop Color="#7B3FE400" Offset="1" />
-                </RadialGradientBrush>
-              </Ellipse.Fill>
-            </Ellipse>
-            <Ellipse WidthRequest="120" HeightRequest="120"
-                     HorizontalOptions="End" VerticalOptions="Start"
-                     Margin="0,10,-30,0" Opacity="0.14">
-              <Ellipse.Fill>
-                <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-                  <GradientStop Color="#1A5FF7" Offset="0" />
-                  <GradientStop Color="#1A5FF700" Offset="1" />
-                </RadialGradientBrush>
-              </Ellipse.Fill>
-            </Ellipse>
-            <Ellipse WidthRequest="80" HeightRequest="80"
-                     HorizontalOptions="Center" VerticalOptions="End"
-                     Margin="80,0,0,10" Opacity="0.10">
-              <Ellipse.Fill>
-                <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-                  <GradientStop Color="#1A5FF7" Offset="0" />
-                  <GradientStop Color="#1A5FF700" Offset="1" />
-                </RadialGradientBrush>
-              </Ellipse.Fill>
-            </Ellipse>
-
-            <!-- Emoji scene -->
-            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                 Spacing="0" Padding="16,28">
-              <Grid ColumnDefinitions="Auto,*,Auto" HeightRequest="130">
-                <VerticalStackLayout Grid.Column="0" VerticalOptions="End" Margin="0,0,0,4">
-                  <Label Text="🪴" FontSize="46" />
-                </VerticalStackLayout>
-                <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center"
-                                     VerticalOptions="Center" Spacing="0">
-                  <Label Text="💻" FontSize="62" HorizontalOptions="Center" />
-                  <Label Text="☕" FontSize="24" HorizontalOptions="Start"
-                         Margin="14,-6,0,0" />
-                </VerticalStackLayout>
-                <VerticalStackLayout Grid.Column="2" VerticalOptions="Start"
-                                     Margin="0,8,0,0">
-                  <Label Text="📅" FontSize="38" />
-                  <Label Text="📘" FontSize="24" Margin="10,2,0,0" />
-                </VerticalStackLayout>
-              </Grid>
-
+            <VerticalStackLayout VerticalOptions="End" HorizontalOptions="Center"
+                                 Spacing="0" Padding="16,10" BackgroundColor="#B3FFFFFF">
               <Label Text="Onexso Workspace"
                      FontSize="13" FontAttributes="Bold"
                      TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" Margin="0,12,0,3" />
+                     HorizontalOptions="Center" />
               <Label Text="Your attendance, simplified."
                      FontSize="11" TextColor="{StaticResource TextSecondary}"
                      HorizontalOptions="Center" />

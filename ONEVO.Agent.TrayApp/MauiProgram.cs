@@ -26,6 +26,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<ICameraService, CameraService>();
         builder.Services.AddSingleton<ILocationService, GeolocationService>();
         builder.Services.AddSingleton<ISessionDayMetrics, SessionDayMetrics>();
+        builder.Services.AddSingleton<IAppIconCache, AppIconCache>();
 
         // Collectors
         builder.Services.AddSingleton<ActivityCountCollector>();

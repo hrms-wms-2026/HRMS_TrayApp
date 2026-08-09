@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
+using Microsoft.Maui.Networking;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
@@ -44,6 +45,13 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         _clockTimer.Elapsed += (_, _) => TickClock();
         TickClock();
         _clockTimer.Start();
+
+        try
+        {
+            ApplyNetworkAccess(Connectivity.Current.NetworkAccess);
+            Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+        }
+        catch { /* no MAUI Connectivity host in unit tests — keep static default */ }
 
         _pipe.OnDisconnected += OnDisconnected;
         _pipe.OnStateReceived += _ =>
@@ -104,6 +112,23 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     }
 
     private void HandlePolicyReceived(AgentPolicy policy) => _currentPolicy = policy;
+
+    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    {
+        try { MainThread.BeginInvokeOnMainThread(() => ApplyNetworkAccess(e.NetworkAccess)); }
+        catch { ApplyNetworkAccess(e.NetworkAccess); }
+    }
+
+    private void ApplyNetworkAccess(NetworkAccess access)
+    {
+        InternetStatus = access switch
+        {
+            NetworkAccess.Internet => "Excellent Connection",
+            NetworkAccess.ConstrainedInternet => "Limited Connection",
+            NetworkAccess.Local => "No Internet Access",
+            _ => "No Connection"
+        };
+    }
 
     private static string GetGreeting()
     {
@@ -206,6 +231,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     {
         _pipe.OnDisconnected   -= OnDisconnected;
         _pipe.OnPolicyReceived -= HandlePolicyReceived;
+        try { Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged; }
+        catch { /* unit tests */ }
         _clockTimer.Stop();
         _clockTimer.Dispose();
     }

@@ -26,7 +26,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _workDurationDisplay = "00:00:00";
     [ObservableProperty] private string _breakTimeDisplay  = "00:00:00";
     [ObservableProperty] private string _productiveTimeDisplay = "00:00:00";
-    [ObservableProperty] private string _tasksCompletedDisplay = "2";
+    // No tasks feature exists yet — show "—" rather than a fabricated count (see architecture §21).
+    [ObservableProperty] private string _tasksCompletedDisplay = "—";
     [ObservableProperty] private bool   _isOnBreak;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isBusyAction;

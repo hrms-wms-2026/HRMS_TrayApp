@@ -8,16 +8,23 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
 {
     public string Name => "DeviceState";
 
+    private static readonly TimeSpan SampleWindow = TimeSpan.FromSeconds(60);
+
     private readonly ILogger<DeviceStateCollector> _logger;
     private readonly INamedPipeClient _pipe;
+    private readonly ISessionDayMetrics _dayMetrics;
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private bool _running;
 
-    public DeviceStateCollector(ILogger<DeviceStateCollector> logger, INamedPipeClient pipe)
+    public DeviceStateCollector(
+        ILogger<DeviceStateCollector> logger,
+        INamedPipeClient pipe,
+        ISessionDayMetrics dayMetrics)
     {
-        _logger = logger;
-        _pipe   = pipe;
+        _logger     = logger;
+        _pipe       = pipe;
+        _dayMetrics = dayMetrics;
     }
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
@@ -43,7 +50,7 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
     {
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
+            using var timer = new PeriodicTimer(SampleWindow);
             while (await timer.WaitForNextTickAsync(ct))
                 await EmitSampleAsync(ct);
         }
@@ -56,6 +63,14 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
         {
             var now         = DateTimeOffset.UtcNow;
             var idleSeconds = IdleDetector.GetIdleSeconds();
+            var isIdle      = IdleDetector.IsIdle();
+
+            // No-input has persisted through this whole sample window — attribute it as idle time.
+            // (idleSeconds is time-since-last-input, not a per-window delta, so this undercounts the
+            // first window crossing the threshold and is the simplest correct approximation.)
+            if (isIdle)
+                _dayMetrics.AddIdleSample(SampleWindow);
+
             var record = new CollectionRecord
             {
                 EventId          = Guid.NewGuid().ToString("N"),
@@ -67,7 +82,7 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
                 {
                     CapturedAt  = now,
                     IdleSeconds = idleSeconds,
-                    IsIdle      = IdleDetector.IsIdle()
+                    IsIdle      = isIdle
                 })
             };
             await _pipe.SubmitCollectionRecordsAsync([record], ct);

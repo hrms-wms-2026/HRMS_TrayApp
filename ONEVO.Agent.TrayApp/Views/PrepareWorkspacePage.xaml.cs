@@ -4,16 +4,10 @@ using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class PrepareWorkspacePage : ContentPage
 {
-    public PrepareWorkspacePage()
+    public PrepareWorkspacePage(PrepareWorkspaceViewModel vm)
     {
         InitializeComponent();
-    }
-
-    protected override void OnHandlerChanged()
-    {
-        base.OnHandlerChanged();
-        if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
-            BindingContext = sp.GetRequiredService<PrepareWorkspaceViewModel>();
+        BindingContext = vm;
     }
 
     protected override async void OnAppearing()
