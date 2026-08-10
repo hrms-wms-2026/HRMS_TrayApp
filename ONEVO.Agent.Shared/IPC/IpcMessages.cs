@@ -35,6 +35,18 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: result of a sign-out attempt.</summary>
     public const string LogoutResult = "LogoutResult";
+
+    /// <summary>Tray → Service: begin an evidence transfer for one inactivity capture attempt.</summary>
+    public const string EvidenceTransferStart = "EvidenceTransferStart";
+
+    /// <summary>Tray → Service: one base64-encoded chunk of the evidence image.</summary>
+    public const string EvidenceTransferChunk = "EvidenceTransferChunk";
+
+    /// <summary>Tray → Service: all chunks for the attempt have been sent.</summary>
+    public const string EvidenceTransferComplete = "EvidenceTransferComplete";
+
+    /// <summary>Service → Tray: acknowledgement for a completed (or rejected) evidence transfer.</summary>
+    public const string EvidenceTransferAck = "EvidenceTransferAck";
 }
 
 public enum LifecycleAction

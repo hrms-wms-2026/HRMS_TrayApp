@@ -7,5 +7,6 @@ public sealed record AgentPolicy
     public bool AppUsageEnabled { get; init; }
     public bool ScreenshotEnabled { get; init; }
     public bool CameraVerificationEnabled { get; init; }
+    public bool InactivityScreenshotEnabled { get; init; }
     public DateTimeOffset ValidUntil { get; init; }
 }
