@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using ONEVO.Agent.Shared.Models;
 
 /// <summary>
 /// Typed wrapper over the "OnevoApi" named HttpClient for the TrayActivation
@@ -53,6 +54,64 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "Device revoke call failed — treating as best-effort no-op");
             return false;
         }
+    }
+
+    /// <summary>Fetch the effective monitoring policy for this device (§Task3). Auth: Bearer Device JWT.</summary>
+    public async Task<PolicyResult> GetEffectivePolicyAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.TrayPolicy);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.TrayPolicy);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new PolicyResult(false, "UNAUTHORIZED", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", AgentApiRoutes.TrayPolicy, (int)response.StatusCode);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        TrayAgentPolicyPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<TrayAgentPolicyPayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.TrayPolicy);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (payload is null || string.IsNullOrWhiteSpace(payload.Version))
+        {
+            _logger.LogWarning("OnevoApi response from {Route} was empty or missing a version", AgentApiRoutes.TrayPolicy);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        var policy = new AgentPolicy
+        {
+            Version = payload.Version,
+            ActivitySignalEnabled = payload.ActivitySignalEnabled,
+            AppUsageEnabled = payload.AppUsageEnabled,
+            ScreenshotEnabled = payload.ScreenshotEnabled,
+            InactivityScreenshotEnabled = payload.InactivityScreenshotEnabled,
+            CameraVerificationEnabled = payload.CameraVerificationEnabled,
+            ValidUntil = payload.ValidUntil
+        };
+
+        return new PolicyResult(true, null, policy);
     }
 
     private async Task<TrayAuthResult> PostAuthAsync(string route, object body, CancellationToken ct)
@@ -116,3 +175,19 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("employee_number")] string? EmployeeNumber);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
+
+/// <summary>
+/// Wire-format mirror of the backend's tray-policy response (snake_case). Kept separate from
+/// <see cref="AgentPolicy"/> — that internal PascalCase contract is also used for the IPC
+/// PolicyPush wire format, which must not gain HTTP-only JsonPropertyName mappings.
+/// </summary>
+public sealed record TrayAgentPolicyPayload(
+    [property: JsonPropertyName("version")] string Version,
+    [property: JsonPropertyName("activity_signal_enabled")] bool ActivitySignalEnabled,
+    [property: JsonPropertyName("app_usage_enabled")] bool AppUsageEnabled,
+    [property: JsonPropertyName("screenshot_enabled")] bool ScreenshotEnabled,
+    [property: JsonPropertyName("inactivity_screenshot_enabled")] bool InactivityScreenshotEnabled,
+    [property: JsonPropertyName("camera_verification_enabled")] bool CameraVerificationEnabled,
+    [property: JsonPropertyName("valid_until")] DateTimeOffset ValidUntil);
+
+public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);

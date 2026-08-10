@@ -17,4 +17,9 @@
   <ItemGroup>
     <ProjectReference Include="..\ONEVO.Agent.Shared\ONEVO.Agent.Shared.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>ONEVO.Agent.Service.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>
