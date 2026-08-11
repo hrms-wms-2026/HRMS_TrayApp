@@ -22,6 +22,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<INamedPipeClient>(sp =>
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<NotificationActivationRouter>();
+        builder.Services.AddSingleton<WindowsInactivityPromptService>();
+        builder.Services.AddSingleton<IInactivityPromptService>(sp =>
+            sp.GetRequiredService<WindowsInactivityPromptService>());
         builder.Services.AddSingleton<IPreferencesStore, PreferencesStore>();
         builder.Services.AddSingleton<ICameraService, CameraService>();
         builder.Services.AddSingleton<ILocationService, GeolocationService>();
@@ -69,6 +73,14 @@ public static class MauiProgram
         builder.Services.AddTransient<EndSessionPage>();
         builder.Services.AddTransient<PhotoCaptureWindow>();
 
-        return builder.Build();
+        var app = builder.Build();
+
+        // Force IInactivityPromptService to construct now, at startup, rather than lazily on the
+        // first inactivity prompt — its constructor subscribes to
+        // AppNotificationManager.NotificationInvoked, and that subscription must happen once,
+        // during app startup, per the actionable-notification design.
+        app.Services.GetRequiredService<IInactivityPromptService>();
+
+        return app;
     }
 }
