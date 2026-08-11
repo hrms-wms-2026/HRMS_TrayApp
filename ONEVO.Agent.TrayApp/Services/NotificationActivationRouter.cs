@@ -70,6 +70,17 @@ public sealed class NotificationActivationRouter
         Guid? attemptId = null;
         string? decisionText = null;
 
+        // ASSUMPTION, not independently verified in this environment: AppNotificationButton
+        // .AddArgument("attempt", …).AddArgument("decision", …) is expected to join pairs into
+        // AppNotificationActivatedEventArgs.Argument as "attempt=…&decision=…" — the same
+        // '&'-joined key=value shape the plan's own example uses. WinRT notification activation
+        // (Microsoft.Windows.AppNotifications.Builder.AppNotificationBuilder) could not be
+        // instantiated in this sandbox to confirm it (COMException 0x80040154,
+        // REGDB_E_CLASSNOTREG — the Windows App Runtime isn't registered here), so this has only
+        // been exercised against the literal strings in NotificationActivationRouterTests, not
+        // against a real toast activation. If a live smoke test on a real Windows session shows a
+        // different separator/encoding, fix it here — WindowsInactivityPromptService.Show and this
+        // method are the only two places that need to agree on the format.
         foreach (var pair in args.Split('&', StringSplitOptions.RemoveEmptyEntries))
         {
             var separatorIndex = pair.IndexOf('=');

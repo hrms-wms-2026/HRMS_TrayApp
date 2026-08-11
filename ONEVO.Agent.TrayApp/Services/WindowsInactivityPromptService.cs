@@ -111,10 +111,13 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
                 .AddArgument("decision", "skip"))
             .BuildNotification();
 
-        // Tag by attempt id so Dismiss(attemptId) can remove exactly this notification, and no
-        // other. The builder is never given a root-level AddArgument, so clicking the notification
-        // body (as opposed to a button) carries no attempt/decision pair and the router safely
-        // ignores it — see NotificationActivationRouter.Route.
+        // Tag by attempt id so Dismiss(attemptId) — including the unconditional Dismiss(attemptId)
+        // in PromptAsync's finally block — can only ever remove exactly this attempt's
+        // notification, never a different (e.g. later/concurrent) attempt's: every attempt gets
+        // its own Guid, so tags never collide across attempts. The builder is never given a
+        // root-level AddArgument, so clicking the notification body (as opposed to a button)
+        // carries no attempt/decision pair and the router safely ignores it — see
+        // NotificationActivationRouter.Route.
         notification.Tag = attempt;
         notification.Expiration = DateTimeOffset.UtcNow.Add(expiresIn);
 
