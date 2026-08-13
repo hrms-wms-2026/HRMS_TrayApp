@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Polly;
 using ONEVO.Agent.Service;
 using ONEVO.Agent.Service.Api;
+using ONEVO.Agent.Service.Biometrics;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.IPC;
@@ -95,6 +96,7 @@ var host = Host.CreateDefaultBuilder(args)
         });
 
         services.AddSingleton<OnevoApiClient>();
+        services.AddSingleton<EnrollmentCoordinator>();
 
         services.AddHostedService<AgentWorker>();
         services.AddHostedService<ActivitySyncService>();
