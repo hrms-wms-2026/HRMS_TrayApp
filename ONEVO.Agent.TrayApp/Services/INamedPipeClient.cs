@@ -37,4 +37,18 @@ public interface INamedPipeClient
     /// Requests sign-out and waits for LogoutResult (or timeout).
     /// </summary>
     Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Submits one inactivity capture attempt's metadata (and, for a <c>captured</c> outcome, its
+    /// JPEG bytes) via Task 1's start/chunk/complete evidence-transfer envelopes, and waits for the
+    /// correlated <see cref="EvidenceTransferAckPayload"/> (bounded). Metadata-only outcomes pass an
+    /// empty <paramref name="jpegBytes"/> and send zero chunk envelopes. Returns whether the Service
+    /// accepted the transfer. A non-overriding implementer returns <c>false</c> by default — the
+    /// Service-side receiver lands in a later task, so today only <see cref="NamedPipeClient"/>
+    /// implements this for real.
+    /// </summary>
+    Task<bool> SubmitInactivityAttemptAsync(
+        InactivityCaptureAttemptPayload attempt,
+        ReadOnlyMemory<byte> jpegBytes,
+        CancellationToken ct) => Task.FromResult(false);
 }

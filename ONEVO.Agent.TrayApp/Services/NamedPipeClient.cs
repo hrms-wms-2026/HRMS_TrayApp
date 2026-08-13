@@ -13,6 +13,8 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     private readonly ILogger<NamedPipeClient> _logger;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly ConcurrentDictionary<string, TaskCompletionSource<IpcEnvelope>> _pending = new();
+    private readonly ConcurrentDictionary<Guid, TaskCompletionSource<EvidenceTransferAckPayload?>> _pendingEvidenceAcks = new();
+    private readonly EvidenceTransferClient _evidenceTransferClient;
     private NamedPipeClientStream? _pipe;
     private StreamWriter? _writer;
     private CancellationTokenSource? _cts;
@@ -29,6 +31,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public NamedPipeClient(ILogger<NamedPipeClient> logger)
     {
         _logger = logger;
+        _evidenceTransferClient = new EvidenceTransferClient(WriteEnvelopeAsync, WaitForEvidenceAckAsync);
     }
 
     public Task StartAsync(CancellationToken ct)
@@ -260,6 +263,38 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         await WriteEnvelopeAsync(envelope, ct);
     }
 
+    public Task<bool> SubmitInactivityAttemptAsync(
+        InactivityCaptureAttemptPayload attempt,
+        ReadOnlyMemory<byte> jpegBytes,
+        CancellationToken ct) =>
+        _evidenceTransferClient.SubmitAsync(attempt, jpegBytes, ct);
+
+    private async Task<EvidenceTransferAckPayload?> WaitForEvidenceAckAsync(Guid attemptId, CancellationToken ct)
+    {
+        var tcs = new TaskCompletionSource<EvidenceTransferAckPayload?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pendingEvidenceAcks[attemptId] = tcs;
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(() => tcs.TrySetCanceled(timeoutCts.Token));
+
+            try
+            {
+                return await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Evidence transfer ack timed out for attempt {AttemptId}", attemptId);
+                return null;
+            }
+        }
+        finally
+        {
+            _pendingEvidenceAcks.TryRemove(attemptId, out _);
+        }
+    }
+
     private async Task WriteEnvelopeAsync(IpcEnvelope envelope, CancellationToken ct)
     {
         await _writeLock.WaitAsync(ct);
@@ -351,6 +386,13 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                     }
                     case IpcMessageTypes.CollectionRecordAck:
                         break;
+                    case IpcMessageTypes.EvidenceTransferAck:
+                    {
+                        var ack = envelope.Payload?.Deserialize<EvidenceTransferAckPayload>();
+                        if (ack is not null && _pendingEvidenceAcks.TryGetValue(ack.AttemptId, out var evidenceTcs))
+                            evidenceTcs.TrySetResult(ack);
+                        break;
+                    }
                 }
             }
         }
@@ -363,6 +405,9 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             foreach (var kv in _pending)
                 kv.Value.TrySetCanceled();
             _pending.Clear();
+            foreach (var kv in _pendingEvidenceAcks)
+                kv.Value.TrySetResult(null);
+            _pendingEvidenceAcks.Clear();
             OnDisconnected?.Invoke();
         }
     }
@@ -377,5 +422,70 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         _writer?.Dispose();
         _pipe?.Dispose();
         _writeLock.Dispose();
+    }
+}
+
+/// <summary>
+/// Builds and sends the start/chunk/complete envelope sequence for one inactivity evidence
+/// transfer (Task 1 contracts: <see cref="EvidenceTransferStartPayload"/>,
+/// <see cref="EvidenceTransferChunkPayload"/>, <see cref="EvidenceTransferCompletePayload"/>), then
+/// waits for the correlated <see cref="EvidenceTransferAckPayload"/>. Splits raw bytes into
+/// <see cref="Constants.EvidenceChunkSizeBytes"/>-sized chunks; a metadata-only attempt (empty
+/// <c>jpegBytes</c>) sends only start + complete, no chunk envelopes.
+/// </summary>
+/// <remarks>
+/// The actual envelope write (<paramref name="send"/>) and ack wait (<paramref name="waitForAck"/>)
+/// are supplied by the caller (<see cref="NamedPipeClient"/>) so this class is unit-testable
+/// without a live Named Pipe — see <c>EvidenceTransferClientTests</c>.
+/// </remarks>
+public sealed class EvidenceTransferClient(
+    Func<IpcEnvelope, CancellationToken, Task> send,
+    Func<Guid, CancellationToken, Task<EvidenceTransferAckPayload?>> waitForAck)
+{
+    public async Task<bool> SubmitAsync(
+        InactivityCaptureAttemptPayload attempt,
+        ReadOnlyMemory<byte> jpegBytes,
+        CancellationToken ct)
+    {
+        var correlationId = attempt.AttemptId.ToString("N");
+        var chunkCount = jpegBytes.IsEmpty
+            ? 0
+            : (int)Math.Ceiling(jpegBytes.Length / (double)Constants.EvidenceChunkSizeBytes);
+
+        await send(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.EvidenceTransferStart,
+            CorrelationId = correlationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new EvidenceTransferStartPayload(attempt, jpegBytes.Length, chunkCount))
+        }, ct).ConfigureAwait(false);
+
+        var index = 0;
+        var offset = 0;
+        while (offset < jpegBytes.Length)
+        {
+            var length = Math.Min(Constants.EvidenceChunkSizeBytes, jpegBytes.Length - offset);
+            var slice = jpegBytes.Slice(offset, length);
+            await send(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.EvidenceTransferChunk,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new EvidenceTransferChunkPayload(attempt.AttemptId, index, Convert.ToBase64String(slice.Span)))
+            }, ct).ConfigureAwait(false);
+            offset += length;
+            index++;
+        }
+
+        await send(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.EvidenceTransferComplete,
+            CorrelationId = correlationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new EvidenceTransferCompletePayload(attempt.AttemptId))
+        }, ct).ConfigureAwait(false);
+
+        var ack = await waitForAck(attempt.AttemptId, ct).ConfigureAwait(false);
+        return ack?.Accepted ?? false;
     }
 }

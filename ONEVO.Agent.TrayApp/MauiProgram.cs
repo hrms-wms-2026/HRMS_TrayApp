@@ -45,10 +45,13 @@ public static class MauiProgram
         builder.Services.AddSingleton<MeetingDetector>();
         builder.Services.AddSingleton<IAgentCollector>(sp =>
             sp.GetRequiredService<MeetingDetector>());
-        builder.Services.AddSingleton<ScreenshotCollector>();
+        builder.Services.AddSingleton<IIdleTimeProvider, WindowsIdleTimeProvider>();
+        builder.Services.AddSingleton<InactivityScreenshotCollector>();
         builder.Services.AddSingleton<IAgentCollector>(sp =>
-            sp.GetRequiredService<ScreenshotCollector>());
+            sp.GetRequiredService<InactivityScreenshotCollector>());
         builder.Services.AddSingleton<CollectorCoordinator>();
+        builder.Services.AddSingleton<ICollectorLifecycleCoordinator>(sp =>
+            sp.GetRequiredService<CollectorCoordinator>());
 
         // ViewModels
         builder.Services.AddTransient<ConnectWorkspaceViewModel>();
