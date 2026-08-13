@@ -10,6 +10,7 @@ public static class CollectionRecordTypes
     public const string Screenshot          = "screenshot";
     public const string FacePhoto           = "face_photo";
     public const string WorkSession         = "work_session";
+    public const string InactivityCaptureAttempt = "inactivity_capture_attempt";
 }
 
 public static class CollectionSchemaVersions
@@ -20,6 +21,7 @@ public static class CollectionSchemaVersions
     public const string ScreenshotV1          = "1.0";
     public const string FacePhotoV1           = "1.0";
     public const string WorkSessionV1         = "1.0";
+    public const string InactivityCaptureAttemptV1 = "1.0";
 }
 
 /// <summary>

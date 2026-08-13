@@ -27,6 +27,8 @@ public sealed class AgentWorker : BackgroundService
     private readonly CredentialStore _credentials;
     private readonly DeviceIdentityStore _deviceIdentityStore;
     private readonly EnrollmentCoordinator _enrollmentCoordinator;
+    private readonly InactivityEvidenceHandler _inactivityEvidence;
+    private readonly EvidenceSpoolStore _evidenceSpool;
 
     public AgentWorker(
         ILogger<AgentWorker> logger,
@@ -40,7 +42,9 @@ public sealed class AgentWorker : BackgroundService
         OnevoApiClient apiClient,
         CredentialStore credentials,
         DeviceIdentityStore deviceIdentityStore,
-        EnrollmentCoordinator enrollmentCoordinator)
+        EnrollmentCoordinator enrollmentCoordinator,
+        InactivityEvidenceHandler inactivityEvidence,
+        EvidenceSpoolStore evidenceSpool)
     {
         _logger = logger;
         _pipeServer = pipeServer;
@@ -54,11 +58,15 @@ public sealed class AgentWorker : BackgroundService
         _credentials = credentials;
         _deviceIdentityStore = deviceIdentityStore;
         _enrollmentCoordinator = enrollmentCoordinator;
+        _inactivityEvidence = inactivityEvidence;
+        _evidenceSpool = evidenceSpool;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         ApplyDevBootstrapIfConfigured();
+
+        _evidenceSpool.PurgeExpired(DateTimeOffset.UtcNow);
 
         _presenceSession.SetScheduleDisplay(_options.DefaultScheduleDisplay);
 
@@ -193,7 +201,59 @@ public sealed class AgentWorker : BackgroundService
             case IpcMessageTypes.BiometricEnrollmentCaptureFinished:
                 await HandleBiometricEnrollmentCaptureFinishedAsync(envelope, reply);
                 break;
+
+            case IpcMessageTypes.EvidenceTransferStart:
+                HandleEvidenceTransferStart(envelope);
+                break;
+
+            case IpcMessageTypes.EvidenceTransferChunk:
+                HandleEvidenceTransferChunk(envelope);
+                break;
+
+            case IpcMessageTypes.EvidenceTransferComplete:
+                await HandleEvidenceTransferCompleteAsync(envelope, reply);
+                break;
         }
+    }
+
+    private void HandleEvidenceTransferStart(IpcEnvelope envelope)
+    {
+        var payload = envelope.Payload?.Deserialize<EvidenceTransferStartPayload>();
+        if (payload is null) return;
+        _inactivityEvidence.HandleStart(payload, DateTimeOffset.UtcNow);
+    }
+
+    private void HandleEvidenceTransferChunk(IpcEnvelope envelope)
+    {
+        var payload = envelope.Payload?.Deserialize<EvidenceTransferChunkPayload>();
+        if (payload is null) return;
+        _inactivityEvidence.HandleChunk(payload, DateTimeOffset.UtcNow);
+    }
+
+    private async Task HandleEvidenceTransferCompleteAsync(
+        IpcEnvelope envelope,
+        Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<EvidenceTransferCompletePayload>();
+        if (payload is null)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.EvidenceTransferAck,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new EvidenceTransferAckPayload(Guid.Empty, false, "invalid_payload"))
+            });
+            return;
+        }
+
+        var ack = _inactivityEvidence.HandleComplete(payload.AttemptId, DateTimeOffset.UtcNow);
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.EvidenceTransferAck,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(ack)
+        });
     }
 
     private async Task HandleBiometricEnrollmentStartAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)

@@ -26,6 +26,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<LifecycleGate>();
         services.AddSingleton<PresenceSession>();
         services.AddSingleton<PolicyCache>();
+        services.AddSingleton<IEvidenceProtector, DpapiEvidenceProtector>();
+        services.AddSingleton<EvidenceSpoolStore>();
+        services.AddSingleton<EvidenceTransferAssembler>();
+        services.AddSingleton<InactivityEvidenceHandler>();
         services.AddSingleton<ActivityRecordBuffer>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<AgentOptions>>().Value;

@@ -7,6 +7,7 @@ public static class AgentApiRoutes
     public const string DeviceStateSnapshots = "/api/v1/monitoring/device-state/snapshots";
     public const string WorkSessionSubmit   = "/api/v1/monitoring/work-sessions";
     public const string ScreenshotSubmit    = "/api/v1/monitoring/tray/screenshots";
+    public const string InactivityAttemptSubmit = "/api/v1/monitoring/tray/inactivity-attempts";
     public const string TrayPolicy          = "/api/v1/monitoring/tray/policy";
 
     public const string ActivationExchange = "/api/v1/monitoring/activation/exchange";

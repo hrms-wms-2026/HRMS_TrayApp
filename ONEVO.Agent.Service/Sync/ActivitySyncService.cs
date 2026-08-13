@@ -26,6 +26,8 @@ public sealed class ActivitySyncService : BackgroundService
     private readonly ActivityRecordBuffer _buffer;
     private readonly CredentialStore _credentials;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IEvidenceProtector _protector;
+    private readonly EvidenceSpoolStore _spoolStore;
     private readonly AgentOptions _options;
 
     public ActivitySyncService(
@@ -33,12 +35,16 @@ public sealed class ActivitySyncService : BackgroundService
         ActivityRecordBuffer buffer,
         CredentialStore credentials,
         IHttpClientFactory httpClientFactory,
+        IEvidenceProtector protector,
+        EvidenceSpoolStore spoolStore,
         IOptions<AgentOptions> options)
     {
         _logger = logger;
         _buffer = buffer;
         _credentials = credentials;
         _httpClientFactory = httpClientFactory;
+        _protector = protector;
+        _spoolStore = spoolStore;
         _options = options.Value;
     }
 
@@ -79,49 +85,319 @@ public sealed class ActivitySyncService : BackgroundService
 
     public async Task FlushAsync(CancellationToken ct)
     {
-        var batch = _buffer.DequeueBatch(maxCount: 100);
-        if (batch.Count == 0)
+        var peeked = _buffer.PeekPendingBatch(maxCount: 100);
+        if (peeked.Count == 0)
             return;
 
         var jwt = _credentials.ReadDeviceJwt();
         if (string.IsNullOrWhiteSpace(jwt))
         {
-            _logger.LogDebug("No device JWT — re-queuing {Count} records", batch.Count);
-            _buffer.RequeueFront(batch);
+            _logger.LogDebug("No device JWT — leaving {Count} records pending", peeked.Count);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_options.ApiBaseUrl))
         {
-            _logger.LogWarning("ApiBaseUrl not configured — re-queuing records");
-            _buffer.RequeueFront(batch);
+            _logger.LogWarning("ApiBaseUrl not configured — leaving records pending");
             return;
         }
 
-        var requeue = new List<CollectionRecord>();
+        var acknowledged = new List<long>();
+        var spoolDeletes = new List<string>();
+        var index = 0;
 
-        requeue.AddRange(await FlushActivitySnapshotsAsync(
-            batch.Where(r => r.RecordType == CollectionRecordTypes.ActivitySnapshot).ToList(),
-            jwt, ct));
+        while (index < peeked.Count)
+        {
+            var current = peeked[index];
+            var recordType = current.Record.RecordType;
 
-        requeue.AddRange(await FlushAppUsageSnapshotsAsync(
-            batch.Where(r => r.RecordType == CollectionRecordTypes.AppUsageSnapshot).ToList(),
-            jwt, ct));
+            if (IsBatchableType(recordType))
+            {
+                var group = CollectAdjacentSameType(peeked, index);
+                var records = group.Select(g => g.Record).ToList();
+                var failed = recordType switch
+                {
+                    CollectionRecordTypes.ActivitySnapshot =>
+                        await FlushActivitySnapshotsAsync(records, jwt, ct),
+                    CollectionRecordTypes.AppUsageSnapshot =>
+                        await FlushAppUsageSnapshotsAsync(records, jwt, ct),
+                    CollectionRecordTypes.DeviceStateSnapshot =>
+                        await FlushDeviceStateSnapshotsAsync(records, jwt, ct),
+                    _ => records
+                };
 
-        requeue.AddRange(await FlushDeviceStateSnapshotsAsync(
-            batch.Where(r => r.RecordType == CollectionRecordTypes.DeviceStateSnapshot).ToList(),
-            jwt, ct));
+                if (failed.Count > 0)
+                {
+                    var failedIds = failed.Select(r => r.EventId).ToHashSet();
+                    acknowledged.AddRange(
+                        group.Where(g => !failedIds.Contains(g.Record.EventId)).Select(g => g.RowId));
+                    break;
+                }
 
-        requeue.AddRange(await FlushWorkSessionsAsync(
-            batch.Where(r => r.RecordType == CollectionRecordTypes.WorkSession).ToList(),
-            jwt, ct));
+                acknowledged.AddRange(group.Select(g => g.RowId));
+                index += group.Count;
+                continue;
+            }
 
-        requeue.AddRange(await FlushScreenshotsAsync(
-            batch.Where(r => r.RecordType == CollectionRecordTypes.Screenshot).ToList(),
-            jwt, ct));
+            if (recordType == CollectionRecordTypes.InactivityCaptureAttempt)
+            {
+                var result = await FlushInactivityAttemptAsync(current, jwt, ct);
+                switch (result)
+                {
+                    case InactivityFlushOutcome.Acknowledged:
+                        acknowledged.Add(current.RowId);
+                        spoolDeletes.Add(current.Record.EventId);
+                        index++;
+                        continue;
+                    case InactivityFlushOutcome.Quarantined:
+                        index++;
+                        continue;
+                    default:
+                        break;
+                }
 
-        if (requeue.Count > 0)
-            _buffer.RequeueFront(requeue);
+                break;
+            }
+
+            if (recordType == CollectionRecordTypes.WorkSession)
+            {
+                var failed = await FlushWorkSessionsAsync([current.Record], jwt, ct);
+                if (failed.Count > 0)
+                    break;
+
+                acknowledged.Add(current.RowId);
+                index++;
+                continue;
+            }
+
+            if (recordType == CollectionRecordTypes.Screenshot)
+            {
+                var failed = await FlushScreenshotsAsync([current.Record], jwt, ct);
+                if (failed.Count > 0)
+                    break;
+
+                acknowledged.Add(current.RowId);
+                index++;
+                continue;
+            }
+
+            _logger.LogWarning("Unknown record type {RecordType} — skipping row {RowId}", recordType, current.RowId);
+            index++;
+        }
+
+        if (acknowledged.Count > 0)
+            _buffer.MarkAcknowledged(acknowledged);
+
+        foreach (var eventId in spoolDeletes)
+            DeleteSpoolForEvent(eventId);
+    }
+
+    private static bool IsBatchableType(string recordType) =>
+        recordType is CollectionRecordTypes.ActivitySnapshot
+            or CollectionRecordTypes.AppUsageSnapshot
+            or CollectionRecordTypes.DeviceStateSnapshot;
+
+    private static List<BufferedCollectionRecord> CollectAdjacentSameType(
+        IReadOnlyList<BufferedCollectionRecord> peeked, int startIndex)
+    {
+        var type = peeked[startIndex].Record.RecordType;
+        var group = new List<BufferedCollectionRecord> { peeked[startIndex] };
+        var i = startIndex + 1;
+        while (i < peeked.Count && peeked[i].Record.RecordType == type)
+        {
+            group.Add(peeked[i]);
+            i++;
+        }
+
+        return group;
+    }
+
+    private enum InactivityFlushOutcome
+    {
+        Acknowledged,
+        Quarantined,
+        RetryableFailure
+    }
+
+    private async Task<InactivityFlushOutcome> FlushInactivityAttemptAsync(
+        BufferedCollectionRecord buffered, string jwt, CancellationToken ct)
+    {
+        InactivityCaptureAttemptPayload attempt;
+        try
+        {
+            var parsed = buffered.Record.Payload.Deserialize<InactivityCaptureAttemptPayload>(JsonOptions);
+            if (parsed is null)
+            {
+                _buffer.QuarantineRow(buffered.RowId, "corrupt_payload");
+                DeleteSpoolForEvent(buffered.Record.EventId);
+                return InactivityFlushOutcome.Quarantined;
+            }
+
+            attempt = parsed;
+        }
+        catch (JsonException)
+        {
+            _logger.LogWarning("Corrupt inactivity record quarantined eventId={EventId}", buffered.Record.EventId);
+            _buffer.QuarantineRow(buffered.RowId, "corrupt_payload");
+            DeleteSpoolForEvent(buffered.Record.EventId);
+            return InactivityFlushOutcome.Quarantined;
+        }
+
+        using var content = BuildInactivityMultipart(attempt, buffered.Record.EventId);
+
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.InactivityAttemptSubmit)
+        {
+            Content = content
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "HTTP failed for inactivity attempt eventId={EventId}", buffered.Record.EventId);
+            return InactivityFlushOutcome.RetryableFailure;
+        }
+
+        using (response)
+        {
+            if (response.StatusCode is HttpStatusCode.OK or HttpStatusCode.Accepted)
+            {
+                _logger.LogInformation("Inactivity attempt accepted eventId={EventId}", buffered.Record.EventId);
+                return InactivityFlushOutcome.Acknowledged;
+            }
+
+            if (response.StatusCode == HttpStatusCode.Conflict)
+            {
+                if (await IsAttemptAlreadyRecordedAsync(response, ct))
+                {
+                    _logger.LogInformation(
+                        "Inactivity attempt already recorded eventId={EventId}", buffered.Record.EventId);
+                    return InactivityFlushOutcome.Acknowledged;
+                }
+
+                _logger.LogWarning("Conflicting inactivity retry quarantined eventId={EventId}", buffered.Record.EventId);
+                _buffer.QuarantineRow(buffered.RowId, "conflicting_retry");
+                DeleteSpoolForEvent(buffered.Record.EventId);
+                return InactivityFlushOutcome.Quarantined;
+            }
+
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                _logger.LogWarning("Inactivity validation failed eventId={EventId}", buffered.Record.EventId);
+                _buffer.QuarantineRow(buffered.RowId, "validation_failed");
+                DeleteSpoolForEvent(buffered.Record.EventId);
+                return InactivityFlushOutcome.Quarantined;
+            }
+
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                _logger.LogWarning("Inactivity upload unauthorized — leaving pending eventId={EventId}",
+                    buffered.Record.EventId);
+                return InactivityFlushOutcome.RetryableFailure;
+            }
+
+            if (response.StatusCode == HttpStatusCode.Forbidden)
+            {
+                _logger.LogWarning("Inactivity upload policy rejected eventId={EventId}", buffered.Record.EventId);
+                _buffer.QuarantineRow(buffered.RowId, "policy_rejected");
+                DeleteSpoolForEvent(buffered.Record.EventId);
+                return InactivityFlushOutcome.Quarantined;
+            }
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests
+                || (int)response.StatusCode >= 500)
+            {
+                _logger.LogWarning(
+                    "Retryable inactivity upload failure status={Status} eventId={EventId}",
+                    (int)response.StatusCode, buffered.Record.EventId);
+                return InactivityFlushOutcome.RetryableFailure;
+            }
+
+            _logger.LogWarning(
+                "Unexpected inactivity upload status={Status} eventId={EventId}",
+                (int)response.StatusCode, buffered.Record.EventId);
+            return InactivityFlushOutcome.RetryableFailure;
+        }
+    }
+
+    private MultipartFormDataContent BuildInactivityMultipart(
+        InactivityCaptureAttemptPayload attempt, string eventId)
+    {
+        var content = new MultipartFormDataContent();
+        content.Add(new StringContent(attempt.AttemptId.ToString("N")), InactivityAttemptFormFields.AttemptId);
+        content.Add(new StringContent(attempt.PolicyVersion), InactivityAttemptFormFields.PolicyVersion);
+        content.Add(new StringContent(attempt.IdleStartedAt.ToString("O")), InactivityAttemptFormFields.IdleStartedAt);
+        content.Add(new StringContent(attempt.PromptedAt.ToString("O")), InactivityAttemptFormFields.PromptedAt);
+
+        if (attempt.DecisionAt is { } decisionAt)
+            content.Add(new StringContent(decisionAt.ToString("O")), InactivityAttemptFormFields.DecisionAt);
+        if (attempt.CapturedAt is { } capturedAt)
+            content.Add(new StringContent(capturedAt.ToString("O")), InactivityAttemptFormFields.CapturedAt);
+
+        content.Add(new StringContent(attempt.IdleDurationSeconds.ToString()), InactivityAttemptFormFields.IdleDurationSeconds);
+        content.Add(new StringContent(attempt.MonitorCount.ToString()), InactivityAttemptFormFields.MonitorCount);
+        content.Add(new StringContent(attempt.Outcome), InactivityAttemptFormFields.Outcome);
+
+        if (!string.IsNullOrWhiteSpace(attempt.FailureCode))
+            content.Add(new StringContent(attempt.FailureCode), InactivityAttemptFormFields.FailureCode);
+        if (!string.IsNullOrWhiteSpace(attempt.ContentType))
+            content.Add(new StringContent(attempt.ContentType), InactivityAttemptFormFields.ContentType);
+        if (!string.IsNullOrWhiteSpace(attempt.Sha256))
+            content.Add(new StringContent(attempt.Sha256), InactivityAttemptFormFields.Sha256);
+
+        if (attempt.Outcome == InactivityCaptureOutcomes.Captured)
+        {
+            var spoolEntry = _buffer.GetEvidenceSpoolEntry(eventId);
+            if (spoolEntry?.EncryptedPath is not null)
+            {
+                var protectedBytes = _spoolStore.Read(spoolEntry.EncryptedPath, attempt.AttemptId);
+                var jpegBytes = _protector.Unprotect(protectedBytes, attempt.AttemptId);
+                var fileContent = new ByteArrayContent(jpegBytes);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(attempt.ContentType ?? "image/jpeg");
+                content.Add(fileContent, InactivityAttemptFormFields.File, $"{attempt.AttemptId:N}.jpg");
+            }
+        }
+
+        return content;
+    }
+
+    private static async Task<bool> IsAttemptAlreadyRecordedAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (body.Contains("attempt_already_recorded", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            using var doc = JsonDocument.Parse(body);
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                if (property.Value.ValueKind != JsonValueKind.String)
+                    continue;
+
+                if (property.Value.GetString()?.Contains("attempt_already_recorded", StringComparison.OrdinalIgnoreCase) == true)
+                    return true;
+            }
+        }
+        catch
+        {
+            // Non-JSON 409 bodies are treated as conflicting retries.
+        }
+
+        return false;
+    }
+
+    private void DeleteSpoolForEvent(string eventId)
+    {
+        var entry = _buffer.GetEvidenceSpoolEntry(eventId);
+        if (entry?.EncryptedPath is not null)
+            _spoolStore.Delete(entry.EncryptedPath);
+        _buffer.DeleteEvidenceSpoolEntry(eventId);
     }
 
     /// <summary>
