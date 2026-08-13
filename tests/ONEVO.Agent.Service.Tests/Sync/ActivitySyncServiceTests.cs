@@ -6,6 +6,7 @@ using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Service.Sync;
+using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
 
@@ -13,6 +14,7 @@ using Xunit;
 
 namespace ONEVO.Agent.Service.Tests.Sync;
 
+[Collection(CredentialStoreFileCollection.Name)]
 public class ActivitySyncServiceTests
 {
     private static ActivitySyncService Build(

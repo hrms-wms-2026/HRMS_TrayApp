@@ -51,4 +51,11 @@ public interface INamedPipeClient
         InactivityCaptureAttemptPayload attempt,
         ReadOnlyMemory<byte> jpegBytes,
         CancellationToken ct) => Task.FromResult(false);
+
+    /// <summary>Requests a new enrollment liveness session and waits for BiometricEnrollmentSessionReady (or timeout).</summary>
+    Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct);
+
+    /// <summary>Reports the WebView2 capture outcome and waits for the final BiometricEnrollmentResult (or timeout).</summary>
+    Task<BiometricEnrollmentResultPayload?> CompleteBiometricEnrollmentAsync(
+        Guid attemptId, bool captureSucceeded, string? clientErrorCode, CancellationToken ct);
 }

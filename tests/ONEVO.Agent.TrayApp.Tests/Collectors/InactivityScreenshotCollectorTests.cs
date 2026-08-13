@@ -404,6 +404,13 @@ internal sealed class RecordingPipeClient : INamedPipeClient
         return Task.FromResult(NextAckAccepted);
     }
 
+    public Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct) =>
+        Task.FromResult<BiometricEnrollmentSessionReadyPayload?>(null);
+
+    public Task<BiometricEnrollmentResultPayload?> CompleteBiometricEnrollmentAsync(
+        Guid attemptId, bool captureSucceeded, string? clientErrorCode, CancellationToken ct) =>
+        Task.FromResult<BiometricEnrollmentResultPayload?>(null);
+
     // Unused by these tests — kept so the fake can raise pipe events if a future test needs it.
     internal void RaiseDisconnected() => OnDisconnected?.Invoke();
     internal void RaiseState(MonitoringState s) => OnStateReceived?.Invoke(s);

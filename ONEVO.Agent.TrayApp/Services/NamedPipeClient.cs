@@ -247,6 +247,88 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public async Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.BiometricEnrollmentStart,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(new BiometricEnrollmentStartPayload())
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Biometric enrollment start timed out waiting for session");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<BiometricEnrollmentSessionReadyPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
+    public async Task<BiometricEnrollmentResultPayload?> CompleteBiometricEnrollmentAsync(
+        Guid attemptId, bool captureSucceeded, string? clientErrorCode, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.BiometricEnrollmentCaptureFinished,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new BiometricEnrollmentCaptureFinishedPayload(attemptId, captureSucceeded, clientErrorCode))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Biometric enrollment completion timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<BiometricEnrollmentResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task SubmitCollectionRecordsAsync(
         IReadOnlyList<CollectionRecord> records,
         CancellationToken ct)
@@ -335,7 +417,9 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         or IpcMessageTypes.StatusResponse
                         or IpcMessageTypes.CollectionRecordAck
                         or IpcMessageTypes.EnrollmentResult
-                        or IpcMessageTypes.LogoutResult)
+                        or IpcMessageTypes.LogoutResult
+                        or IpcMessageTypes.BiometricEnrollmentSessionReady
+                        or IpcMessageTypes.BiometricEnrollmentResult)
                 {
                     pending.TrySetResult(envelope);
                 }

@@ -7,6 +7,7 @@ using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Service.Sync;
+using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
@@ -15,6 +16,7 @@ using Xunit;
 
 namespace ONEVO.Agent.Service.Tests.Sync;
 
+[Collection(CredentialStoreFileCollection.Name)]
 public class PolicySyncServiceTests
 {
     private static readonly object ValidPolicyBody = new

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Biometrics;
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Service.Tests.Security;
 using Xunit;
 
 /// <summary>
@@ -14,7 +15,12 @@ using Xunit;
 /// doesn't leak state into other tests or a real dev Service running on this machine (same
 /// convention as CredentialStoreTests). OnevoApiClient is exercised against a StubHandler rather
 /// than mocked — this test project has no mocking library, matching OnevoApiClientTests.
+/// [Collection(CredentialStoreFileCollection.Name)] serializes this class against every other
+/// class that touches the same real CredentialStore file (CredentialStoreTests,
+/// ActivitySyncServiceTests, PolicySyncServiceTests) — xUnit parallelizes different test classes
+/// by default, and without this they race on the shared %ProgramData% file.
 /// </summary>
+[Collection(CredentialStoreFileCollection.Name)]
 public class EnrollmentCoordinatorTests
 {
     [Fact]
