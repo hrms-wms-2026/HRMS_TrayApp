@@ -19,7 +19,9 @@
     { "key": "device_os", "value": "Windows 11" },
     { "key": "employee_id", "value": "" },
     { "key": "check_in_id", "value": "" },
-    { "key": "activity_date", "value": "2026-08-06" }
+    { "key": "activity_date", "value": "2026-08-06" },
+    { "key": "inactivity_attempt_id", "value": "00000000-0000-4000-8000-000000000001" },
+    { "key": "evidence_asset_id", "value": "" }
   ],
   "item": [
     {
@@ -254,6 +256,91 @@
             },
             "url": "{{base_url}}/api/v1/monitoring/check-in"
           }
+        },
+        {
+          "name": "Get Tray Policy",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/monitoring/tray/policy",
+            "description": "Tray device JWT. Returns effective monitoring policy (inactivity screenshot enabled, thresholds, etc.)."
+          }
+        },
+        {
+          "name": "Submit Inactivity Attempt (Captured)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.evidence_asset_id) pm.collectionVariables.set('evidence_asset_id', json.evidence_asset_id);",
+                  "if (json.id) pm.collectionVariables.set('evidence_asset_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "attempt_id", "value": "{{inactivity_attempt_id}}", "type": "text" },
+                { "key": "policy_version", "value": "2026-08-10", "type": "text" },
+                { "key": "idle_started_at", "value": "2026-08-13T10:00:00Z", "type": "text" },
+                { "key": "prompted_at", "value": "2026-08-13T10:05:00Z", "type": "text" },
+                { "key": "decision_at", "value": "2026-08-13T10:05:12Z", "type": "text" },
+                { "key": "captured_at", "value": "2026-08-13T10:05:15Z", "type": "text" },
+                { "key": "idle_duration_seconds", "value": "300", "type": "text" },
+                { "key": "monitor_count", "value": "2", "type": "text" },
+                { "key": "outcome", "value": "captured", "type": "text" },
+                { "key": "content_type", "value": "image/jpeg", "type": "text" },
+                { "key": "virtual_bounds_x", "value": "0", "type": "text" },
+                { "key": "virtual_bounds_y", "value": "0", "type": "text" },
+                { "key": "virtual_bounds_width", "value": "3840", "type": "text" },
+                { "key": "virtual_bounds_height", "value": "1080", "type": "text" },
+                { "key": "file", "type": "file", "src": "", "description": "Combined multi-monitor JPEG (max 10 MB)" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/monitoring/tray/inactivity-attempts",
+            "description": "Multipart ingest for Allow path. Expect 200; saves evidence_asset_id when returned."
+          }
+        },
+        {
+          "name": "Submit Inactivity Attempt (Declined)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "attempt_id", "value": "00000000-0000-4000-8000-000000000002", "type": "text" },
+                { "key": "policy_version", "value": "2026-08-10", "type": "text" },
+                { "key": "idle_started_at", "value": "2026-08-13T11:00:00Z", "type": "text" },
+                { "key": "prompted_at", "value": "2026-08-13T11:05:00Z", "type": "text" },
+                { "key": "decision_at", "value": "2026-08-13T11:05:08Z", "type": "text" },
+                { "key": "idle_duration_seconds", "value": "300", "type": "text" },
+                { "key": "monitor_count", "value": "2", "type": "text" },
+                { "key": "outcome", "value": "declined", "type": "text" }
+              ]
+            },
+            "url": "{{base_url}}/api/v1/monitoring/tray/inactivity-attempts",
+            "description": "Metadata-only Skip path. No file field. Expect 200."
+          }
         }
       ]
     },
@@ -322,6 +409,40 @@
                 { "key": "to", "value": "2026-08-06" }
               ]
             }
+          }
+        },
+        {
+          "name": "Get Daily Monitoring Report",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tenant_access_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/monitoring/activity/daily-report?employeeId={{employee_id}}&date={{activity_date}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "monitoring", "activity", "daily-report"],
+              "query": [
+                { "key": "employeeId", "value": "{{employee_id}}" },
+                { "key": "date", "value": "{{activity_date}}" }
+              ]
+            },
+            "description": "Composite report: activity summary, work sessions, inactivity attempts. Needs monitoring:read."
+          }
+        },
+        {
+          "name": "Get Screenshot Signed URL",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tenant_access_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/monitoring/screenshots/{{evidence_asset_id}}/url",
+            "description": "Short-lived signed URL (15 min). Set evidence_asset_id from daily report or ingest response."
           }
         }
       ]
