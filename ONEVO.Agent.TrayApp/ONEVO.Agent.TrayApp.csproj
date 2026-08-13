@@ -7,7 +7,7 @@
     <SingleProject>true</SingleProject>
     <WindowsPackageType>None</WindowsPackageType>
     <EnableDefaultMauiItems>true</EnableDefaultMauiItems>
-    <ApplicationTitle>Onexso WorkPulse</ApplicationTitle>
+    <ApplicationTitle>OneXso WorkPulse</ApplicationTitle>
     <ApplicationId>com.onevo.workpulse.agent</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
@@ -25,6 +25,7 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
   </ItemGroup>
   <ItemGroup>
@@ -39,6 +40,12 @@
     <MauiIcon Include="Resources\AppIcon\appicon.png" Color="#0B1F4B" />
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0B1F4B" BaseSize="128,128" />
     <MauiImage Include="Resources\Images\*" />
+    <MauiImage Update="Resources\Images\icon_*.svg" BaseSize="24,24" Resize="True" />
     <MauiFont Include="Resources\Fonts\*" />
+  </ItemGroup>
+
+  <!-- System tray (NotifyIcon) icon — loaded via TrayIconService at runtime -->
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Tray\app_tray.ico" LogicalName="ONEVO.Agent.TrayApp.app_tray.ico" />
   </ItemGroup>
 </Project>
