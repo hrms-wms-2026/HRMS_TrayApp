@@ -14,6 +14,7 @@ public static class MauiProgram
         builder.ConfigureMauiHandlers(h =>
         {
             h.AddHandler<Controls.CameraPreview, Platforms.Windows.CameraPreviewHandler>();
+            h.AddHandler<Controls.BiometricWebView, Platforms.Windows.BiometricWebViewHandler>();
         });
 
         // Infrastructure
@@ -46,6 +47,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IAgentCollector>(sp =>
             sp.GetRequiredService<MeetingDetector>());
         builder.Services.AddSingleton<IIdleTimeProvider, WindowsIdleTimeProvider>();
+        builder.Services.AddSingleton<Capture.IScreenshotCaptureService, Capture.VirtualDesktopScreenshotCaptureService>();
         builder.Services.AddSingleton<InactivityScreenshotCollector>();
         builder.Services.AddSingleton<IAgentCollector>(sp =>
             sp.GetRequiredService<InactivityScreenshotCollector>());
@@ -64,6 +66,7 @@ public static class MauiProgram
         builder.Services.AddTransient<EndSessionViewModel>();
         builder.Services.AddTransient<StatusPopupViewModel>();
         builder.Services.AddTransient<PhotoCaptureWindowViewModel>();
+        builder.Services.AddTransient<BiometricEnrollmentViewModel>();
 
         // Views
         builder.Services.AddTransient<ConnectWorkspacePage>();
@@ -75,6 +78,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ActiveSessionPage>();
         builder.Services.AddTransient<EndSessionPage>();
         builder.Services.AddTransient<PhotoCaptureWindow>();
+        builder.Services.AddTransient<BiometricEnrollmentPage>();
 
         var app = builder.Build();
 

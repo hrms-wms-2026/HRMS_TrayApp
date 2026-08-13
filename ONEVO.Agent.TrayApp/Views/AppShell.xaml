@@ -9,6 +9,7 @@
   <ShellContent Route="prepare"  ContentTemplate="{DataTemplate views:PrepareWorkspacePage}" />
   <ShellContent Route="location" ContentTemplate="{DataTemplate views:WorkLocationPage}" />
   <ShellContent Route="photo"    ContentTemplate="{DataTemplate views:PhotoCaptureWindow}" />
+  <ShellContent Route="enrollment-biometric" ContentTemplate="{DataTemplate views:BiometricEnrollmentPage}" />
   <ShellContent Route="review"   ContentTemplate="{DataTemplate views:ReviewSetupPage}" />
   <ShellContent Route="policy"   ContentTemplate="{DataTemplate views:PrivacyConsentPage}" />
   <ShellContent Route="clockin"  ContentTemplate="{DataTemplate views:ClockInPage}" />
