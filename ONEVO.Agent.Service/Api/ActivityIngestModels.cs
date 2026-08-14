@@ -95,3 +95,21 @@ public sealed class WorkSessionSubmitRequest
     [JsonPropertyName("schedule_display")]
     public string? ScheduleDisplay { get; set; }
 }
+
+/// <summary>Multipart field names for POST /api/v1/monitoring/tray/inactivity-attempts.</summary>
+public static class InactivityAttemptFormFields
+{
+    public const string AttemptId = "attemptId";
+    public const string PolicyVersion = "policyVersion";
+    public const string IdleStartedAt = "idleStartedAt";
+    public const string PromptedAt = "promptedAt";
+    public const string DecisionAt = "decisionAt";
+    public const string CapturedAt = "capturedAt";
+    public const string IdleDurationSeconds = "idleDurationSeconds";
+    public const string MonitorCount = "monitorCount";
+    public const string Outcome = "outcome";
+    public const string FailureCode = "failureCode";
+    public const string ContentType = "contentType";
+    public const string Sha256 = "sha256";
+    public const string File = "file";
+}

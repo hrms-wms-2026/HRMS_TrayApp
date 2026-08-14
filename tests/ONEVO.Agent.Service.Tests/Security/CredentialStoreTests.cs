@@ -8,6 +8,7 @@ using Xunit;
 /// the same location the real Service uses — each test clears what it wrote so it
 /// doesn't leak state into other tests or a real dev Service running on this machine.
 /// </summary>
+[Collection(CredentialStoreFileCollection.Name)]
 public class CredentialStoreTests
 {
     [Fact]

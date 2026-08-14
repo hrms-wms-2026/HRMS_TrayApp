@@ -2,16 +2,26 @@ namespace ONEVO.Agent.TrayApp.ViewModels;
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
-public sealed record TopAppItem(string Name, string Duration);
+public sealed record TopAppItem(string Name, string Duration, ImageSource? IconSource = null);
+
+/// <summary>No-op icon cache for call sites that don't need real icons (unit tests).</summary>
+public sealed class NullAppIconCache : IAppIconCache
+{
+    public static readonly NullAppIconCache Instance = new();
+    public ImageSource? GetIcon(string processName) => null;
+    public void TryCacheFromForegroundWindow(IntPtr hwnd, string processName) { }
+}
 
 public sealed partial class EndSessionViewModel : BaseViewModel
 {
     private readonly INamedPipeClient _pipe;
     private readonly ISessionDayMetrics _dayMetrics;
+    private readonly IAppIconCache _iconCache;
     private bool _subscribed;
 
     [ObservableProperty] private string _clockInDisplay     = "—";
@@ -28,17 +38,22 @@ public sealed partial class EndSessionViewModel : BaseViewModel
 
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
 
-    public EndSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics)
+    public EndSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics, IAppIconCache iconCache)
     {
         Title = "Workday Completed";
         _pipe = pipe;
         _dayMetrics = dayMetrics;
+        _iconCache = iconCache;
         Message = "Here is your daily monitoring summary for today.";
     }
 
     /// <summary>Test helper.</summary>
+    public EndSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics)
+        : this(pipe, dayMetrics, NullAppIconCache.Instance) { }
+
+    /// <summary>Test helper.</summary>
     public EndSessionViewModel(INamedPipeClient pipe)
-        : this(pipe, new SessionDayMetrics()) { }
+        : this(pipe, new SessionDayMetrics(), NullAppIconCache.Instance) { }
 
     public void OnAppearing()
     {
@@ -165,8 +180,36 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         }
 
         foreach (var (name, duration) in top)
-            TopApps.Add(new TopAppItem(PrettyProcessName(name), Format(duration)));
+            TopApps.Add(new TopAppItem(PrettyProcessName(name), Format(duration), _iconCache.GetIcon(name)));
     }
+
+    /// <summary>Well-known process name -> display name. Anything not listed falls back to
+    /// word-boundary splitting (e.g. "ApplicationFrameHost" -> "Application Frame Host").</summary>
+    private static readonly Dictionary<string, string> FriendlyProcessNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["chrome"]               = "Google Chrome",
+        ["msedge"]               = "Microsoft Edge",
+        ["firefox"]              = "Mozilla Firefox",
+        ["code"]                 = "Visual Studio Code",
+        ["devenv"]               = "Visual Studio",
+        ["outlook"]              = "Microsoft Outlook",
+        ["excel"]                = "Microsoft Excel",
+        ["winword"]              = "Microsoft Word",
+        ["powerpnt"]             = "Microsoft PowerPoint",
+        ["onenote"]              = "Microsoft OneNote",
+        ["onenotem"]             = "Microsoft OneNote",
+        ["teams"]                = "Microsoft Teams",
+        ["ms-teams"]             = "Microsoft Teams",
+        ["slack"]                = "Slack",
+        ["explorer"]             = "File Explorer",
+        ["notepad"]              = "Notepad",
+        ["applicationframehost"] = "Windows App",
+        ["searchhost"]           = "Windows Search",
+        ["textinputhost"]        = "Windows Input Experience",
+        ["cmd"]                  = "Command Prompt",
+        ["powershell"]           = "Windows PowerShell",
+        ["windowsterminal"]      = "Windows Terminal",
+    };
 
     private static string PrettyProcessName(string processName)
     {
@@ -174,7 +217,25 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         if (n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
             n = n[..^4];
         if (n.Length == 0) return "Unknown";
-        return char.ToUpperInvariant(n[0]) + n[1..];
+
+        if (FriendlyProcessNames.TryGetValue(n, out var friendly))
+            return friendly;
+
+        return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(SplitWordBoundaries(n).ToLowerInvariant());
+    }
+
+    /// <summary>Inserts a space before each uppercase letter that follows a lowercase one, so
+    /// "ApplicationFrameHost" reads as "Application Frame Host" instead of one long word.</summary>
+    private static string SplitWordBoundaries(string s)
+    {
+        var sb = new StringBuilder(s.Length + 4);
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (i > 0 && char.IsUpper(s[i]) && !char.IsUpper(s[i - 1]))
+                sb.Append(' ');
+            sb.Append(s[i]);
+        }
+        return sb.ToString();
     }
 
     /// <summary>Legacy helper used by older tests / call sites.</summary>
@@ -220,9 +281,9 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             if (!Directory.Exists(dir))
                 dir = downloads;
 
-            var path = Path.Combine(dir, $"Onexso-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+            var path = Path.Combine(dir, $"OneXso-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
             var sb = new StringBuilder();
-            sb.AppendLine("Onexso WorkPulse — Daily Work Summary");
+            sb.AppendLine("OneXso WorkPulse — Daily Work Summary");
             sb.AppendLine($"Status: {StatusText}");
             sb.AppendLine($"Clock In:  {ClockInDisplay}");
             sb.AppendLine($"Clock Out: {ClockOutDisplay}");

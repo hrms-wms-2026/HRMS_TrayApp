@@ -1,11 +1,14 @@
 using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Service.Sync;
+using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
 
@@ -13,30 +16,70 @@ using Xunit;
 
 namespace ONEVO.Agent.Service.Tests.Sync;
 
+[Collection(CredentialStoreFileCollection.Name)]
 public class ActivitySyncServiceTests
 {
     private static ActivitySyncService Build(
         ActivityRecordBuffer buffer,
         IHttpClientFactory? factory = null,
-        AgentOptions? options = null)
+        AgentOptions? options = null,
+        IEvidenceProtector? protector = null,
+        EvidenceSpoolStore? spoolStore = null,
+        CredentialStore? credentials = null)
     {
         return new ActivitySyncService(
             NullLogger<ActivitySyncService>.Instance,
             buffer,
-            new CredentialStore(),   // no JWT on disk in test env
+            credentials ?? new CredentialStore(),
             factory ?? new NeverCalledHttpClientFactory(),
+            protector ?? new PassthroughEvidenceProtector(),
+            spoolStore ?? new EvidenceSpoolStore(Path.Combine(Path.GetTempPath(), $"onevo-spool-{Guid.NewGuid():N}")),
             Options.Create(options ?? new AgentOptions { ApiBaseUrl = "https://api.example.com" }));
     }
 
     private static CollectionRecord MakeRecord(string type, string schema, object payload) => new()
     {
-        EventId          = Guid.NewGuid().ToString("N"),
-        RecordType       = type,
-        SchemaVersion    = schema,
+        EventId = Guid.NewGuid().ToString("N"),
+        RecordType = type,
+        SchemaVersion = schema,
         CaptureTimestamp = DateTimeOffset.UtcNow,
-        DeviceId         = "test",
-        Payload          = JsonSerializer.SerializeToElement(payload)
+        DeviceId = "test",
+        Payload = JsonSerializer.SerializeToElement(payload)
     };
+
+    private static InactivityCaptureAttemptPayload MakeAttempt(
+        Guid id,
+        string outcome,
+        string? sha256 = null) => new()
+    {
+        AttemptId = id,
+        PolicyVersion = "policy-v3",
+        IdleStartedAt = DateTimeOffset.Parse("2026-08-10T01:00:00Z"),
+        PromptedAt = DateTimeOffset.Parse("2026-08-10T01:05:00Z"),
+        DecisionAt = DateTimeOffset.Parse("2026-08-10T01:05:03Z"),
+        CapturedAt = outcome == InactivityCaptureOutcomes.Captured
+            ? DateTimeOffset.Parse("2026-08-10T01:05:04Z")
+            : null,
+        IdleDurationSeconds = 300,
+        MonitorCount = outcome == InactivityCaptureOutcomes.Captured ? 2 : 0,
+        Outcome = outcome,
+        ContentType = outcome == InactivityCaptureOutcomes.Captured ? "image/jpeg" : null,
+        Sha256 = sha256
+    };
+
+    private static void WithJwt(Action<CredentialStore> action)
+    {
+        var credentials = new CredentialStore();
+        try
+        {
+            credentials.StoreDeviceJwt("test-jwt");
+            action(credentials);
+        }
+        finally
+        {
+            credentials.ClearDeviceJwt();
+        }
+    }
 
     [Fact]
     public async Task FlushAsync_EmptyBuffer_DoesNothing()
@@ -60,7 +103,6 @@ public class ActivitySyncServiceTests
 
         var svc = Build(buffer);
 
-        // CredentialStore has no JWT in test environment → should requeue
         await svc.FlushAsync(CancellationToken.None);
 
         Assert.Equal(1, buffer.Count);
@@ -86,8 +128,8 @@ public class ActivitySyncServiceTests
     public async Task FlushAsync_EmptyBuffer_HttpClientNeverCalled()
     {
         var factory = new RecordingHttpClientFactory(HttpStatusCode.OK);
-        var buffer  = ActivityRecordBuffer.CreateInMemory();
-        var svc     = Build(buffer, factory);
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        var svc = Build(buffer, factory);
 
         await svc.FlushAsync(CancellationToken.None);
 
@@ -127,11 +169,248 @@ public class ActivitySyncServiceTests
         Assert.True(buffer.TryEnqueue(deviceState));
         Assert.Equal(3, buffer.Count);
 
-        var batch = buffer.DequeueBatch(10);
+        var batch = buffer.PeekPendingBatch(10);
         Assert.Equal(3, batch.Count);
-        Assert.Contains(batch, r => r.RecordType == CollectionRecordTypes.ActivitySnapshot);
-        Assert.Contains(batch, r => r.RecordType == CollectionRecordTypes.AppUsageSnapshot);
-        Assert.Contains(batch, r => r.RecordType == CollectionRecordTypes.DeviceStateSnapshot);
+        Assert.Contains(batch, r => r.Record.RecordType == CollectionRecordTypes.ActivitySnapshot);
+        Assert.Contains(batch, r => r.Record.RecordType == CollectionRecordTypes.AppUsageSnapshot);
+        Assert.Contains(batch, r => r.Record.RecordType == CollectionRecordTypes.DeviceStateSnapshot);
+        Assert.Equal(3, buffer.Count);
+    }
+
+    [Fact]
+    public async Task FlushAsync_DeclinedInactivityAttempt_UsesExactFormFieldNamesWithoutFile()
+    {
+        var attemptId = Guid.NewGuid();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(attemptId, InactivityCaptureOutcomes.Declined),
+            "test",
+            encryptedSpoolPath: null,
+            encryptedSize: 0,
+            expiresAt: DateTimeOffset.UtcNow.AddHours(72)));
+
+        var factory = new CapturingHttpClientFactory(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        var request = Assert.Single(factory.Requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.EndsWith(AgentApiRoutes.InactivityAttemptSubmit, request.Uri!.AbsolutePath, StringComparison.Ordinal);
+
+        var fields = request.FormFields;
+        Assert.Equal(attemptId.ToString("N"), fields[InactivityAttemptFormFields.AttemptId]);
+        Assert.Equal("policy-v3", fields[InactivityAttemptFormFields.PolicyVersion]);
+        Assert.Equal("2026-08-10T01:00:00.0000000+00:00", fields[InactivityAttemptFormFields.IdleStartedAt]);
+        Assert.Equal("2026-08-10T01:05:00.0000000+00:00", fields[InactivityAttemptFormFields.PromptedAt]);
+        Assert.Equal("2026-08-10T01:05:03.0000000+00:00", fields[InactivityAttemptFormFields.DecisionAt]);
+        Assert.Equal("300", fields[InactivityAttemptFormFields.IdleDurationSeconds]);
+        Assert.Equal("0", fields[InactivityAttemptFormFields.MonitorCount]);
+        Assert.Equal(InactivityCaptureOutcomes.Declined, fields[InactivityAttemptFormFields.Outcome]);
+        Assert.False(fields.ContainsKey(InactivityAttemptFormFields.File));
+        Assert.Equal(0, buffer.Count);
+    }
+
+    [Fact]
+    public async Task FlushAsync_CapturedInactivityAttempt_DecryptsAndAttachesJpeg()
+    {
+        var attemptId = Guid.NewGuid();
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 };
+        var sha256 = Convert.ToHexString(SHA256.HashData(jpegBytes)).ToLowerInvariant();
+        var spoolDir = Path.Combine(Path.GetTempPath(), $"onevo-spool-{Guid.NewGuid():N}");
+        var spoolStore = new EvidenceSpoolStore(spoolDir);
+        var protector = new PassthroughEvidenceProtector();
+        var spoolPath = spoolStore.Write(attemptId, protector.Protect(jpegBytes, attemptId));
+
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(attemptId, InactivityCaptureOutcomes.Captured, sha256),
+            "test",
+            spoolPath,
+            jpegBytes.Length,
+            DateTimeOffset.UtcNow.AddHours(72)));
+
+        var factory = new CapturingHttpClientFactory(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, protector: protector, spoolStore: spoolStore, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        var request = Assert.Single(factory.Requests);
+        var fields = request.FormFields;
+        Assert.Equal(InactivityCaptureOutcomes.Captured, fields[InactivityAttemptFormFields.Outcome]);
+        Assert.Equal("image/jpeg", fields[InactivityAttemptFormFields.ContentType]);
+        Assert.Equal(sha256, fields[InactivityAttemptFormFields.Sha256]);
+        Assert.Equal(jpegBytes, fields[InactivityAttemptFormFields.File]);
+        Assert.Equal(0, buffer.Count);
+        Assert.False(File.Exists(spoolPath));
+    }
+
+    [Fact]
+    public async Task FlushAsync_InactivityConflictAlreadyRecorded_AcknowledgesAndDeletesSpool()
+    {
+        var attemptId = Guid.NewGuid();
+        var jpegBytes = new byte[] { 1, 2, 3, 4 };
+        var spoolDir = Path.Combine(Path.GetTempPath(), $"onevo-spool-{Guid.NewGuid():N}");
+        var spoolStore = new EvidenceSpoolStore(spoolDir);
+        var protector = new PassthroughEvidenceProtector();
+        var spoolPath = spoolStore.Write(attemptId, protector.Protect(jpegBytes, attemptId));
+
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(attemptId, InactivityCaptureOutcomes.Captured),
+            "test",
+            spoolPath,
+            jpegBytes.Length,
+            DateTimeOffset.UtcNow.AddHours(72)));
+
+        var factory = new CapturingHttpClientFactory(_ =>
+            new HttpResponseMessage(HttpStatusCode.Conflict)
+            {
+                Content = new StringContent("""{"code":"attempt_already_recorded"}""")
+            });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, protector: protector, spoolStore: spoolStore, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(0, buffer.Count);
+        Assert.False(File.Exists(spoolPath));
+    }
+
+    [Fact]
+    public async Task FlushAsync_InactivityServerError_LeavesPendingAndRetainsSpool()
+    {
+        var attemptId = Guid.NewGuid();
+        var jpegBytes = new byte[] { 9, 8, 7 };
+        var spoolDir = Path.Combine(Path.GetTempPath(), $"onevo-spool-{Guid.NewGuid():N}");
+        var spoolStore = new EvidenceSpoolStore(spoolDir);
+        var protector = new PassthroughEvidenceProtector();
+        var spoolPath = spoolStore.Write(attemptId, protector.Protect(jpegBytes, attemptId));
+
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(attemptId, InactivityCaptureOutcomes.Captured),
+            "test",
+            spoolPath,
+            jpegBytes.Length,
+            DateTimeOffset.UtcNow.AddHours(72)));
+
+        var factory = new CapturingHttpClientFactory(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, protector: protector, spoolStore: spoolStore, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(1, buffer.Count);
+        Assert.True(File.Exists(spoolPath));
+    }
+
+    [Fact]
+    public async Task FlushAsync_FailedInactivityAttempt_BlocksLaterWorkSession()
+    {
+        var attemptId = Guid.NewGuid();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(attemptId, InactivityCaptureOutcomes.Declined),
+            "test",
+            null,
+            0,
+            DateTimeOffset.UtcNow.AddHours(72)));
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.WorkSession,
+            CollectionSchemaVersions.WorkSessionV1,
+            new WorkSessionPayload
+            {
+                SessionId = Guid.NewGuid(),
+                ClockInAt = DateTimeOffset.UtcNow.AddHours(-8),
+                ClockOutAt = DateTimeOffset.UtcNow,
+                AccumulatedBreak = TimeSpan.FromMinutes(30),
+                AccumulatedWork = TimeSpan.FromHours(7),
+                BreakSessionCount = 1,
+                ScheduleDisplay = "09:00 AM – 06:00 PM"
+            }));
+
+        var factory = new CapturingHttpClientFactory(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith(AgentApiRoutes.InactivityAttemptSubmit, StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(2, buffer.Count);
+        Assert.Single(factory.Requests);
+        Assert.EndsWith(AgentApiRoutes.InactivityAttemptSubmit, factory.Requests[0].Uri!.AbsolutePath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FlushAsync_ProcessesRecordsInRowOrder_NotGroupedByType()
+    {
+        var attemptId = Guid.NewGuid();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.ActivitySnapshot,
+            CollectionSchemaVersions.ActivitySnapshotV1,
+            new ActivitySnapshotPayload
+            {
+                CapturedAt = DateTimeOffset.UtcNow,
+                KeyboardEventsCount = 1,
+                MouseEventsCount = 1,
+                ActiveSeconds = 10,
+                IdleSeconds = 0,
+                IntensityScore = 1m
+            }));
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(attemptId, InactivityCaptureOutcomes.Declined),
+            "test",
+            null,
+            0,
+            DateTimeOffset.UtcNow.AddHours(72)));
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.WorkSession,
+            CollectionSchemaVersions.WorkSessionV1,
+            new WorkSessionPayload
+            {
+                SessionId = Guid.NewGuid(),
+                ClockInAt = DateTimeOffset.UtcNow.AddHours(-8),
+                ClockOutAt = DateTimeOffset.UtcNow,
+                AccumulatedBreak = TimeSpan.Zero,
+                AccumulatedWork = TimeSpan.FromHours(8),
+                BreakSessionCount = 0,
+                ScheduleDisplay = "09:00 AM – 06:00 PM"
+            }));
+
+        var routes = new List<string>();
+        var factory = new CapturingHttpClientFactory(request =>
+        {
+            routes.Add(request.RequestUri!.AbsolutePath);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(3, routes.Count);
+        Assert.EndsWith(AgentApiRoutes.ActivitySnapshots, routes[0], StringComparison.Ordinal);
+        Assert.EndsWith(AgentApiRoutes.InactivityAttemptSubmit, routes[1], StringComparison.Ordinal);
+        Assert.EndsWith(AgentApiRoutes.WorkSessionSubmit, routes[2], StringComparison.Ordinal);
+        Assert.Equal(0, buffer.Count);
     }
 }
 
@@ -159,6 +438,65 @@ internal sealed class RecordingHttpClientFactory : IHttpClientFactory
     }
 }
 
+internal sealed class CapturingHttpClientFactory : IHttpClientFactory
+{
+    private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+    public List<CapturedRequest> Requests { get; } = [];
+
+    public CapturingHttpClientFactory(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        => _responder = responder;
+
+    public HttpClient CreateClient(string name)
+        => new(new CapturingHandler(this, _responder))
+        {
+            BaseAddress = new Uri("https://api.example.com/")
+        };
+
+    internal sealed record CapturedRequest(
+        HttpMethod Method,
+        Uri? Uri,
+        Dictionary<string, object> FormFields);
+
+    private sealed class CapturingHandler(CapturingHttpClientFactory owner, Func<HttpRequestMessage, HttpResponseMessage> responder)
+        : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var fields = await SnapshotMultipartFieldsAsync(request.Content, cancellationToken);
+            owner.Requests.Add(new CapturedRequest(request.Method, request.RequestUri, fields));
+            return responder(request);
+        }
+
+        private static async Task<Dictionary<string, object>> SnapshotMultipartFieldsAsync(
+            HttpContent? content, CancellationToken ct)
+        {
+            var fields = new Dictionary<string, object>(StringComparer.Ordinal);
+            if (content is not MultipartFormDataContent multipart)
+                return fields;
+
+            foreach (var part in multipart)
+            {
+                var name = part.Headers.ContentDisposition?.Name?.Trim('"');
+                if (string.IsNullOrEmpty(name))
+                    continue;
+
+                if (part.Headers.ContentType?.MediaType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true
+                    || string.Equals(name, InactivityAttemptFormFields.File, StringComparison.Ordinal))
+                {
+                    fields[name] = await part.ReadAsByteArrayAsync(ct);
+                }
+                else
+                {
+                    fields[name] = await part.ReadAsStringAsync(ct);
+                }
+            }
+
+            return fields;
+        }
+    }
+}
+
 internal sealed class FixedResponseHandler : HttpMessageHandler
 {
     private readonly HttpStatusCode _statusCode;
@@ -167,4 +505,10 @@ internal sealed class FixedResponseHandler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
         => Task.FromResult(new HttpResponseMessage(_statusCode));
+}
+
+internal sealed class PassthroughEvidenceProtector : IEvidenceProtector
+{
+    public byte[] Protect(ReadOnlyMemory<byte> plaintext, Guid attemptId) => plaintext.ToArray();
+    public byte[] Unprotect(ReadOnlyMemory<byte> protectedBytes, Guid attemptId) => protectedBytes.ToArray();
 }

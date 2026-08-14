@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
+using ONEVO.Agent.Shared.Models;
 
 /// <summary>
 /// Typed wrapper over the "OnevoApi" named HttpClient for the TrayActivation
@@ -53,6 +54,150 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "Device revoke call failed — treating as best-effort no-op");
             return false;
         }
+    }
+
+    /// <summary>Fetch the effective monitoring policy for this device (§Task3). Auth: Bearer Device JWT.</summary>
+    public async Task<PolicyResult> GetEffectivePolicyAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.TrayPolicy);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.TrayPolicy);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new PolicyResult(false, "UNAUTHORIZED", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", AgentApiRoutes.TrayPolicy, (int)response.StatusCode);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        TrayAgentPolicyPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<TrayAgentPolicyPayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.TrayPolicy);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (payload is null || string.IsNullOrWhiteSpace(payload.Version))
+        {
+            _logger.LogWarning("OnevoApi response from {Route} was empty or missing a version", AgentApiRoutes.TrayPolicy);
+            return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        var policy = new AgentPolicy
+        {
+            Version = payload.Version,
+            ActivitySignalEnabled = payload.ActivitySignalEnabled,
+            AppUsageEnabled = payload.AppUsageEnabled,
+            ScreenshotEnabled = payload.ScreenshotEnabled,
+            InactivityScreenshotEnabled = payload.InactivityScreenshotEnabled,
+            CameraVerificationEnabled = payload.CameraVerificationEnabled,
+            ValidUntil = payload.ValidUntil
+        };
+
+        return new PolicyResult(true, null, policy);
+    }
+
+    /// <summary>Creates a new enrollment attempt. Auth: Bearer Device JWT.</summary>
+    public async Task<EnrollmentAttemptResult> CreateEnrollmentAttemptAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.BiometricEnrollmentAttemptCreate);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.BiometricEnrollmentAttemptCreate);
+            return new EnrollmentAttemptResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new EnrollmentAttemptResult(
+                false,
+                response.StatusCode == HttpStatusCode.Unauthorized ? "UNAUTHORIZED" : "SERVICE_UNAVAILABLE",
+                null);
+        }
+
+        EnrollmentAttemptPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<EnrollmentAttemptPayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.BiometricEnrollmentAttemptCreate);
+            return new EnrollmentAttemptResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        return payload is null
+            ? new EnrollmentAttemptResult(false, "SERVICE_UNAVAILABLE", null)
+            : new EnrollmentAttemptResult(true, null, payload);
+    }
+
+    /// <summary>Completes an enrollment attempt. Auth: Bearer Device JWT.</summary>
+    public async Task<CompleteEnrollmentResult> CompleteEnrollmentAttemptAsync(
+        string accessToken, Guid attemptId, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        var route = string.Format(AgentApiRoutes.BiometricEnrollmentAttemptComplete, attemptId);
+        using var request = new HttpRequestMessage(HttpMethod.Post, route);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
+            return new CompleteEnrollmentResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new CompleteEnrollmentResult(
+                false,
+                response.StatusCode == HttpStatusCode.Unauthorized ? "UNAUTHORIZED" : "SERVICE_UNAVAILABLE",
+                null);
+        }
+
+        BiometricProfilePayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<BiometricProfilePayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", route);
+            return new CompleteEnrollmentResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        return payload is null
+            ? new CompleteEnrollmentResult(false, "SERVICE_UNAVAILABLE", null)
+            : new CompleteEnrollmentResult(true, null, payload.Status);
     }
 
     private async Task<TrayAuthResult> PostAuthAsync(string route, object body, CancellationToken ct)
@@ -116,3 +261,40 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("employee_number")] string? EmployeeNumber);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
+
+/// <summary>
+/// Wire-format mirror of the backend's tray-policy response (snake_case). Kept separate from
+/// <see cref="AgentPolicy"/> — that internal PascalCase contract is also used for the IPC
+/// PolicyPush wire format, which must not gain HTTP-only JsonPropertyName mappings.
+/// </summary>
+public sealed record TrayAgentPolicyPayload(
+    [property: JsonPropertyName("version")] string Version,
+    [property: JsonPropertyName("activity_signal_enabled")] bool ActivitySignalEnabled,
+    [property: JsonPropertyName("app_usage_enabled")] bool AppUsageEnabled,
+    [property: JsonPropertyName("screenshot_enabled")] bool ScreenshotEnabled,
+    [property: JsonPropertyName("inactivity_screenshot_enabled")] bool InactivityScreenshotEnabled,
+    [property: JsonPropertyName("camera_verification_enabled")] bool CameraVerificationEnabled,
+    [property: JsonPropertyName("valid_until")] DateTimeOffset ValidUntil);
+
+public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);
+
+/// <summary>Wire-format mirror of the backend's EnrollmentAttemptResponseDto.</summary>
+public sealed record EnrollmentAttemptPayload(
+    [property: JsonPropertyName("attempt_id")] Guid AttemptId,
+    [property: JsonPropertyName("aws_session_id")] string AwsSessionId,
+    [property: JsonPropertyName("region")] string Region,
+    [property: JsonPropertyName("challenge_type")] string ChallengeType,
+    [property: JsonPropertyName("access_key_id")] string AccessKeyId,
+    [property: JsonPropertyName("secret_access_key")] string SecretAccessKey,
+    [property: JsonPropertyName("session_token")] string SessionToken,
+    [property: JsonPropertyName("credentials_expire_at")] DateTimeOffset CredentialsExpireAt);
+
+public sealed record EnrollmentAttemptResult(bool Success, string? ErrorCode, EnrollmentAttemptPayload? Attempt);
+
+/// <summary>Wire-format mirror of the backend's BiometricProfileResponseDto.</summary>
+public sealed record BiometricProfilePayload(
+    [property: JsonPropertyName("profile_id")] Guid ProfileId,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("enrolled_at")] DateTimeOffset EnrolledAt);
+
+public sealed record CompleteEnrollmentResult(bool Success, string? ErrorCode, string? ProfileStatus);

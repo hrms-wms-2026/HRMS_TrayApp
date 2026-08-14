@@ -14,6 +14,7 @@ public static class MauiProgram
         builder.ConfigureMauiHandlers(h =>
         {
             h.AddHandler<Controls.CameraPreview, Platforms.Windows.CameraPreviewHandler>();
+            h.AddHandler<Controls.BiometricWebView, Platforms.Windows.BiometricWebViewHandler>();
         });
 
         // Infrastructure
@@ -22,10 +23,15 @@ public static class MauiProgram
         builder.Services.AddSingleton<INamedPipeClient>(sp =>
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<NotificationActivationRouter>();
+        builder.Services.AddSingleton<WindowsInactivityPromptService>();
+        builder.Services.AddSingleton<IInactivityPromptService>(sp =>
+            sp.GetRequiredService<WindowsInactivityPromptService>());
         builder.Services.AddSingleton<IPreferencesStore, PreferencesStore>();
         builder.Services.AddSingleton<ICameraService, CameraService>();
         builder.Services.AddSingleton<ILocationService, GeolocationService>();
         builder.Services.AddSingleton<ISessionDayMetrics, SessionDayMetrics>();
+        builder.Services.AddSingleton<IAppIconCache, AppIconCache>();
 
         // Collectors
         builder.Services.AddSingleton<ActivityCountCollector>();
@@ -40,10 +46,14 @@ public static class MauiProgram
         builder.Services.AddSingleton<MeetingDetector>();
         builder.Services.AddSingleton<IAgentCollector>(sp =>
             sp.GetRequiredService<MeetingDetector>());
-        builder.Services.AddSingleton<ScreenshotCollector>();
+        builder.Services.AddSingleton<IIdleTimeProvider, WindowsIdleTimeProvider>();
+        builder.Services.AddSingleton<Capture.IScreenshotCaptureService, Capture.VirtualDesktopScreenshotCaptureService>();
+        builder.Services.AddSingleton<InactivityScreenshotCollector>();
         builder.Services.AddSingleton<IAgentCollector>(sp =>
-            sp.GetRequiredService<ScreenshotCollector>());
+            sp.GetRequiredService<InactivityScreenshotCollector>());
         builder.Services.AddSingleton<CollectorCoordinator>();
+        builder.Services.AddSingleton<ICollectorLifecycleCoordinator>(sp =>
+            sp.GetRequiredService<CollectorCoordinator>());
 
         // ViewModels
         builder.Services.AddTransient<ConnectWorkspaceViewModel>();
@@ -56,6 +66,7 @@ public static class MauiProgram
         builder.Services.AddTransient<EndSessionViewModel>();
         builder.Services.AddTransient<StatusPopupViewModel>();
         builder.Services.AddTransient<PhotoCaptureWindowViewModel>();
+        builder.Services.AddTransient<BiometricEnrollmentViewModel>();
 
         // Views
         builder.Services.AddTransient<ConnectWorkspacePage>();
@@ -67,7 +78,16 @@ public static class MauiProgram
         builder.Services.AddTransient<ActiveSessionPage>();
         builder.Services.AddTransient<EndSessionPage>();
         builder.Services.AddTransient<PhotoCaptureWindow>();
+        builder.Services.AddTransient<BiometricEnrollmentPage>();
 
-        return builder.Build();
+        var app = builder.Build();
+
+        // Force IInactivityPromptService to construct now, at startup, rather than lazily on the
+        // first inactivity prompt — its constructor subscribes to
+        // AppNotificationManager.NotificationInvoked, and that subscription must happen once,
+        // during app startup, per the actionable-notification design.
+        app.Services.GetRequiredService<IInactivityPromptService>();
+
+        return app;
     }
 }

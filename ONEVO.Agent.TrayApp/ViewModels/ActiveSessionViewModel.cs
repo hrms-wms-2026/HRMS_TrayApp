@@ -3,12 +3,14 @@ namespace ONEVO.Agent.TrayApp.ViewModels;
 using System.Diagnostics;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Collectors;
 using ONEVO.Agent.TrayApp.Services;
 
 public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDisposable
 {
     private readonly INamedPipeClient _pipe;
     private readonly ISessionDayMetrics _dayMetrics;
+    private readonly ICollectorLifecycleCoordinator _lifecycleCoordinator;
     private IDispatcherTimer? _uiTimer;
     private DateTimeOffset? _clockInAt;
     private TimeSpan _accumulatedBreak;
@@ -26,23 +28,28 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _workDurationDisplay = "00:00:00";
     [ObservableProperty] private string _breakTimeDisplay  = "00:00:00";
     [ObservableProperty] private string _productiveTimeDisplay = "00:00:00";
-    [ObservableProperty] private string _tasksCompletedDisplay = "2";
+    // No tasks feature exists yet — show "—" rather than a fabricated count (see architecture §21).
+    [ObservableProperty] private string _tasksCompletedDisplay = "—";
     [ObservableProperty] private bool   _isOnBreak;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isBusyAction;
     [ObservableProperty] private string? _syncMessage;
     [ObservableProperty] private string? _errorMessage;
 
-    public ActiveSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics)
+    public ActiveSessionViewModel(
+        INamedPipeClient pipe,
+        ISessionDayMetrics dayMetrics,
+        ICollectorLifecycleCoordinator lifecycleCoordinator)
     {
         Title = "Active Session";
         _pipe = pipe;
         _dayMetrics = dayMetrics;
+        _lifecycleCoordinator = lifecycleCoordinator;
     }
 
-    /// <summary>Test helper — empty day metrics.</summary>
+    /// <summary>Test helper — empty day metrics, no-op collector-lifecycle drain.</summary>
     public ActiveSessionViewModel(INamedPipeClient pipe)
-        : this(pipe, new SessionDayMetrics()) { }
+        : this(pipe, new SessionDayMetrics(), NoOpCollectorLifecycleCoordinator.Instance) { }
 
     public void OnAppearing()
     {
@@ -236,7 +243,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private async Task ConfirmStartBreakAsync(CancellationToken ct)
     {
         IsBreakConfirmVisible = false;
-        var result = await RunLifecycleAsync(LifecycleAction.StartBreak, ct);
+        var result = await RunLifecycleWithPreStopAsync(LifecycleAction.StartBreak, ct);
         if (IsStaleSessionError(result))
         {
             try { await Shell.Current.GoToAsync("//clockin"); }
@@ -247,6 +254,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [RelayCommand]
     private async Task EndBreakAsync(CancellationToken ct)
     {
+        // EndBreak resumes monitoring rather than pausing it, so it does not go through the
+        // pre-stop drain — collectors are already stopped for the break's duration.
         var result = await RunLifecycleAsync(LifecycleAction.EndBreak, ct);
         if (IsStaleSessionError(result))
         {
@@ -262,7 +271,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         // (fed by OnStateReceived/OnStatusReceived) — not here. Two navigation sources
         // racing on the same transition was the cause of the "//end" screen sometimes
         // rendering before RememberCompletedSession had run.
-        var result = await RunLifecycleAsync(LifecycleAction.ClockOut, ct);
+        var result = await RunLifecycleWithPreStopAsync(LifecycleAction.ClockOut, ct);
         if (result?.Success == true)
             return;
 
@@ -271,6 +280,36 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             try { await Shell.Current.GoToAsync("//clockin"); }
             catch { }
         }
+    }
+
+    /// <summary>
+    /// Drains collectors (dismissing any pending inactivity prompt and waiting for an already
+    /// approved capture + attempt IPC acknowledgement) before sending a pausing lifecycle command,
+    /// so the Service durably enqueues the evidence attempt before it enqueues work-session
+    /// completion. If the Service rejects the command while the authoritative state it returned is
+    /// still Active, collectors are reconciled back on.
+    /// </summary>
+    private async Task<LifecycleResultPayload?> RunLifecycleWithPreStopAsync(LifecycleAction action, CancellationToken ct)
+    {
+        try
+        {
+            await _lifecycleCoordinator.PrepareForPauseAsync(ct);
+        }
+        catch
+        {
+            // Best-effort drain — a stuck local collector drain must never block the employee from
+            // clocking out/starting a break. The lifecycle command below still proceeds.
+        }
+
+        var result = await RunLifecycleAsync(action, ct);
+
+        if (result is { Success: false, State: MonitoringState.Active })
+        {
+            try { await _lifecycleCoordinator.ResumeAfterRejectedPauseAsync(ct); }
+            catch { /* best-effort reconciliation */ }
+        }
+
+        return result;
     }
 
     [RelayCommand]
@@ -308,7 +347,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             var result = await _pipe.SendLifecycleAsync(action, ct);
             if (result is null)
             {
-                ErrorMessage = "No response from Onexso Agent Service.";
+                ErrorMessage = "No response from OneXso Agent Service.";
                 return null;
             }
 

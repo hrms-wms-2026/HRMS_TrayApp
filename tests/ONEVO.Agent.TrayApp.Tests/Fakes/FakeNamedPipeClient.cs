@@ -128,6 +128,41 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             NextLogoutResult ?? new LogoutResultPayload(true, null));
     }
 
+    /// <summary>Optional canned result for StartBiometricEnrollmentAsync. Null = auto-success.</summary>
+    public BiometricEnrollmentSessionReadyPayload? NextEnrollmentSessionResult { get; set; }
+
+    public Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.BiometricEnrollmentStart });
+
+        if (NextEnrollmentSessionResult is not null)
+            return Task.FromResult<BiometricEnrollmentSessionReadyPayload?>(NextEnrollmentSessionResult);
+
+        return Task.FromResult<BiometricEnrollmentSessionReadyPayload?>(new BiometricEnrollmentSessionReadyPayload(
+            true, null, Guid.NewGuid(), "aws-session-fake", "ap-south-1", "FaceMovementAndLightChallenge",
+            "AKIA", "secret", "token", DateTimeOffset.UtcNow.AddMinutes(15)));
+    }
+
+    /// <summary>Optional canned result for CompleteBiometricEnrollmentAsync. Null = auto-success.</summary>
+    public BiometricEnrollmentResultPayload? NextEnrollmentCompletionResult { get; set; }
+
+    public Task<BiometricEnrollmentResultPayload?> CompleteBiometricEnrollmentAsync(
+        Guid attemptId, bool captureSucceeded, string? clientErrorCode, CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.BiometricEnrollmentCaptureFinished,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new BiometricEnrollmentCaptureFinishedPayload(attemptId, captureSucceeded, clientErrorCode))
+        });
+
+        if (NextEnrollmentCompletionResult is not null)
+            return Task.FromResult<BiometricEnrollmentResultPayload?>(NextEnrollmentCompletionResult);
+
+        return Task.FromResult<BiometricEnrollmentResultPayload?>(
+            new BiometricEnrollmentResultPayload(true, null, "active"));
+    }
+
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();
     public void SimulateState(MonitoringState s)  => OnStateReceived?.Invoke(s);
     public void SimulateStatus(StatusResponsePayload s)

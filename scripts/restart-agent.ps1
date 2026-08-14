@@ -11,6 +11,10 @@ $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
+# Service reads appsettings.Development.json (ApiBaseUrl etc.) only under this environment;
+# without it, Program.cs's OptionsValidation throws "ApiBaseUrl must be set" on startup.
+$env:DOTNET_ENVIRONMENT = "Development"
+
 Write-Host "Stopping ONEVO.Agent.Service / ONEVO.Agent.TrayApp ..." -ForegroundColor Yellow
 Stop-Process -Name "ONEVO.Agent.Service" -Force -ErrorAction SilentlyContinue
 Stop-Process -Name "ONEVO.Agent.TrayApp" -Force -ErrorAction SilentlyContinue

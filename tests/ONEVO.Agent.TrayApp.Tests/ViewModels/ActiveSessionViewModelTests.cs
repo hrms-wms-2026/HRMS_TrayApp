@@ -1,5 +1,6 @@
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
 
@@ -150,5 +151,121 @@ public sealed class ActiveSessionViewModelTests
         var vm = new ActiveSessionViewModel(pipe);
         await vm.ConfirmStartBreakCommand.ExecuteAsync(null);
         Assert.Equal("Break is only available while working.", vm.ErrorMessage);
+    }
+
+    // --- Pre-stop collector drain (Task 6) ---
+    //
+    // OrderRecordingLifecycleCoordinator proves ordering, not mere co-occurrence: it snapshots
+    // pipe.LifecycleActions.Count at the moment PrepareForPauseAsync runs. If that count is 0, no
+    // lifecycle command had been sent yet — i.e. the drain genuinely happened first.
+
+    [Fact]
+    public async Task ConfirmStartBreak_CallsPrepareForPause_BeforeSendingStartBreak()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var coordinator = new OrderRecordingLifecycleCoordinator(pipe);
+        var vm = new ActiveSessionViewModel(pipe, new SessionDayMetrics(), coordinator);
+
+        await vm.ConfirmStartBreakCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, coordinator.LifecycleActionCountWhenPrepareCalled);
+        Assert.Contains(LifecycleAction.StartBreak, pipe.LifecycleActions);
+    }
+
+    [Fact]
+    public async Task ClockOut_CallsPrepareForPause_BeforeSendingClockOut()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var coordinator = new OrderRecordingLifecycleCoordinator(pipe);
+        var vm = new ActiveSessionViewModel(pipe, new SessionDayMetrics(), coordinator);
+
+        await vm.ClockOutCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, coordinator.LifecycleActionCountWhenPrepareCalled);
+        Assert.Contains(LifecycleAction.ClockOut, pipe.LifecycleActions);
+    }
+
+    [Fact]
+    public async Task EndBreak_DoesNotCallPrepareForPause()
+    {
+        // EndBreak resumes monitoring rather than pausing it — it must not drain collectors.
+        var pipe = new FakeNamedPipeClient();
+        var coordinator = new OrderRecordingLifecycleCoordinator(pipe);
+        var vm = new ActiveSessionViewModel(pipe, new SessionDayMetrics(), coordinator);
+
+        await vm.EndBreakCommand.ExecuteAsync(null);
+
+        Assert.False(coordinator.PrepareCalled);
+    }
+
+    [Fact]
+    public async Task ConfirmStartBreak_RejectedWhileStateStillActive_CallsResume()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLifecycleResult = new LifecycleResultPayload(
+                false, "REJECTED", "Cannot start break right now.", MonitoringState.Active, null)
+        };
+        var coordinator = new OrderRecordingLifecycleCoordinator(pipe);
+        var vm = new ActiveSessionViewModel(pipe, new SessionDayMetrics(), coordinator);
+
+        await vm.ConfirmStartBreakCommand.ExecuteAsync(null);
+
+        Assert.True(coordinator.ResumeCalled);
+    }
+
+    [Fact]
+    public async Task ConfirmStartBreak_RejectedWhileStateNotActive_DoesNotCallResume()
+    {
+        // Discriminates "the Service rejected it AND authoritative state is still Active" from a
+        // rejection that already moved state elsewhere (e.g. stale session) — only the former
+        // should reconcile collectors back on.
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLifecycleResult = new LifecycleResultPayload(
+                false, "NO_ACTIVE_SESSION", "not clocked in", MonitoringState.Stopped, null)
+        };
+        var coordinator = new OrderRecordingLifecycleCoordinator(pipe);
+        var vm = new ActiveSessionViewModel(pipe, new SessionDayMetrics(), coordinator);
+
+        await vm.ConfirmStartBreakCommand.ExecuteAsync(null);
+
+        Assert.False(coordinator.ResumeCalled);
+    }
+
+    [Fact]
+    public async Task ClockOut_Succeeds_DoesNotCallResume()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var coordinator = new OrderRecordingLifecycleCoordinator(pipe);
+        var vm = new ActiveSessionViewModel(pipe, new SessionDayMetrics(), coordinator);
+
+        await vm.ClockOutCommand.ExecuteAsync(null);
+
+        Assert.False(coordinator.ResumeCalled);
+    }
+
+    /// <summary>
+    /// Records whether/when it was called relative to <see cref="FakeNamedPipeClient.LifecycleActions"/>
+    /// so ordering can be asserted, not just co-occurrence.
+    /// </summary>
+    private sealed class OrderRecordingLifecycleCoordinator(FakeNamedPipeClient pipe) : ICollectorLifecycleCoordinator
+    {
+        public bool PrepareCalled { get; private set; }
+        public bool ResumeCalled { get; private set; }
+        public int LifecycleActionCountWhenPrepareCalled { get; private set; } = -1;
+
+        public Task PrepareForPauseAsync(CancellationToken ct)
+        {
+            PrepareCalled = true;
+            LifecycleActionCountWhenPrepareCalled = pipe.LifecycleActions.Count;
+            return Task.CompletedTask;
+        }
+
+        public Task ResumeAfterRejectedPauseAsync(CancellationToken ct)
+        {
+            ResumeCalled = true;
+            return Task.CompletedTask;
+        }
     }
 }

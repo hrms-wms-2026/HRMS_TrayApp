@@ -1,0 +1,24 @@
+﻿{
+    "devices":  [
+                    {
+                        "name":  "USB2.0 HD UVC WebCam",
+                        "isVirtual":  false,
+                        "deviceId":  "USB\\VID_2B7E\u0026PID_B888\u0026MI_00\\7\u00261294FAB6\u00260\u00260000",
+                        "preferredBuiltIn":  false
+                    },
+                    {
+                        "name":  "Integrated Monitor",
+                        "isVirtual":  false,
+                        "deviceId":  "DISPLAY\\CMN1521\\5\u00261553C356\u00260\u0026UID512",
+                        "preferredBuiltIn":  true
+                    }
+                ],
+    "note":  "Resolution/FPS requires WebView2 getUserMedia during live liveness session (Task 0 Step 5-6).",
+    "cameraCount":  2,
+    "machine":  {
+                    "osCaption":  "Microsoft Windows 11 Home Single Language",
+                    "computerName":  "TICS16",
+                    "osVersion":  "10.0.26200",
+                    "probeAtUtc":  "2026-08-13T15:29:33.3430278Z"
+                }
+}

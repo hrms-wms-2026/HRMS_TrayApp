@@ -3,6 +3,7 @@ namespace ONEVO.Agent.Service;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using ONEVO.Agent.Service.Api;
+using ONEVO.Agent.Service.Biometrics;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.IPC;
@@ -25,6 +26,9 @@ public sealed class AgentWorker : BackgroundService
     private readonly OnevoApiClient _apiClient;
     private readonly CredentialStore _credentials;
     private readonly DeviceIdentityStore _deviceIdentityStore;
+    private readonly EnrollmentCoordinator _enrollmentCoordinator;
+    private readonly InactivityEvidenceHandler _inactivityEvidence;
+    private readonly EvidenceSpoolStore _evidenceSpool;
 
     public AgentWorker(
         ILogger<AgentWorker> logger,
@@ -37,7 +41,10 @@ public sealed class AgentWorker : BackgroundService
         IOptions<AgentOptions> options,
         OnevoApiClient apiClient,
         CredentialStore credentials,
-        DeviceIdentityStore deviceIdentityStore)
+        DeviceIdentityStore deviceIdentityStore,
+        EnrollmentCoordinator enrollmentCoordinator,
+        InactivityEvidenceHandler inactivityEvidence,
+        EvidenceSpoolStore evidenceSpool)
     {
         _logger = logger;
         _pipeServer = pipeServer;
@@ -50,11 +57,16 @@ public sealed class AgentWorker : BackgroundService
         _apiClient = apiClient;
         _credentials = credentials;
         _deviceIdentityStore = deviceIdentityStore;
+        _enrollmentCoordinator = enrollmentCoordinator;
+        _inactivityEvidence = inactivityEvidence;
+        _evidenceSpool = evidenceSpool;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         ApplyDevBootstrapIfConfigured();
+
+        _evidenceSpool.PurgeExpired(DateTimeOffset.UtcNow);
 
         _presenceSession.SetScheduleDisplay(_options.DefaultScheduleDisplay);
 
@@ -181,7 +193,110 @@ public sealed class AgentWorker : BackgroundService
             case IpcMessageTypes.LogoutRequest:
                 await HandleLogoutRequestAsync(envelope, reply);
                 break;
+
+            case IpcMessageTypes.BiometricEnrollmentStart:
+                await HandleBiometricEnrollmentStartAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.BiometricEnrollmentCaptureFinished:
+                await HandleBiometricEnrollmentCaptureFinishedAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.EvidenceTransferStart:
+                HandleEvidenceTransferStart(envelope);
+                break;
+
+            case IpcMessageTypes.EvidenceTransferChunk:
+                HandleEvidenceTransferChunk(envelope);
+                break;
+
+            case IpcMessageTypes.EvidenceTransferComplete:
+                await HandleEvidenceTransferCompleteAsync(envelope, reply);
+                break;
         }
+    }
+
+    private void HandleEvidenceTransferStart(IpcEnvelope envelope)
+    {
+        var payload = envelope.Payload?.Deserialize<EvidenceTransferStartPayload>();
+        if (payload is null) return;
+        _inactivityEvidence.HandleStart(payload, DateTimeOffset.UtcNow);
+    }
+
+    private void HandleEvidenceTransferChunk(IpcEnvelope envelope)
+    {
+        var payload = envelope.Payload?.Deserialize<EvidenceTransferChunkPayload>();
+        if (payload is null) return;
+        _inactivityEvidence.HandleChunk(payload, DateTimeOffset.UtcNow);
+    }
+
+    private async Task HandleEvidenceTransferCompleteAsync(
+        IpcEnvelope envelope,
+        Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<EvidenceTransferCompletePayload>();
+        if (payload is null)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.EvidenceTransferAck,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new EvidenceTransferAckPayload(Guid.Empty, false, "invalid_payload"))
+            });
+            return;
+        }
+
+        var ack = _inactivityEvidence.HandleComplete(payload.AttemptId, DateTimeOffset.UtcNow);
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.EvidenceTransferAck,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(ack)
+        });
+    }
+
+    private async Task HandleBiometricEnrollmentStartAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var result = await _enrollmentCoordinator.StartAsync(CancellationToken.None);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.BiometricEnrollmentSessionReady,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(new BiometricEnrollmentSessionReadyPayload(
+                result.Success, result.ErrorCode, result.AttemptId, result.AwsSessionId, result.Region,
+                result.ChallengeType, result.AccessKeyId, result.SecretAccessKey, result.SessionToken,
+                result.CredentialsExpireAt))
+        });
+    }
+
+    private async Task HandleBiometricEnrollmentCaptureFinishedAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<BiometricEnrollmentCaptureFinishedPayload>();
+        if (payload is null)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.BiometricEnrollmentResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new BiometricEnrollmentResultPayload(false, "INVALID_PAYLOAD", null))
+            });
+            return;
+        }
+
+        // The backend re-derives the verdict from AWS regardless of CaptureSucceeded — the Tray's
+        // local capture outcome is only used for logging/UX, never trusted as the security decision.
+        var result = await _enrollmentCoordinator.CompleteAsync(payload.AttemptId, CancellationToken.None);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.BiometricEnrollmentResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new BiometricEnrollmentResultPayload(result.Success, result.ErrorCode, result.ProfileStatus))
+        });
     }
 
     private async Task HandleLifecycleCommandAsync(

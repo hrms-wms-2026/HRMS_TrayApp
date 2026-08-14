@@ -11,17 +11,70 @@
         <Setter Property="Padding" Value="16" />
     </Style>
 
+    <!-- Frosted-glass card: translucent gradient fill + bright hairline border sells the glass -->
     <Style x:Key="GlassCard" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="{StaticResource GlassSurfaceTop}" Offset="0" />
+                    <GradientStop Color="{StaticResource GlassSurfaceBottom}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
         <Setter Property="StrokeShape" Value="RoundRectangle 18" />
-        <Setter Property="Stroke" Value="{StaticResource Separator}" />
-        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeThickness" Value="1.2" />
+        <Setter Property="Stroke">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{StaticResource GlassBorderStart}" Offset="0" />
+                    <GradientStop Color="{StaticResource GlassBorderEnd}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Padding" Value="16" />
         <Setter Property="Shadow">
             <Setter.Value>
                 <Shadow Brush="#14000040" Offset="0,4" Radius="14" Opacity="0.12" />
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- Frosted-glass panel: for larger tinted surfaces (illustration pane, chips) -->
+    <Style x:Key="GlassPanel" TargetType="Border">
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{StaticResource GlassPanelTop}" Offset="0" />
+                    <GradientStop Color="{StaticResource GlassPanelBottom}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="StrokeShape" Value="RoundRectangle 24" />
+        <Setter Property="StrokeThickness" Value="1.2" />
+        <Setter Property="Stroke">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{StaticResource GlassBorderStart}" Offset="0" />
+                    <GradientStop Color="{StaticResource GlassBorderEnd}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Translucent input row that sits inside a GlassCard -->
+    <Style x:Key="GlassInputRow" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource GlassRowSurface}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <Setter Property="Stroke">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{StaticResource GlassBorderStart}" Offset="0" />
+                    <GradientStop Color="{StaticResource GlassBorderEnd}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="12,4" />
     </Style>
 
     <!-- Gradient button wrapper Border -->
@@ -40,7 +93,7 @@
         </Setter>
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="#601A5FF7" Offset="0,8" Radius="18" Opacity="0.4" />
+                <Shadow Brush="#60175CFF" Offset="0,8" Radius="18" Opacity="0.4" />
             </Setter.Value>
         </Setter>
     </Style>

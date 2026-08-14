@@ -13,7 +13,14 @@
   <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="4*,6*" ColumnSpacing="20">
 
     <!-- Left: gradient illustration panel -->
-    <Border x:Name="LeftPane" Grid.Column="0" StrokeThickness="0" MinimumWidthRequest="0">
+    <Border x:Name="LeftPane" Grid.Column="0" StrokeShape="RoundRectangle 24"
+            StrokeThickness="1.2" MinimumWidthRequest="0">
+      <Border.Stroke>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+          <GradientStop Color="{StaticResource GlassBorderStart}" Offset="0" />
+          <GradientStop Color="{StaticResource GlassBorderEnd}" Offset="1" />
+        </LinearGradientBrush>
+      </Border.Stroke>
       <Grid>
         <Grid.Background>
           <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -28,8 +35,8 @@
                  Margin="-70,0,0,30" Opacity="0.25">
           <Ellipse.Fill>
             <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-              <GradientStop Color="#7B3FE4" Offset="0" />
-              <GradientStop Color="#7B3FE400" Offset="1" />
+              <GradientStop Color="#6D28D9" Offset="0" />
+              <GradientStop Color="#6D28D900" Offset="1" />
             </RadialGradientBrush>
           </Ellipse.Fill>
         </Ellipse>
@@ -38,8 +45,8 @@
                  Margin="0,20,-40,0" Opacity="0.20">
           <Ellipse.Fill>
             <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-              <GradientStop Color="#1A5FF7" Offset="0" />
-              <GradientStop Color="#1A5FF700" Offset="1" />
+              <GradientStop Color="#175CFF" Offset="0" />
+              <GradientStop Color="#175CFF00" Offset="1" />
             </RadialGradientBrush>
           </Ellipse.Fill>
         </Ellipse>
@@ -48,8 +55,8 @@
                  Margin="60,-80,0,0" Opacity="0.15">
           <Ellipse.Fill>
             <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-              <GradientStop Color="#1A5FF7" Offset="0" />
-              <GradientStop Color="#1A5FF700" Offset="1" />
+              <GradientStop Color="#175CFF" Offset="0" />
+              <GradientStop Color="#175CFF00" Offset="1" />
             </RadialGradientBrush>
           </Ellipse.Fill>
         </Ellipse>
@@ -64,8 +71,8 @@
                   HorizontalOptions="Center">
             <Border.Background>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#1A5FF7" Offset="0" />
-                <GradientStop Color="#7B3FE4" Offset="1" />
+                <GradientStop Color="#175CFF" Offset="0" />
+                <GradientStop Color="#6D28D9" Offset="1" />
               </LinearGradientBrush>
             </Border.Background>
             <Label Text="&#xEA18;" FontFamily="Segoe MDL2 Assets" FontSize="48"
@@ -105,7 +112,7 @@
                Margin="0,6,0,24" />
 
         <!-- Details card -->
-        <Border Style="{StaticResource Card}" Margin="0,0,0,24">
+        <Border Style="{StaticResource GlassCard}" Margin="0,0,0,24">
           <VerticalStackLayout Spacing="0">
 
             <!-- Full Name -->

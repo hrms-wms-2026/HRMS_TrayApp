@@ -14,6 +14,7 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
     private readonly ILogger<AppUsageCollector> _logger;
     private readonly INamedPipeClient _pipe;
     private readonly ISessionDayMetrics _dayMetrics;
+    private readonly IAppIconCache _iconCache;
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private bool _running;
@@ -22,11 +23,13 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
     public AppUsageCollector(
         ILogger<AppUsageCollector> logger,
         INamedPipeClient pipe,
-        ISessionDayMetrics dayMetrics)
+        ISessionDayMetrics dayMetrics,
+        IAppIconCache iconCache)
     {
         _logger     = logger;
         _pipe       = pipe;
         _dayMetrics = dayMetrics;
+        _iconCache  = iconCache;
     }
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
@@ -70,7 +73,10 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
 
             string? processName = PrivacyScrubber.GetForegroundProcessNameSafe();
             if (!string.IsNullOrWhiteSpace(processName))
+            {
                 _dayMetrics.AddAppUsageSample(processName, SampleWindow);
+                _iconCache.TryCacheFromForegroundWindow(hwnd, processName);
+            }
 
             // Hash window title in memory immediately — raw title is never stored or sent (§8.3)
             var buf = new StringBuilder(512);

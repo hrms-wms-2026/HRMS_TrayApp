@@ -5,17 +5,13 @@ using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class ActiveSessionPage : ContentPage
 {
-    public ActiveSessionPage()
+    private CancellationTokenSource? _statusPulse;
+
+    public ActiveSessionPage(ActiveSessionViewModel vm)
     {
         InitializeComponent();
+        BindingContext = vm;
         ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
-    }
-
-    protected override void OnHandlerChanged()
-    {
-        base.OnHandlerChanged();
-        if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
-            BindingContext = sp.GetRequiredService<ActiveSessionViewModel>();
     }
 
     protected override void OnAppearing()
@@ -23,6 +19,9 @@ public partial class ActiveSessionPage : ContentPage
         base.OnAppearing();
         if (BindingContext is ActiveSessionViewModel vm)
             vm.OnAppearing();
+
+        _ = PageAnimations.EntranceAsync(LeftPane, RightPane);
+        _statusPulse = PageAnimations.StartPulse(StatusDot, scaleTo: 1.35, duration: 850);
     }
 
     protected override void OnDisappearing()
@@ -30,5 +29,7 @@ public partial class ActiveSessionPage : ContentPage
         base.OnDisappearing();
         if (BindingContext is ActiveSessionViewModel vm)
             vm.OnDisappearing();
+
+        PageAnimations.StopPulse(_statusPulse, StatusDot);
     }
 }

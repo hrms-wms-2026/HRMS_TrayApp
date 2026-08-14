@@ -22,7 +22,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 
     public ConnectWorkspaceViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
-        Title = "Connect Onexso Workspace";
+        Title = "Connect OneXso Workspace";
         _pipe = pipe;
         _preferences = preferences;
         _pipe.OnDisconnected += () =>
@@ -75,7 +75,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 
             if (result is null)
             {
-                ErrorMessage = "No response from Onexso Agent Service. Is the service running?";
+                ErrorMessage = "No response from OneXso Agent Service. Is the service running?";
                 IsConnected = false;
                 ConnectionLabel = "Not Connected";
                 return;
@@ -87,7 +87,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 {
                     "INVALID_CODE" => "Invalid or expired activation code. Get a new one from the employee portal.",
                     "LOCKED" => "Device is locked. Contact your admin.",
-                    "SERVICE_UNAVAILABLE" => "Can't reach the Onexso backend right now. Check your connection and try again.",
+                    "SERVICE_UNAVAILABLE" => "Can't reach the OneXso backend right now. Check your connection and try again.",
                     _ => result.ErrorCode ?? "Activation failed."
                 };
                 IsConnected = false;

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
-    <!-- Brand -->
-    <Color x:Key="Primary">#1A5FF7</Color>
+    <!-- Brand (official OneXso gradient: cyan -> blue -> purple) -->
+    <Color x:Key="Primary">#175CFF</Color>
     <Color x:Key="PrimaryDark">#1247C0</Color>
-    <Color x:Key="PrimaryAccent">#7B3FE4</Color>
+    <Color x:Key="PrimaryAccent">#6D28D9</Color>
     <Color x:Key="PrimarySoft">#EEF2FF</Color>
-    <Color x:Key="PrimaryGradientStart">#1A5FF7</Color>
-    <Color x:Key="PrimaryGradientMid">#5B3DF5</Color>
-    <Color x:Key="PrimaryGradientEnd">#7B3FE4</Color>
+    <Color x:Key="PrimaryGradientStart">#22C7F0</Color>
+    <Color x:Key="PrimaryGradientMid">#175CFF</Color>
+    <Color x:Key="PrimaryGradientEnd">#6D28D9</Color>
 
     <!-- Text -->
     <Color x:Key="TextPrimary">#0F1B2D</Color>
@@ -21,6 +21,20 @@
     <Color x:Key="RowBackground">#F8FAFF</Color>
     <Color x:Key="Separator">#E4E9F2</Color>
     <Color x:Key="IllustrationTint">#ECF2FF</Color>
+
+    <!-- Glass surfaces (frosted-glass translucency over Background) -->
+    <Color x:Key="GlassSurfaceTop">#E6FFFFFF</Color>
+    <Color x:Key="GlassSurfaceBottom">#B3FFFFFF</Color>
+    <Color x:Key="GlassPanelTop">#B8FFFFFF</Color>
+    <Color x:Key="GlassPanelBottom">#80D6E4FF</Color>
+    <Color x:Key="GlassRowSurface">#99FFFFFF</Color>
+    <Color x:Key="GlassBorderStart">#CCFFFFFF</Color>
+    <Color x:Key="GlassBorderEnd">#26FFFFFF</Color>
+    <Color x:Key="GlassGlowPrimary">#5922C7F0</Color>
+    <Color x:Key="GlassGlowAccent">#596D28D9</Color>
+    <Color x:Key="AccentSoft">#F1E9FE</Color>
+    <Color x:Key="BackgroundWashStart">#EFF4FF</Color>
+    <Color x:Key="BackgroundWashEnd">#F3ECFF</Color>
 
     <!-- Status -->
     <Color x:Key="StatusGreen">#22C55E</Color>

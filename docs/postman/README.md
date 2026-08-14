@@ -57,10 +57,14 @@
 | POST | `/api/v1/monitoring/activation/exchange` | none |
 | POST | `/api/v1/monitoring/activation/refresh` | none |
 | POST | `/api/v1/monitoring/activity/snapshots` | **Tray** JWT |
+| GET | `/api/v1/monitoring/tray/policy` | Tray JWT |
+| POST | `/api/v1/monitoring/tray/inactivity-attempts` | Tray JWT (multipart) |
 | POST | `/api/v1/monitoring/check-in` | Tray JWT |
 | GET | `/api/v1/monitoring/activity/snapshots` | Tenant JWT + `monitoring:read` |
 | GET | `/api/v1/monitoring/activity/daily-summary` | Tenant JWT |
 | GET | `/api/v1/monitoring/activity/daily-range` | Tenant JWT |
+| GET | `/api/v1/monitoring/activity/daily-report` | Tenant JWT + `monitoring:read` |
+| GET | `/api/v1/monitoring/screenshots/{id}/url` | Tenant JWT + `monitoring:read` |
 
 ## Notes
 

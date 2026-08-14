@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Polly;
 using ONEVO.Agent.Service;
 using ONEVO.Agent.Service.Api;
+using ONEVO.Agent.Service.Biometrics;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.IPC;
@@ -25,6 +26,10 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<LifecycleGate>();
         services.AddSingleton<PresenceSession>();
         services.AddSingleton<PolicyCache>();
+        services.AddSingleton<IEvidenceProtector, DpapiEvidenceProtector>();
+        services.AddSingleton<EvidenceSpoolStore>();
+        services.AddSingleton<EvidenceTransferAssembler>();
+        services.AddSingleton<InactivityEvidenceHandler>();
         services.AddSingleton<ActivityRecordBuffer>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
@@ -37,6 +42,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<DeviceIdentityStore>();
         services.AddSingleton<NamedPipeAuthenticator>();
         services.AddSingleton<NamedPipeServer>();
+        services.AddSingleton<IIpcBroadcaster>(sp => sp.GetRequiredService<NamedPipeServer>());
 
         // packages-guide §9 — Polly v8 via Microsoft.Extensions.Http.Resilience
         services.AddHttpClient("OnevoApi", (sp, client) =>
@@ -94,11 +100,19 @@ var host = Host.CreateDefaultBuilder(args)
         });
 
         services.AddSingleton<OnevoApiClient>();
+        services.AddSingleton<EnrollmentCoordinator>();
 
         services.AddHostedService<AgentWorker>();
         services.AddHostedService<ActivitySyncService>();
         services.AddHostedService<HeartbeatService>();
         services.AddHostedService<TokenRefreshService>();
+        // Registered right after TokenRefreshService per the Task 3 plan ("after token
+        // refresh, before activity sync"). ActivitySyncService is left in its existing slot
+        // above rather than reordered — DI registration order does not sequence independent
+        // BackgroundServices (each runs its own ExecuteAsync as soon as the host starts), and
+        // reordering it was not requested. PolicySyncService's own "before activity sync" is
+        // achieved instead by its immediate-fetch-on-JWT behavior (see PolicySyncService.cs).
+        services.AddHostedService<PolicySyncService>();
         // packages-guide §1 — SignalR remote commands (waits for JWT)
         services.AddHostedService<AgentCommandListener>();
     })

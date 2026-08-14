@@ -35,6 +35,30 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: result of a sign-out attempt.</summary>
     public const string LogoutResult = "LogoutResult";
+
+    /// <summary>Tray → Service: begin an evidence transfer for one inactivity capture attempt.</summary>
+    public const string EvidenceTransferStart = "EvidenceTransferStart";
+
+    /// <summary>Tray → Service: one base64-encoded chunk of the evidence image.</summary>
+    public const string EvidenceTransferChunk = "EvidenceTransferChunk";
+
+    /// <summary>Tray → Service: all chunks for the attempt have been sent.</summary>
+    public const string EvidenceTransferComplete = "EvidenceTransferComplete";
+
+    /// <summary>Service → Tray: acknowledgement for a completed (or rejected) evidence transfer.</summary>
+    public const string EvidenceTransferAck = "EvidenceTransferAck";
+
+    /// <summary>Tray → Service: employee wants to start biometric enrollment.</summary>
+    public const string BiometricEnrollmentStart = "BiometricEnrollmentStart";
+
+    /// <summary>Service → Tray: AWS session + short-lived scoped credentials for the WebView2 capture client.</summary>
+    public const string BiometricEnrollmentSessionReady = "BiometricEnrollmentSessionReady";
+
+    /// <summary>Tray → Service: the WebView2 capture finished (or failed) — ask the Service to ask the backend to complete the attempt.</summary>
+    public const string BiometricEnrollmentCaptureFinished = "BiometricEnrollmentCaptureFinished";
+
+    /// <summary>Service → Tray: final enrollment outcome after the backend's CompleteEnrollmentAttempt call.</summary>
+    public const string BiometricEnrollmentResult = "BiometricEnrollmentResult";
 }
 
 public enum LifecycleAction
@@ -103,3 +127,24 @@ public sealed record EnrollmentResultPayload
 }
 
 public sealed record LogoutResultPayload(bool Success, string? ErrorCode);
+
+public sealed record BiometricEnrollmentStartPayload;
+
+public sealed record BiometricEnrollmentSessionReadyPayload(
+    bool Success,
+    string? ErrorCode,
+    Guid AttemptId,
+    string? AwsSessionId,
+    string? Region,
+    string? ChallengeType,
+    string? AccessKeyId,
+    string? SecretAccessKey,
+    string? SessionToken,
+    DateTimeOffset? CredentialsExpireAt);
+
+/// <summary>CaptureSucceeded distinguishes a clean AWS-side liveness completion from a local
+/// capture-side failure (camera denied/occupied, WebView2 crash, cancellation) — the Service
+/// still asks the backend to check the AWS session either way, since AWS is the source of truth.</summary>
+public sealed record BiometricEnrollmentCaptureFinishedPayload(Guid AttemptId, bool CaptureSucceeded, string? ClientErrorCode);
+
+public sealed record BiometricEnrollmentResultPayload(bool Success, string? ErrorCode, string? ProfileStatus);

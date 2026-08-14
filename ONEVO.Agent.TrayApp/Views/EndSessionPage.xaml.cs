@@ -5,17 +5,11 @@ using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class EndSessionPage : ContentPage
 {
-    public EndSessionPage()
+    public EndSessionPage(EndSessionViewModel vm)
     {
         InitializeComponent();
+        BindingContext = vm;
         ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
-    }
-
-    protected override void OnHandlerChanged()
-    {
-        base.OnHandlerChanged();
-        if (BindingContext is null && Handler?.MauiContext?.Services is { } sp)
-            BindingContext = sp.GetRequiredService<EndSessionViewModel>();
     }
 
     protected override void OnAppearing()
@@ -23,6 +17,9 @@ public partial class EndSessionPage : ContentPage
         base.OnAppearing();
         if (BindingContext is EndSessionViewModel vm)
             vm.OnAppearing();
+
+        _ = PageAnimations.EntranceAsync(LeftPane, RightPane);
+        _ = PageAnimations.PopAsync(CompletedBadge);
     }
 
     protected override void OnDisappearing()

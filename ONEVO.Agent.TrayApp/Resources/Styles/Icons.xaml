@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!-- Segoe MDL2 Assets — verified against Windows 10/11 system font -->
+<!-- FontFamily used throughout this app is "Segoe MDL2 Assets" specifically — NOT "Segoe Fluent
+     Icons". The two fonts share most codepoints but not all; trusting Fluent Icons docs for an
+     MDL2 Assets glyph caused a real regression here (IconClock E917 renders as tofu on MDL2 Assets).
+     Every key in this file has been rendered with System.Drawing against the actual installed
+     "Segoe MDL2 Assets" font on a real Windows machine and visually confirmed on 2026-08-10 —
+     not just cross-checked against documentation. Re-run that render check before trusting a new key. -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
     <x:String x:Key="IconLink">&#xE71B;</x:String>
@@ -21,9 +26,13 @@
     <x:String x:Key="IconApps">&#xE71D;</x:String>
     <x:String x:Key="IconBell">&#xEA8F;</x:String>
     <x:String x:Key="IconKeyboard">&#xE765;</x:String>
-    <x:String x:Key="IconCoffee">&#xE8CB;</x:String>
-    <x:String x:Key="IconSignOut">&#xE7E8;</x:String>
-    <x:String x:Key="IconChart">&#xE9D2;</x:String>
+    <x:String x:Key="IconCafe">&#xEC32;</x:String>
+    <x:String x:Key="IconWork">&#xE821;</x:String>
+    <x:String x:Key="IconWifi">&#xE701;</x:String>
+    <x:String x:Key="IconPower">&#xE7E8;</x:String>
+    <x:String x:Key="IconMore">&#xE712;</x:String>
+    <x:String x:Key="IconCancel">&#xE711;</x:String>
+    <x:String x:Key="IconChart">&#xE9F9;</x:String>
     <x:String x:Key="IconDownload">&#xE896;</x:String>
     <x:String x:Key="IconSearch">&#xE721;</x:String>
     <x:String x:Key="IconChevron">&#xE76C;</x:String>

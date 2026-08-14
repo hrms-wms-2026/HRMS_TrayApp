@@ -5,21 +5,45 @@
              xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.WorkLocationPage"
              x:DataType="vm:WorkLocationViewModel"
-             BackgroundColor="{StaticResource Background}"
              Title="Select Your Work Location">
 
   <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
+    <Grid.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
+      </LinearGradientBrush>
+    </Grid.Background>
     <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
 
     <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="4*,6*" ColumnSpacing="24">
 
+      <!-- Ambient glow blobs sit behind the glass panels so the translucency has something to catch -->
+      <Ellipse Grid.ColumnSpan="2" WidthRequest="420" HeightRequest="420"
+               HorizontalOptions="Start" VerticalOptions="Start" Margin="-110,-90,0,0" Opacity="0.85">
+        <Ellipse.Fill>
+          <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+            <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
+            <GradientStop Color="#00175CFF" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+      <Ellipse Grid.Column="1" WidthRequest="360" HeightRequest="360"
+               HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-90,-90" Opacity="0.85">
+        <Ellipse.Fill>
+          <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+            <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
+            <GradientStop Color="#006D28D9" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+
       <!-- Left illustration -->
-      <Border x:Name="LeftPane" Grid.Column="0" StrokeThickness="0" StrokeShape="RoundRectangle 24"
-              BackgroundColor="{StaticResource IllustrationTint}"
+      <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassPanel}"
               MinimumWidthRequest="0">
         <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12" Padding="24">
-          <Border WidthRequest="120" HeightRequest="120" StrokeShape="RoundRectangle 60"
-                  StrokeThickness="0" BackgroundColor="#DCE6FF" HorizontalOptions="Center">
+          <Border WidthRequest="120" HeightRequest="120" Style="{StaticResource GlassInputRow}"
+                  StrokeShape="RoundRectangle 60" Padding="0" HorizontalOptions="Center">
             <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
                    FontSize="56" TextColor="{StaticResource Primary}"
                    HorizontalOptions="Center" VerticalOptions="Center" />
@@ -74,10 +98,7 @@
             </Grid>
           </Border>
 
-          <Border BackgroundColor="{StaticResource CardBackground}"
-                  StrokeShape="RoundRectangle 12"
-                  Stroke="{StaticResource Separator}" StrokeThickness="1"
-                  Padding="12,4" Margin="0,0,0,14">
+          <Border Style="{StaticResource GlassInputRow}" Margin="0,0,0,14">
             <HorizontalStackLayout Spacing="10">
               <Label Text="{StaticResource IconSearch}" FontFamily="Segoe MDL2 Assets"
                      FontSize="16" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />

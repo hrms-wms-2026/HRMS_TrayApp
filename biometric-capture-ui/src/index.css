@@ -1,0 +1,22 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: #0b1f4b;
+  color: #fff;
+  font-family: system-ui, sans-serif;
+}
+
+.status-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 1rem;
+  text-align: center;
+}
+
+.status-panel.error {
+  color: #ffb4b4;
+}
