@@ -14,10 +14,34 @@ public sealed class TrayIconService : IDisposable
     private readonly ILogger<TrayIconService> _logger;
     private NotifyIcon? _notifyIcon;
     private bool _initialized;
+    private Icon? _appIcon;
 
     public TrayIconService(ILogger<TrayIconService> logger)
     {
         _logger = logger;
+    }
+
+    private Icon AppIcon
+    {
+        get
+        {
+            if (_appIcon is not null)
+                return _appIcon;
+
+            try
+            {
+                var assembly = typeof(TrayIconService).Assembly;
+                using var stream = assembly.GetManifestResourceStream("ONEVO.Agent.TrayApp.app_tray.ico");
+                _appIcon = stream is not null ? new Icon(stream) : SystemIcons.Application;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load embedded tray icon; falling back to system icon");
+                _appIcon = SystemIcons.Application;
+            }
+
+            return _appIcon;
+        }
     }
 
     public void Initialize()
@@ -47,8 +71,8 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon = new NotifyIcon
         {
             Visible = true,
-            Text = "Onexso WorkPulse — Starting...",
-            Icon = SystemIcons.Application,
+            Text = "OneXso WorkPulse — Starting...",
+            Icon = AppIcon,
             ContextMenuStrip = BuildContextMenu()
         };
 
@@ -64,7 +88,7 @@ public sealed class TrayIconService : IDisposable
             if (_notifyIcon is null)
                 return;
 
-            _notifyIcon.Text = $"Onexso WorkPulse — {state switch
+            _notifyIcon.Text = $"OneXso WorkPulse — {state switch
             {
                 MonitoringState.Active     => "Monitoring Active",
                 MonitoringState.Paused     => "On Break",
@@ -74,12 +98,7 @@ public sealed class TrayIconService : IDisposable
                 _                          => state.ToString()
             }}";
 
-            _notifyIcon.Icon = state switch
-            {
-                MonitoringState.Active => SystemIcons.Information,
-                MonitoringState.Locked => SystemIcons.Error,
-                _                      => SystemIcons.Application
-            };
+            _notifyIcon.Icon = AppIcon;
         }
 
         try
@@ -142,12 +161,15 @@ public sealed class TrayIconService : IDisposable
 
     public void Dispose()
     {
-        if (_notifyIcon is null)
-            return;
+        if (_notifyIcon is not null)
+        {
+            _notifyIcon.Visible = false;
+            _notifyIcon.Dispose();
+            _notifyIcon = null;
+        }
 
-        _notifyIcon.Visible = false;
-        _notifyIcon.Dispose();
-        _notifyIcon = null;
+        _appIcon?.Dispose();
+        _appIcon = null;
         _initialized = false;
     }
 }

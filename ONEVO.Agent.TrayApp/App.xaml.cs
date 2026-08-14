@@ -116,7 +116,7 @@ public partial class App : Microsoft.Maui.Controls.Application
         var shell  = new ONEVO.Agent.TrayApp.Views.AppShell();
         var window = new Window(shell)
         {
-            Title         = "Onexso WorkPulse",
+            Title         = "OneXso WorkPulse",
             Width         = 960,
             Height        = 700,
             MinimumWidth  = 720,

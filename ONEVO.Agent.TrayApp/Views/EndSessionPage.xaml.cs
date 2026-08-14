@@ -17,6 +17,9 @@ public partial class EndSessionPage : ContentPage
         base.OnAppearing();
         if (BindingContext is EndSessionViewModel vm)
             vm.OnAppearing();
+
+        _ = PageAnimations.EntranceAsync(LeftPane, RightPane);
+        _ = PageAnimations.PopAsync(CompletedBadge);
     }
 
     protected override void OnDisappearing()

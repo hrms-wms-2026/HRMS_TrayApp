@@ -16,6 +16,11 @@ public sealed class BiometricWebViewHandler : ViewHandler<BiometricWebView, WebV
 {
     private const string VirtualHost = "biometric.onevo.local";
 
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = null // PascalCase — matches React bridge (AwsSessionId, etc.)
+    };
+
     public static PropertyMapper<BiometricWebView, BiometricWebViewHandler> Mapper =
         new(ViewMapper)
         {
@@ -23,6 +28,7 @@ public sealed class BiometricWebViewHandler : ViewHandler<BiometricWebView, WebV
         };
 
     private bool _initialized;
+    private BiometricSessionConfig? _pendingConfig;
 
     public BiometricWebViewHandler() : base(Mapper) { }
 
@@ -33,16 +39,20 @@ public sealed class BiometricWebViewHandler : ViewHandler<BiometricWebView, WebV
         if (view.SessionConfig is null)
             return;
 
+        handler._pendingConfig = view.SessionConfig;
+
         if (!handler._initialized)
         {
-            await handler.InitializeAsync(view);
+            await handler.InitializeAsync();
             handler._initialized = true;
         }
-
-        await handler.PushSessionConfigAsync(view.SessionConfig);
+        else
+        {
+            await handler.PushSessionConfigAsync(view.SessionConfig);
+        }
     }
 
-    private async Task InitializeAsync(BiometricWebView view)
+    private async Task InitializeAsync()
     {
         await PlatformView.EnsureCoreWebView2Async();
         var core = PlatformView.CoreWebView2;
@@ -69,7 +79,7 @@ public sealed class BiometricWebViewHandler : ViewHandler<BiometricWebView, WebV
             BiometricCaptureOutcome? outcome;
             try
             {
-                outcome = JsonSerializer.Deserialize<BiometricCaptureOutcome>(args.WebMessageAsJson);
+                outcome = JsonSerializer.Deserialize<BiometricCaptureOutcome>(args.WebMessageAsJson, JsonOptions);
             }
             catch (JsonException)
             {
@@ -78,6 +88,14 @@ public sealed class BiometricWebViewHandler : ViewHandler<BiometricWebView, WebV
 
             if (outcome is not null && VirtualView?.CaptureFinishedCommand is { } command && command.CanExecute(outcome))
                 command.Execute(outcome);
+        };
+
+        core.NavigationCompleted += async (_, e) =>
+        {
+            if (!e.IsSuccess || _pendingConfig is null)
+                return;
+
+            await PushSessionConfigAsync(_pendingConfig);
         };
 
         core.Navigate($"https://{VirtualHost}/index.html");
@@ -89,7 +107,7 @@ public sealed class BiometricWebViewHandler : ViewHandler<BiometricWebView, WebV
         if (core is null)
             return;
 
-        var configJson = JsonSerializer.Serialize(config);
+        var configJson = JsonSerializer.Serialize(config, JsonOptions);
         await core.ExecuteScriptAsync($"window.__onevoLivenessConfig = {configJson};");
     }
 

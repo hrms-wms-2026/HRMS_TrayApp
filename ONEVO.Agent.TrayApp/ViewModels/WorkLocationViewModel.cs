@@ -69,7 +69,7 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
             var point = await _location.GetCurrentAsync();
             if (point is null)
             {
-                LiveLocationStatus = "Could not get live location. Enable Location for Onexso, or pick manually.";
+                LiveLocationStatus = "Could not get live location. Enable Location for OneXso, or pick manually.";
                 LiveLatitude = LiveLongitude = null;
                 return;
             }

@@ -21,6 +21,9 @@
       <Label Text="Look at the camera and keep your face within the frame."
              Style="{StaticResource PageSubtitle}" Margin="0,8,0,32" />
 
+      <!-- Face frame + floating capture button -->
+      <Grid WidthRequest="296" HeightRequest="296" HorizontalOptions="Center">
+
       <!-- Outer glow ring -->
       <Border WidthRequest="296" HeightRequest="296"
               StrokeShape="RoundRectangle 148"
@@ -29,8 +32,8 @@
               Margin="0,0,0,0">
         <Border.Background>
           <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#801A5FF7" Offset="0" />
-            <GradientStop Color="#807B3FE4" Offset="1" />
+            <GradientStop Color="#8022C7F0" Offset="0" />
+            <GradientStop Color="#806D28D9" Offset="1" />
           </LinearGradientBrush>
         </Border.Background>
 
@@ -123,12 +126,16 @@
         </Border>
       </Border>
 
-      <!-- Camera capture button -->
+      <!-- Camera capture button — floats over the bottom-right edge of the ring -->
       <Border WidthRequest="60" HeightRequest="60"
               StrokeShape="RoundRectangle 30"
               BackgroundColor="{StaticResource CardBackground}"
               Stroke="{StaticResource Separator}" StrokeThickness="1"
-              HorizontalOptions="Center" Margin="0,20,0,0">
+              HorizontalOptions="End" VerticalOptions="End"
+              Margin="0,0,4,4">
+        <Border.Shadow>
+          <Shadow Brush="Black" Opacity="0.18" Radius="12" Offset="0,4" />
+        </Border.Shadow>
         <Button Text="📷"
                 Command="{Binding CapturePhotoCommand}"
                 BackgroundColor="Transparent"
@@ -137,10 +144,12 @@
                 HorizontalOptions="Fill" VerticalOptions="Fill" />
       </Border>
 
+      </Grid>
+
       <!-- Status text -->
       <Label Text="{Binding CaptureStatusText}"
              Style="{StaticResource PageSubtitle}"
-             Margin="0,14,0,0" />
+             Margin="0,20,0,0" />
 
       <!-- Scanning spinner -->
       <ActivityIndicator IsRunning="{Binding IsCapturing}"
@@ -151,7 +160,7 @@
                          Margin="0,8,0,0" />
 
       <!-- Security notice card -->
-      <Border Style="{StaticResource Card}" Margin="0,20,0,28" Padding="14,12">
+      <Border Style="{StaticResource GlassCard}" Margin="0,20,0,28" Padding="14,12">
         <HorizontalStackLayout Spacing="12">
           <Border WidthRequest="32" HeightRequest="32"
                   StrokeShape="RoundRectangle 16" BackgroundColor="#EEF2FF"

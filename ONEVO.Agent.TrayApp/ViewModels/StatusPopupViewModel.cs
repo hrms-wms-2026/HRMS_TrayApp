@@ -7,6 +7,6 @@ public sealed partial class StatusPopupViewModel : BaseViewModel
 
     public StatusPopupViewModel()
     {
-        Title = "Onexso WorkPulse";
+        Title = "OneXso WorkPulse";
     }
 }

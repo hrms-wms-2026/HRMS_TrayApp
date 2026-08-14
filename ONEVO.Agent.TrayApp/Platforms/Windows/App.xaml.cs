@@ -33,7 +33,36 @@ public partial class App : MauiWinUIApplication
         };
     }
 
-    protected override MauiApp CreateMauiApp() => MauiProgram.CreateMauiApp();
+    protected override MauiApp CreateMauiApp()
+    {
+        try
+        {
+            BootLog("CreateMauiApp enter");
+            var app = MauiProgram.CreateMauiApp();
+            BootLog("CreateMauiApp exit ok");
+            return app;
+        }
+        catch (Exception ex)
+        {
+            BootLog($"CreateMauiApp FAILED: {ex}");
+            throw;
+        }
+    }
+
+    protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
+    {
+        try
+        {
+            BootLog("OnLaunched enter");
+            base.OnLaunched(args);
+            BootLog("OnLaunched exit ok");
+        }
+        catch (Exception ex)
+        {
+            BootLog($"OnLaunched FAILED: {ex}");
+            throw;
+        }
+    }
 
     private static void BootLog(string message)
     {

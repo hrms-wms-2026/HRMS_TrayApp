@@ -14,25 +14,20 @@
       <VerticalStackLayout Spacing="14">
 
         <Grid x:Name="PaneGrid" ColumnDefinitions="0.9*,1.1*" ColumnSpacing="20">
-          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassCard}" Padding="0"
-                  BackgroundColor="{StaticResource IllustrationTint}" StrokeThickness="0"
+          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassPanel}" Padding="0"
                   MinimumWidthRequest="0">
             <Grid>
               <Image Source="workspace_active.png"
                      Aspect="AspectFill"
                      HorizontalOptions="Fill" VerticalOptions="Fill" />
 
-              <Border WidthRequest="34" HeightRequest="34" StrokeShape="RoundRectangle 17"
+              <Border x:Name="CompletedBadge" WidthRequest="34" HeightRequest="34" StrokeShape="RoundRectangle 17"
                       StrokeThickness="0" HorizontalOptions="End" VerticalOptions="Start"
                       Margin="0,10,10,0" BackgroundColor="{StaticResource StatusGreen}">
                 <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
                        FontSize="15" TextColor="White"
                        HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
-
-              <Label Text="Onexso Workspace" FontSize="12" FontAttributes="Bold"
-                     TextColor="{StaticResource Primary}" HorizontalOptions="Center"
-                     VerticalOptions="End" Margin="0,0,0,10" BackgroundColor="#B3FFFFFF" />
             </Grid>
           </Border>
 
@@ -103,14 +98,17 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-              <Button Grid.Column="0" Text="📊  View Dashboard"
+              <Button Grid.Column="0" Text="View Dashboard"
+                      ImageSource="icon_chart_blue.png"
                       Command="{Binding OpenDashboardCommand}"
                       Style="{StaticResource OutlineButton}"
                       HeightRequest="48" FontSize="13" />
-              <Button Grid.Column="1" Text="⬇  Download Summary"
+              <Button Grid.Column="1" Text="Download Summary"
+                      ImageSource="icon_download_white.png"
                       Command="{Binding DownloadSummaryCommand}"
                       Style="{StaticResource OrangePillButton}" />
               <Button Grid.Column="2" Text="Close App"
+                      ImageSource="icon_close_white.png"
                       Command="{Binding CloseAppCommand}"
                       Style="{StaticResource RedPillButton}" />
             </Grid>
@@ -154,7 +152,7 @@
                             HeightRequest="88">
               <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:TopAppItem">
-                  <Border Style="{StaticResource Card}" Margin="0,0,8,0" Padding="12,10" WidthRequest="132">
+                  <Border Style="{StaticResource GlassCard}" Margin="0,0,8,0" Padding="12,10" WidthRequest="132">
                     <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
                       <Image Source="{Binding IconSource}"
                              WidthRequest="28" HeightRequest="28"
@@ -184,12 +182,12 @@
 
     <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Padding="0,8,0,0">
       <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
-        <Label Text="{StaticResource IconSettings}" FontFamily="Segoe MDL2 Assets"
-               FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+        <Image Source="icon_settings.svg" WidthRequest="12" HeightRequest="12"
+               Opacity="0.55" VerticalOptions="Center" />
         <Label Text="Settings" Style="{StaticResource FooterLabel}" />
       </HorizontalStackLayout>
       <controls:FooterStatusBar Grid.Column="1"
-                                ConnectionLabel="Connected to Onexso Server" />
+                                ConnectionLabel="Connected to OneXso Server" />
     </Grid>
   </Grid>
 </ContentPage>

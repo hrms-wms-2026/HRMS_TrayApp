@@ -281,9 +281,9 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             if (!Directory.Exists(dir))
                 dir = downloads;
 
-            var path = Path.Combine(dir, $"Onexso-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+            var path = Path.Combine(dir, $"OneXso-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
             var sb = new StringBuilder();
-            sb.AppendLine("Onexso WorkPulse — Daily Work Summary");
+            sb.AppendLine("OneXso WorkPulse — Daily Work Summary");
             sb.AppendLine($"Status: {StatusText}");
             sb.AppendLine($"Clock In:  {ClockInDisplay}");
             sb.AppendLine($"Clock Out: {ClockOutDisplay}");

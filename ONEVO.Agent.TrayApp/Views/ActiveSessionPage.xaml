@@ -16,28 +16,27 @@
             <Border WidthRequest="36" HeightRequest="36"
                     StrokeShape="RoundRectangle 10" StrokeThickness="0"
                     BackgroundColor="Transparent">
-              <Image Source="logo_onexso.png"
+              <Image Source="onexso_logo_mark.svg"
                      Aspect="AspectFit"
                      WidthRequest="36" HeightRequest="36"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout VerticalOptions="Center">
-              <Label Text="Onexso Workspace" FontSize="13" FontAttributes="Bold"
+              <Label Text="OneXso Workspace" FontSize="13" FontAttributes="Bold"
                      TextColor="{StaticResource TextPrimary}" />
               <Label Text="Your Workplace. Simplified."
                      FontSize="10" TextColor="{StaticResource TextSecondary}" />
             </VerticalStackLayout>
           </HorizontalStackLayout>
-          <Label Grid.Column="2" Text="•••" FontSize="20"
-                 TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+          <Image Grid.Column="2" Source="icon_ellipsis.svg" WidthRequest="17" HeightRequest="17"
+                 VerticalOptions="Center" />
         </Grid>
 
         <!-- Main body -->
         <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="0.9*,1.1*" ColumnSpacing="20">
 
           <!-- Left illustration — seated-at-desk artwork (Resources/Images/workspace_active.png) -->
-          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassCard}" Padding="0"
-                  BackgroundColor="{StaticResource IllustrationTint}" StrokeThickness="0"
+          <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassPanel}" Padding="0"
                   MinimumWidthRequest="0">
             <Grid>
               <Image Source="workspace_active.png"
@@ -55,22 +54,14 @@
                 </Border.Triggers>
                 <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
                        FontSize="15" TextColor="White"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
+                       HorizontalOptions="Center" VerticalOptions="Center">
+                  <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding IsOnBreak}" Value="True">
+                      <Setter Property="Text" Value="{StaticResource IconCafe}" />
+                    </DataTrigger>
+                  </Label.Triggers>
+                </Label>
               </Border>
-
-              <VerticalStackLayout VerticalOptions="End" HorizontalOptions="Center"
-                                   Spacing="0" Padding="12,8" BackgroundColor="#B3FFFFFF">
-                <Label Text="Onexso Workspace" FontSize="12" FontAttributes="Bold"
-                       TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
-                <Label Text="Live monitoring active"
-                       FontSize="10" TextColor="{StaticResource TextSecondary}"
-                       HorizontalOptions="Center"
-                       IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}" />
-                <Label Text="On a short break"
-                       FontSize="10" TextColor="{StaticResource StatusOrange}"
-                       HorizontalOptions="Center"
-                       IsVisible="{Binding IsOnBreak}" />
-              </VerticalStackLayout>
             </Grid>
           </Border>
 
@@ -84,12 +75,12 @@
                    FontSize="12" TextColor="{StaticResource TextSecondary}" />
 
             <!-- Status + Primary timer -->
-            <Border Style="{StaticResource Card}" Padding="14">
+            <Border Style="{StaticResource GlassCard}" Padding="14">
               <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
                 <VerticalStackLayout Grid.Column="0" Spacing="4">
                   <Label Text="Status" FontSize="11" TextColor="{StaticResource TextSecondary}" />
                   <HorizontalStackLayout Spacing="8">
-                    <Ellipse WidthRequest="10" HeightRequest="10"
+                    <Ellipse x:Name="StatusDot" WidthRequest="10" HeightRequest="10"
                              Fill="{StaticResource StatusGreen}"
                              VerticalOptions="Center">
                       <Ellipse.Triggers>
@@ -117,19 +108,35 @@
 
             <!-- Start time + schedule -->
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-              <Border Grid.Column="0" Style="{StaticResource Card}" Padding="12">
-                <VerticalStackLayout Spacing="2">
-                  <Label Text="🕐  Start Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding StartTimeDisplay}" FontSize="14" FontAttributes="Bold"
-                         TextColor="{StaticResource Primary}" />
-                </VerticalStackLayout>
+              <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="14,12">
+                <HorizontalStackLayout Spacing="10">
+                  <Border WidthRequest="36" HeightRequest="36"
+                          StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                          BackgroundColor="#EEF4FF" VerticalOptions="Center">
+                    <Image Source="icon_clock.svg" WidthRequest="16" HeightRequest="16"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                  </Border>
+                  <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                    <Label Text="Start Time" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                    <Label Text="{Binding StartTimeDisplay}" FontSize="14" FontAttributes="Bold"
+                           TextColor="{StaticResource Primary}" />
+                  </VerticalStackLayout>
+                </HorizontalStackLayout>
               </Border>
-              <Border Grid.Column="1" Style="{StaticResource Card}" Padding="12">
-                <VerticalStackLayout Spacing="2">
-                  <Label Text="📅  Today's Schedule" FontSize="10" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding ScheduleDisplay}" FontSize="12" FontAttributes="Bold"
-                         TextColor="{StaticResource TextPrimary}" LineBreakMode="WordWrap" />
-                </VerticalStackLayout>
+              <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="14,12">
+                <HorizontalStackLayout Spacing="10">
+                  <Border WidthRequest="36" HeightRequest="36"
+                          StrokeShape="RoundRectangle 10" StrokeThickness="0"
+                          BackgroundColor="#EEF4FF" VerticalOptions="Center">
+                    <Image Source="icon_calendar.svg" WidthRequest="16" HeightRequest="16"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                  </Border>
+                  <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                    <Label Text="Today's Schedule" FontSize="10" TextColor="{StaticResource TextSecondary}" />
+                    <Label Text="{Binding ScheduleDisplay}" FontSize="12" FontAttributes="Bold"
+                           TextColor="{StaticResource TextPrimary}" LineBreakMode="WordWrap" />
+                  </VerticalStackLayout>
+                </HorizontalStackLayout>
               </Border>
             </Grid>
 
@@ -137,25 +144,29 @@
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,4,0,0">
               <!-- Break (working only) -->
               <Button Grid.Column="0"
-                      Text="☕  Break"
+                      Text="Break"
+                      ImageSource="icon_coffee_white.png"
                       Command="{Binding RequestBreakCommand}"
                       IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}"
                       Style="{StaticResource OrangePillButton}" />
 
               <!-- End Break (break only) -->
               <Button Grid.Column="0"
-                      Text="☕  End Break"
+                      Text="End Break"
+                      ImageSource="icon_coffee_white.png"
                       Command="{Binding EndBreakCommand}"
                       IsVisible="{Binding IsOnBreak}"
                       Style="{StaticResource OrangePillButton}" />
 
               <Button Grid.Column="1"
-                      Text="⏻  Clock Out"
+                      Text="Clock Out"
+                      ImageSource="icon_power_white.png"
                       Command="{Binding ClockOutCommand}"
                       Style="{StaticResource RedPillButton}" />
 
               <Button Grid.Column="2"
-                      Text="📊  Dashboard"
+                      Text="Dashboard"
+                      ImageSource="icon_chart_blue.png"
                       Command="{Binding OpenDashboardCommand}"
                       Style="{StaticResource OutlineButton}"
                       HeightRequest="48"
@@ -179,7 +190,8 @@
         <Border Grid.Row="2" Style="{StaticResource GlassCard}" Margin="0,16,0,8" Padding="14">
           <VerticalStackLayout Spacing="10">
             <HorizontalStackLayout Spacing="8">
-              <Label Text="📈" FontSize="16" VerticalOptions="Center" />
+              <Label Text="{StaticResource IconChart}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="16" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
               <VerticalStackLayout VerticalOptions="Center">
                 <Label Text="Today's Summary" FontSize="13" FontAttributes="Bold"
                        TextColor="{StaticResource TextPrimary}" />
@@ -221,7 +233,7 @@
           <HorizontalStackLayout Grid.Column="2" Spacing="6">
             <Ellipse WidthRequest="8" HeightRequest="8"
                      Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
-            <Label Text="Connected to Onexso Server" FontSize="11"
+            <Label Text="Connected to OneXso Server" FontSize="11"
                    TextColor="{StaticResource TextSecondary}" />
           </HorizontalStackLayout>
         </Grid>
@@ -231,7 +243,7 @@
     <!-- Break confirmation overlay -->
     <Grid IsVisible="{Binding IsBreakConfirmVisible}"
           BackgroundColor="#80000000">
-      <Border Style="{StaticResource Card}"
+      <Border Style="{StaticResource GlassCard}"
               WidthRequest="360"
               HorizontalOptions="Center"
               VerticalOptions="Center"

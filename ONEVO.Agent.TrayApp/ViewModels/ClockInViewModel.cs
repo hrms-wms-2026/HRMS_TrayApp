@@ -154,7 +154,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
             var result = await _pipe.SendLifecycleAsync(LifecycleAction.ClockIn, ct);
             if (result is null)
             {
-                ErrorMessage = "No response from Onexso Agent Service. Is the service running?";
+                ErrorMessage = "No response from OneXso Agent Service. Is the service running?";
                 return;
             }
 
@@ -196,7 +196,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
             var result = await _pipe.SendLogoutAsync(ct);
             if (result is null)
             {
-                ErrorMessage = "No response from Onexso Agent Service. Is the service running?";
+                ErrorMessage = "No response from OneXso Agent Service. Is the service running?";
                 return;
             }
 

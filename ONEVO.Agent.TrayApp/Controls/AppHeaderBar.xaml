@@ -8,13 +8,13 @@
       <Border WidthRequest="40" HeightRequest="40"
               StrokeShape="RoundRectangle 12" StrokeThickness="0"
               BackgroundColor="Transparent">
-        <Image Source="logo_onexso.png"
+        <Image Source="onexso_logo_mark.svg"
                Aspect="AspectFit"
                WidthRequest="40" HeightRequest="40"
                HorizontalOptions="Center" VerticalOptions="Center" />
       </Border>
       <VerticalStackLayout VerticalOptions="Center" Spacing="1">
-        <Label Text="Onexso Workspace" FontSize="13" FontAttributes="Bold"
+        <Label Text="OneXso Workspace" FontSize="13" FontAttributes="Bold"
                TextColor="{StaticResource TextPrimary}" />
         <Label Text="{Binding Source={x:Reference Root}, Path=Subtitle}"
                FontSize="10" TextColor="{StaticResource TextSecondary}"
