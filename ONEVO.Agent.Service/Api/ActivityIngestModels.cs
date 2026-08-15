@@ -113,3 +113,20 @@ public static class InactivityAttemptFormFields
     public const string Sha256 = "sha256";
     public const string File = "file";
 }
+
+/// <summary>Wire format for POST /api/v1/monitoring/check-in.</summary>
+public sealed class CheckInSubmitRequest
+{
+    [JsonPropertyName("latitude")]             public double? Latitude            { get; set; }
+    [JsonPropertyName("longitude")]            public double? Longitude           { get; set; }
+    [JsonPropertyName("location_accuracy")]    public double? LocationAccuracy    { get; set; }
+    [JsonPropertyName("location_address")]     public string? LocationAddress     { get; set; }
+    [JsonPropertyName("device_serial_number")] public string? DeviceSerialNumber  { get; set; }
+}
+
+/// <summary>Relevant fields from POST /api/v1/monitoring/check-in response.</summary>
+public sealed class CheckInSubmitResponse
+{
+    [JsonPropertyName("check_in_id")]        public Guid CheckInId        { get; set; }
+    [JsonPropertyName("face_scan_required")] public bool FaceScanRequired { get; set; }
+}
