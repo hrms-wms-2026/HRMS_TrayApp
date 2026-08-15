@@ -1,4 +1,5 @@
 using ONEVO.Agent.TrayApp.Services;
+using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
@@ -126,5 +127,20 @@ public sealed class WorkLocationViewModelTests
     {
         var option = new WorkLocationOption("Chennai Office", "CHENNAI", "Tamil Nadu, India");
         Assert.Equal("Tamil Nadu, India", option.SubTitle);
+    }
+
+    [Fact]
+    public async Task SaveAndContinue_WithLiveFix_WritesGpsStringsToPrefs()
+    {
+        var prefs = new FakePreferencesStore();
+        var loc   = new FixedLocationService(new GeoPoint(13.0827, 80.2707));
+        var vm    = new WorkLocationViewModel(loc, prefs);
+
+        await vm.DetectLiveLocationCommand.ExecuteAsync(null);
+        vm.SelectedLocation = vm.ApprovedLocations[0];
+        await vm.SaveAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal((13.0827).ToString("G17"), prefs.Get("onevo.live_latitude",  ""));
+        Assert.Equal((80.2707).ToString("G17"), prefs.Get("onevo.live_longitude", ""));
     }
 }
