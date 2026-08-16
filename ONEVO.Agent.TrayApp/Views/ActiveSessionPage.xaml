@@ -41,7 +41,13 @@
             <Grid>
               <Image Source="workspace_active.png"
                      Aspect="AspectFill"
-                     HorizontalOptions="Fill" VerticalOptions="Fill" />
+                     HorizontalOptions="Fill" VerticalOptions="Fill">
+                <Image.Triggers>
+                  <DataTrigger TargetType="Image" Binding="{Binding IsOnBreak}" Value="True">
+                    <Setter Property="Source" Value="break_hero.png" />
+                  </DataTrigger>
+                </Image.Triggers>
+              </Image>
 
               <Border WidthRequest="34" HeightRequest="34" StrokeShape="RoundRectangle 17"
                       StrokeThickness="0" HorizontalOptions="End" VerticalOptions="Start"
@@ -113,7 +119,7 @@
                   <Border WidthRequest="36" HeightRequest="36"
                           StrokeShape="RoundRectangle 10" StrokeThickness="0"
                           BackgroundColor="#EEF4FF" VerticalOptions="Center">
-                    <Image Source="icon_clock.svg" WidthRequest="16" HeightRequest="16"
+                    <Image Source="icon_break_clock.png" WidthRequest="24" HeightRequest="24"
                            HorizontalOptions="Center" VerticalOptions="Center" />
                   </Border>
                   <VerticalStackLayout Spacing="2" VerticalOptions="Center">
@@ -128,7 +134,7 @@
                   <Border WidthRequest="36" HeightRequest="36"
                           StrokeShape="RoundRectangle 10" StrokeThickness="0"
                           BackgroundColor="#EEF4FF" VerticalOptions="Center">
-                    <Image Source="icon_calendar.svg" WidthRequest="16" HeightRequest="16"
+                    <Image Source="icon_break_calendar.png" WidthRequest="24" HeightRequest="24"
                            HorizontalOptions="Center" VerticalOptions="Center" />
                   </Border>
                   <VerticalStackLayout Spacing="2" VerticalOptions="Center">
@@ -150,24 +156,27 @@
                       IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}"
                       Style="{StaticResource OrangePillButton}" />
 
-              <!-- End Break (break only) -->
-              <Button Grid.Column="0"
+              <!-- End Break (break only) — full width, matches on-break reference design -->
+              <Button Grid.Column="0" Grid.ColumnSpan="3"
                       Text="End Break"
                       ImageSource="icon_coffee_white.png"
                       Command="{Binding EndBreakCommand}"
                       IsVisible="{Binding IsOnBreak}"
                       Style="{StaticResource OrangePillButton}" />
 
+              <!-- Clock Out / Dashboard hide while on break — only End Break shows then -->
               <Button Grid.Column="1"
                       Text="Clock Out"
                       ImageSource="icon_power_white.png"
                       Command="{Binding ClockOutCommand}"
+                      IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}"
                       Style="{StaticResource RedPillButton}" />
 
               <Button Grid.Column="2"
                       Text="Dashboard"
                       ImageSource="icon_chart_blue.png"
                       Command="{Binding OpenDashboardCommand}"
+                      IsVisible="{Binding IsOnBreak, Converter={StaticResource InvertBoolConverter}}"
                       Style="{StaticResource OutlineButton}"
                       HeightRequest="48"
                       CornerRadius="24"
@@ -190,8 +199,8 @@
         <Border Grid.Row="2" Style="{StaticResource GlassCard}" Margin="0,16,0,8" Padding="14">
           <VerticalStackLayout Spacing="10">
             <HorizontalStackLayout Spacing="8">
-              <Label Text="{StaticResource IconChart}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="16" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+              <Image Source="icon_break_chart.png" WidthRequest="22" HeightRequest="22"
+                     VerticalOptions="Center" />
               <VerticalStackLayout VerticalOptions="Center">
                 <Label Text="Today's Summary" FontSize="13" FontAttributes="Bold"
                        TextColor="{StaticResource TextPrimary}" />
@@ -226,13 +235,17 @@
 
         <!-- Footer -->
         <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto" Padding="0,4,0,0">
-          <Label Grid.Column="0" Text="Settings" FontSize="11"
-                 TextColor="{StaticResource TextMuted}" />
+          <HorizontalStackLayout Grid.Column="0" Spacing="4">
+            <Image Source="icon_break_settings.png" WidthRequest="14" HeightRequest="14"
+                   VerticalOptions="Center" />
+            <Label Text="Settings" FontSize="11"
+                   TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+          </HorizontalStackLayout>
           <Label Grid.Column="1" Text="Version 1.0.0" FontSize="11"
                  TextColor="{StaticResource TextMuted}" HorizontalOptions="Center" />
           <HorizontalStackLayout Grid.Column="2" Spacing="6">
-            <Ellipse WidthRequest="8" HeightRequest="8"
-                     Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            <Image Source="icon_break_status.png" WidthRequest="10" HeightRequest="10"
+                   VerticalOptions="Center" />
             <Label Text="Connected to OneXso Server" FontSize="11"
                    TextColor="{StaticResource TextSecondary}" />
           </HorizontalStackLayout>
