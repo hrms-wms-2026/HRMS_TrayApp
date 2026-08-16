@@ -181,6 +181,24 @@ public sealed class ActivitySyncService : BackgroundService
                 continue;
             }
 
+            if (recordType == CollectionRecordTypes.FacePhoto)
+            {
+                var outcome = await FlushFacePhotoAsync(current, jwt, ct);
+                switch (outcome)
+                {
+                    case FacePhotoFlushOutcome.Acknowledged:
+                        acknowledged.Add(current.RowId);
+                        index++;
+                        continue;
+                    case FacePhotoFlushOutcome.Quarantined:
+                        index++;
+                        continue;
+                    default:
+                        break;
+                }
+                break;
+            }
+
             _logger.LogWarning("Unknown record type {RecordType} — skipping row {RowId}", recordType, current.RowId);
             index++;
         }
@@ -436,6 +454,121 @@ public sealed class ActivitySyncService : BackgroundService
         }
 
         return requeue;
+    }
+
+    private enum FacePhotoFlushOutcome
+    {
+        Acknowledged,
+        Quarantined,
+        RetryableFailure
+    }
+
+    private async Task<FacePhotoFlushOutcome> FlushFacePhotoAsync(
+        BufferedCollectionRecord buffered, string jwt, CancellationToken ct)
+    {
+        FacePhotoPayload? photo;
+        byte[] bytes;
+        try
+        {
+            photo = buffered.Record.Payload.Deserialize<FacePhotoPayload>(JsonOptions);
+            if (photo is null)
+            {
+                _buffer.QuarantineRow(buffered.RowId, "corrupt_payload");
+                return FacePhotoFlushOutcome.Quarantined;
+            }
+            bytes = Convert.FromBase64String(photo.Data);
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException)
+        {
+            _logger.LogWarning("Corrupt face photo record quarantined eventId={EventId}", buffered.Record.EventId);
+            _buffer.QuarantineRow(buffered.RowId, "corrupt_payload");
+            return FacePhotoFlushOutcome.Quarantined;
+        }
+
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+
+        // Step 1: submit check-in to obtain a checkInId
+        CheckInSubmitResponse? checkIn;
+        using (var req = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.CheckInSubmit)
+        {
+            Content = JsonContent.Create(new CheckInSubmitRequest
+            {
+                Latitude         = photo.Latitude,
+                Longitude        = photo.Longitude,
+                LocationAccuracy = photo.LocationAccuracy,
+                LocationAddress  = photo.LocationAddress
+            })
+        })
+        {
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+            HttpResponseMessage resp;
+            try { resp = await client.SendAsync(req, ct); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "HTTP failed for check-in eventId={EventId}", buffered.Record.EventId);
+                return FacePhotoFlushOutcome.RetryableFailure;
+            }
+
+            using (resp)
+            {
+                if ((int)resp.StatusCode >= 500 || resp.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    _logger.LogWarning("Retryable check-in failure status={Status} eventId={EventId}",
+                        (int)resp.StatusCode, buffered.Record.EventId);
+                    return FacePhotoFlushOutcome.RetryableFailure;
+                }
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Check-in rejected status={Status} eventId={EventId}",
+                        (int)resp.StatusCode, buffered.Record.EventId);
+                    _buffer.QuarantineRow(buffered.RowId, "check_in_rejected");
+                    return FacePhotoFlushOutcome.Quarantined;
+                }
+
+                checkIn = await resp.Content.ReadFromJsonAsync<CheckInSubmitResponse>(JsonOptions, ct);
+                if (checkIn is null)
+                {
+                    _logger.LogWarning("Null check-in response eventId={EventId}", buffered.Record.EventId);
+                    _buffer.QuarantineRow(buffered.RowId, "null_check_in_response");
+                    return FacePhotoFlushOutcome.Quarantined;
+                }
+            }
+        }
+
+        // Step 2: upload the face scan photo (check-in already exists — don't retry on failure to avoid duplicates)
+        var faceScanRoute = string.Format(AgentApiRoutes.FaceScanUpload, checkIn.CheckInId);
+        using var multipart = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue($"image/{photo.Format}");
+        multipart.Add(fileContent, "face_scan", $"{buffered.Record.EventId}.{photo.Format}");
+
+        using var faceScanReq = new HttpRequestMessage(HttpMethod.Post, faceScanRoute) { Content = multipart };
+        faceScanReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+
+        HttpResponseMessage faceScanResp;
+        try { faceScanResp = await client.SendAsync(faceScanReq, ct); }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "HTTP failed for face-scan upload checkInId={CheckInId}", checkIn.CheckInId);
+            _buffer.QuarantineRow(buffered.RowId, "face_scan_upload_failed");
+            return FacePhotoFlushOutcome.Quarantined;
+        }
+
+        using (faceScanResp)
+        {
+            if (faceScanResp.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Face photo accepted checkInId={CheckInId} eventId={EventId}",
+                    checkIn.CheckInId, buffered.Record.EventId);
+                return FacePhotoFlushOutcome.Acknowledged;
+            }
+
+            _logger.LogWarning("Face-scan upload failed status={Status} checkInId={CheckInId} eventId={EventId}",
+                (int)faceScanResp.StatusCode, checkIn.CheckInId, buffered.Record.EventId);
+            _buffer.QuarantineRow(buffered.RowId, "face_scan_rejected");
+            return FacePhotoFlushOutcome.Quarantined;
+        }
     }
 
     private async Task<List<CollectionRecord>> PostFormAsync(
