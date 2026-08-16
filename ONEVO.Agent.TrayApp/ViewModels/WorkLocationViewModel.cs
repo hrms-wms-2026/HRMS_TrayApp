@@ -5,6 +5,7 @@ using ONEVO.Agent.TrayApp.Services;
 public sealed partial class WorkLocationViewModel : BaseViewModel
 {
     private readonly ILocationService _location;
+    private readonly IPreferencesStore _prefs;
 
     public IReadOnlyList<WorkLocationOption> ApprovedLocations { get; } =
     [
@@ -23,8 +24,16 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
     [ObservableProperty] private bool _isDetectingLocation;
     [ObservableProperty] private string _liveLocationStatus = "Live location not detected yet.";
     [ObservableProperty] private string? _liveCoordsText;
-    [ObservableProperty] private double? _liveLatitude;
-    [ObservableProperty] private double? _liveLongitude;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLiveFix))]
+    private double? _liveLatitude;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLiveFix))]
+    private double? _liveLongitude;
+
+    public bool HasLiveFix => LiveLatitude is not null;
 
     /// <summary>Offices farther than this (km) default to Work From Home suggestion.</summary>
     public const double NearestOfficeMaxKm = 80;
@@ -45,14 +54,17 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
             loc.IsSelected = ReferenceEquals(loc, value);
     }
 
-    public WorkLocationViewModel(ILocationService location)
+    public WorkLocationViewModel(ILocationService location, IPreferencesStore prefs)
     {
         Title = "Select Your Work Location";
         _location = location;
+        _prefs = prefs;
     }
 
+    public WorkLocationViewModel(ILocationService location) : this(location, new PreferencesStore()) { }
+
     /// <summary>Parameterless for existing unit tests — uses a no-op location source.</summary>
-    public WorkLocationViewModel() : this(new NullLocationService()) { }
+    public WorkLocationViewModel() : this(new NullLocationService(), new PreferencesStore()) { }
 
     public Task OnAppearingAsync() => DetectLiveLocationAsync();
 
@@ -150,17 +162,13 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private async Task SaveAndContinue()
     {
-        try
+        _prefs.Set("onevo.work_location_code",    SelectedLocation!.Code);
+        _prefs.Set("onevo.work_location_display", SelectedLocation.DisplayName);
+        if (LiveLatitude is { } la && LiveLongitude is { } lo)
         {
-            Preferences.Set("onevo.work_location_code",    SelectedLocation!.Code);
-            Preferences.Set("onevo.work_location_display", SelectedLocation.DisplayName);
-            if (LiveLatitude is { } la && LiveLongitude is { } lo)
-            {
-                Preferences.Set("onevo.live_latitude",  la);
-                Preferences.Set("onevo.live_longitude", lo);
-            }
+            _prefs.Set("onevo.live_latitude",  la.ToString("G17"));
+            _prefs.Set("onevo.live_longitude", lo.ToString("G17"));
         }
-        catch { /* no MAUI Preferences host in unit tests */ }
 
         try { await Shell.Current.GoToAsync("//photo"); }
         catch { /* unit tests */ }

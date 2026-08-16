@@ -412,6 +412,108 @@ public class ActivitySyncServiceTests
         Assert.EndsWith(AgentApiRoutes.WorkSessionSubmit, routes[2], StringComparison.Ordinal);
         Assert.Equal(0, buffer.Count);
     }
+
+    [Fact]
+    public async Task FlushAsync_FacePhotoRecord_PostsCheckInThenFaceScan()
+    {
+        var imageBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 };
+        var payload = new FacePhotoPayload
+        {
+            Format    = "jpeg",
+            Data      = Convert.ToBase64String(imageBytes),
+            Latitude  = 13.0827,
+            Longitude = 80.2707,
+            LocationAddress = "Chennai Office"
+        };
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.FacePhoto,
+            CollectionSchemaVersions.FacePhotoV1,
+            payload));
+
+        var callOrder = new List<string>();
+        var factory = new CapturingHttpClientFactory(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/check-in", StringComparison.Ordinal)
+                && req.Method == HttpMethod.Post
+                && req.Content?.Headers.ContentType?.MediaType == "application/json")
+            {
+                callOrder.Add("checkin");
+                var checkInBody = JsonSerializer.Serialize(new
+                {
+                    check_in_id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                    face_scan_required = true
+                });
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(checkInBody, System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+            callOrder.Add("facescan");
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(new[] { "checkin", "facescan" }, callOrder);
+        Assert.Equal(0, buffer.Count);
+    }
+
+    [Fact]
+    public async Task FlushAsync_FacePhotoRecord_CheckInFails5xx_RequeuesRecord()
+    {
+        var payload = new FacePhotoPayload
+        {
+            Format = "jpeg",
+            Data   = Convert.ToBase64String(new byte[] { 1, 2, 3 })
+        };
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.FacePhoto,
+            CollectionSchemaVersions.FacePhotoV1,
+            payload));
+
+        var factory = new CapturingHttpClientFactory(
+            _ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(1, buffer.Count);
+    }
+
+    [Fact]
+    public async Task FlushAsync_FacePhotoRecord_CheckInFails4xx_QuarantinesRecord()
+    {
+        var payload = new FacePhotoPayload
+        {
+            Format = "jpeg",
+            Data   = Convert.ToBase64String(new byte[] { 1, 2, 3 })
+        };
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.FacePhoto,
+            CollectionSchemaVersions.FacePhotoV1,
+            payload));
+
+        var factory = new CapturingHttpClientFactory(
+            _ => new HttpResponseMessage(HttpStatusCode.BadRequest));
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(0, buffer.Count);
+    }
 }
 
 internal sealed class NeverCalledHttpClientFactory : IHttpClientFactory

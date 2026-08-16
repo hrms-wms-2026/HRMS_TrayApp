@@ -8,24 +8,41 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 {
     private readonly ICameraService _camera;
     private readonly INamedPipeClient _pipe;
+    private readonly IPreferencesStore _prefs;
     private byte[]? _capturedBytes;
     private string? _captureContext;
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
-    private bool _isCaptured;
-
-    [ObservableProperty] private bool    _isCapturing;
-    [ObservableProperty] private bool    _isScanAnimating;
-    [ObservableProperty] private object? _previewFrameSource;
-    [ObservableProperty] private string  _captureStatusText =
+    public const string DefaultPrompt =
         "Look at the camera and keep your face within the frame.";
 
-    public PhotoCaptureWindowViewModel(ICameraService camera, INamedPipeClient pipe)
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
+    [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
+    private bool _isCaptured;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
+    private bool _isCapturing;
+
+    [ObservableProperty] private bool    _isScanAnimating;
+    [ObservableProperty] private object? _previewFrameSource;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
+    private string _captureStatusText = DefaultPrompt;
+
+    /// <summary>Hides the duplicate hint under the circle until capture/scan/error changes it.</summary>
+    public bool ShowStatusBelow =>
+        IsCapturing ||
+        IsCaptured ||
+        !string.Equals(CaptureStatusText, DefaultPrompt, StringComparison.Ordinal);
+
+    public PhotoCaptureWindowViewModel(ICameraService camera, INamedPipeClient pipe, IPreferencesStore prefs)
     {
         Title   = "Face Verification";
         _camera = camera;
         _pipe   = pipe;
+        _prefs  = prefs;
     }
 
     /// <summary>
@@ -37,16 +54,18 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         _captureContext   = context;
         _capturedBytes    = null;
         IsCaptured        = false;
-        CaptureStatusText = "Look at the camera and keep your face within the frame.";
+        CaptureStatusText = DefaultPrompt;
     }
 
     public async Task StartPreviewAsync()
     {
         PreviewFrameSource = await _camera.StartPreviewAsync();
+        IsScanAnimating = true;
     }
 
     public async Task StopPreviewAsync()
     {
+        IsScanAnimating = false;
         PreviewFrameSource = null; // signals handler to release MediaPlayer first
         await _camera.StopPreviewAsync();
     }
@@ -87,8 +106,27 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         {
             try
             {
-                var payload = new { format = "jpeg", data = Convert.ToBase64String(_capturedBytes) };
-                var record  = new CollectionRecord
+                double? lat = double.TryParse(
+                    _prefs.Get("onevo.live_latitude", ""),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var la) ? la : null;
+                double? lon = double.TryParse(
+                    _prefs.Get("onevo.live_longitude", ""),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var lo) ? lo : null;
+                var locationDisplay = _prefs.Get("onevo.work_location_display", "");
+
+                var payload = new FacePhotoPayload
+                {
+                    Format          = "jpeg",
+                    Data            = Convert.ToBase64String(_capturedBytes),
+                    Latitude        = lat,
+                    Longitude       = lon,
+                    LocationAddress = string.IsNullOrEmpty(locationDisplay) ? null : locationDisplay
+                };
+                var record = new CollectionRecord
                 {
                     EventId          = Guid.NewGuid().ToString("N"),
                     RecordType       = CollectionRecordTypes.FacePhoto,
