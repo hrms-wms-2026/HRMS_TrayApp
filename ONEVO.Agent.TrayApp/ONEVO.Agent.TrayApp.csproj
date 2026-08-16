@@ -5,6 +5,7 @@
     <RootNamespace>ONEVO.Agent.TrayApp</RootNamespace>
     <UseMaui>true</UseMaui>
     <SingleProject>true</SingleProject>
+    <!-- Dev builds run unpackaged. Pass -p:WindowsPackageType=MSIX to build the installer. -->
     <WindowsPackageType>None</WindowsPackageType>
     <EnableDefaultMauiItems>true</EnableDefaultMauiItems>
     <ApplicationTitle>OneXso WorkPulse</ApplicationTitle>
