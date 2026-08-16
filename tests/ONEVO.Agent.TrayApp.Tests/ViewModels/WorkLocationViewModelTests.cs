@@ -41,7 +41,6 @@ public sealed class WorkLocationViewModelTests
     public void FindNearestOffice_NearChennai_SelectsOffice()
     {
         var vm = new WorkLocationViewModel();
-        // ~T.Nagar, Chennai
         var match = vm.FindNearestOffice(13.0418, 80.2341);
         Assert.NotNull(match);
         Assert.Equal("OFFICE", match!.Option.Code);
@@ -65,7 +64,6 @@ public sealed class WorkLocationViewModelTests
     public void FindNearestOffice_FarFromOffices_SuggestsWfh()
     {
         var vm = new WorkLocationViewModel();
-        // London
         var match = vm.FindNearestOffice(51.5074, -0.1278);
         Assert.NotNull(match);
         Assert.Equal("WFH", match!.Option.Code);
@@ -75,7 +73,6 @@ public sealed class WorkLocationViewModelTests
     [Fact]
     public async Task DetectLiveLocation_NearOffice_AutoSelectsOffice()
     {
-        // Approximate Bangalore CBD
         var loc = new FixedLocationService(new GeoPoint(12.9716, 77.5946));
         var vm = new WorkLocationViewModel(loc);
         await vm.DetectLiveLocationCommand.ExecuteAsync(null);
@@ -88,7 +85,6 @@ public sealed class WorkLocationViewModelTests
     [Fact]
     public async Task DetectLiveLocation_FarFromOffice_AutoSelectsWfh()
     {
-        // London
         var loc = new FixedLocationService(new GeoPoint(51.5074, -0.1278));
         var vm = new WorkLocationViewModel(loc);
         await vm.DetectLiveLocationCommand.ExecuteAsync(null);
@@ -148,7 +144,7 @@ public sealed class WorkLocationViewModelTests
     {
         var prefs = new FakePreferencesStore();
         var vm    = new WorkLocationViewModel(new FixedLocationService(null), prefs);
-        vm.SelectedLocation = vm.ApprovedLocations[0]; // Office
+        vm.SelectedLocation = vm.ApprovedLocations[0];
 
         await vm.SaveAndContinueCommand.ExecuteAsync(null);
 
@@ -161,7 +157,7 @@ public sealed class WorkLocationViewModelTests
     {
         var prefs = new FakePreferencesStore();
         var vm    = new WorkLocationViewModel(new FixedLocationService(null), prefs);
-        vm.SelectedLocation = vm.ApprovedLocations[1]; // Work From Home
+        vm.SelectedLocation = vm.ApprovedLocations[1];
 
         await vm.SaveAndContinueCommand.ExecuteAsync(null);
 
