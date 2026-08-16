@@ -9,18 +9,23 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
 
     public IReadOnlyList<WorkLocationOption> ApprovedLocations { get; } =
     [
-        // Approx office pins for nearest-match against live GPS.
-        new("Chennai Office",   "CHENNAI",   "Tamil Nadu, India",  13.0827, 80.2707),
-        new("Bangalore Office", "BANGALORE", "Karnataka, India",  12.9716, 77.5946),
-        new("Hyderabad Office", "HYDERABAD", "Telangana, India",  17.3850, 78.4867),
-        new("Work From Home",   "WFH",       "Remote Location",   null,    null)
+        new("Office",         "OFFICE", "Your registered office"),
+        new("Work From Home", "WFH",    "Remote Location")
+    ];
+
+    /// <summary>Approved office coordinates used only to decide Office vs. Work From Home —
+    /// never surfaced as separate selectable options or sent to the backend.</summary>
+    private static readonly (string City, double Lat, double Lon)[] OfficeGeofences =
+    [
+        ("Chennai",   13.0827, 80.2707),
+        ("Bangalore", 12.9716, 77.5946),
+        ("Hyderabad", 17.3850, 78.4867),
     ];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveAndContinueCommand))]
     private WorkLocationOption? _selectedLocation;
 
-    [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private bool _isDetectingLocation;
     [ObservableProperty] private string _liveLocationStatus = "Live location not detected yet.";
     [ObservableProperty] private string? _liveCoordsText;
@@ -37,16 +42,6 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
 
     /// <summary>Offices farther than this (km) default to Work From Home suggestion.</summary>
     public const double NearestOfficeMaxKm = 80;
-
-    public IEnumerable<WorkLocationOption> FilteredLocations =>
-        string.IsNullOrWhiteSpace(SearchText)
-            ? ApprovedLocations
-            : ApprovedLocations.Where(l =>
-                l.DisplayName.Contains(SearchText, StringComparison.OrdinalIgnoreCase)
-                || l.SubTitle.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
-
-    partial void OnSearchTextChanged(string value) =>
-        OnPropertyChanged(nameof(FilteredLocations));
 
     partial void OnSelectedLocationChanged(WorkLocationOption? value)
     {
@@ -95,14 +90,14 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
             var match = FindNearestOffice(point.Latitude, point.Longitude);
             if (match is null)
             {
-                LiveLocationStatus = $"Live location: {LiveCoordsText}. No office nearby — pick a location.";
+                LiveLocationStatus = $"Live location: {LiveCoordsText}. No office configured — pick a location.";
                 return;
             }
 
             SelectedLocation = match.Option;
             LiveLocationStatus = match.IsRemoteFallback
-                ? $"Live location: {LiveCoordsText}. Far from offices — suggested Work From Home."
-                : $"Live location: {LiveCoordsText}. Nearest: {match.Option.DisplayName} ({match.DistanceKm:F1} km).";
+                ? $"Live location: {LiveCoordsText}. Far from office — Work From Home selected."
+                : $"Live location: {LiveCoordsText}. Near office ({match.NearestCity}, {match.DistanceKm:F1} km) — Office selected.";
         }
         catch (Exception ex)
         {
@@ -114,36 +109,29 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
         }
     }
 
-    /// <summary>Picks nearest office with coordinates; falls back to WFH if all are far.</summary>
+    /// <summary>Decides Office vs. Work From Home from the nearest approved geofence;
+    /// the specific city is kept only for the live-status message, never persisted.</summary>
     public NearestMatch? FindNearestOffice(double lat, double lon)
     {
-        WorkLocationOption? best = null;
+        if (OfficeGeofences.Length == 0)
+            return null;
+
+        string? nearestCity = null;
         var bestKm = double.MaxValue;
 
-        foreach (var loc in ApprovedLocations)
+        foreach (var (city, officeLat, officeLon) in OfficeGeofences)
         {
-            if (loc.Latitude is null || loc.Longitude is null)
-                continue;
-
-            var km = HaversineKm(lat, lon, loc.Latitude.Value, loc.Longitude.Value);
+            var km = HaversineKm(lat, lon, officeLat, officeLon);
             if (km < bestKm)
             {
                 bestKm = km;
-                best = loc;
+                nearestCity = city;
             }
         }
 
-        if (best is null)
-            return null;
-
-        if (bestKm > NearestOfficeMaxKm)
-        {
-            var wfh = ApprovedLocations.FirstOrDefault(l => l.Code == "WFH");
-            if (wfh is not null)
-                return new NearestMatch(wfh, bestKm, IsRemoteFallback: true);
-        }
-
-        return new NearestMatch(best, bestKm, IsRemoteFallback: false);
+        var isRemote = bestKm > NearestOfficeMaxKm;
+        var option = ApprovedLocations.First(l => l.Code == (isRemote ? "WFH" : "OFFICE"));
+        return new NearestMatch(option, nearestCity, bestKm, isRemote);
     }
 
     public static double HaversineKm(double lat1, double lon1, double lat2, double lon2)
@@ -176,7 +164,7 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
 
     private bool HasSelection => SelectedLocation is not null;
 
-    public sealed record NearestMatch(WorkLocationOption Option, double DistanceKm, bool IsRemoteFallback);
+    public sealed record NearestMatch(WorkLocationOption Option, string? NearestCity, double DistanceKm, bool IsRemoteFallback);
 
     private sealed class NullLocationService : ILocationService
     {
