@@ -1,3 +1,5 @@
+#pragma warning disable CS0067 // event is part of INamedPipeClient contract; fakes do not raise it
+
 namespace ONEVO.Agent.TrayApp.Tests.Fakes;
 
 using ONEVO.Agent.Shared.IPC;
@@ -10,6 +12,7 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public event Action<MonitoringState>? OnStateReceived;
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
+    public event Action<NotificationPushPayload>? OnNotificationReceived;
 
     public StatusResponsePayload? LastKnownStatus { get; set; }
     public AgentPolicy? LastKnownPolicy { get; set; }
@@ -17,6 +20,9 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public List<IReadOnlyList<CollectionRecord>> Submitted { get; } = [];
     public List<IpcEnvelope> SentEnvelopes { get; } = [];
     public List<LifecycleAction> LifecycleActions { get; } = [];
+
+    /// <summary>Records the relative order of lifecycle sends vs. collection-record submits.</summary>
+    public List<string> CallOrder { get; } = [];
 
     /// <summary>Optional canned result for SendLifecycleAsync. Null = auto-success.</summary>
     public LifecycleResultPayload? NextLifecycleResult { get; set; }
@@ -26,6 +32,7 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public Task SubmitCollectionRecordsAsync(IReadOnlyList<CollectionRecord> records, CancellationToken ct)
     {
         Submitted.Add(records);
+        CallOrder.Add("submit");
         return Task.CompletedTask;
     }
 
@@ -67,6 +74,7 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
         string? breakReason = null)
     {
         LifecycleActions.Add(action);
+        CallOrder.Add($"lifecycle:{action}");
         SentEnvelopes.Add(new IpcEnvelope
         {
             Type = IpcMessageTypes.LifecycleCommand,

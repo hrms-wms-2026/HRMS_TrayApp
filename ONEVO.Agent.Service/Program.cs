@@ -113,6 +113,7 @@ var host = Host.CreateDefaultBuilder(args)
         // reordering it was not requested. PolicySyncService's own "before activity sync" is
         // achieved instead by its immediate-fetch-on-JWT behavior (see PolicySyncService.cs).
         services.AddHostedService<PolicySyncService>();
+        services.AddHostedService<NotificationPollingService>();
         // packages-guide §1 — SignalR remote commands (waits for JWT)
         services.AddHostedService<AgentCommandListener>();
     })

@@ -9,6 +9,7 @@ public interface INamedPipeClient
     event Action<MonitoringState>? OnStateReceived;
     event Action<StatusResponsePayload>? OnStatusReceived;
     event Action<AgentPolicy>? OnPolicyReceived;
+    event Action<NotificationPushPayload>? OnNotificationReceived;
 
     /// <summary>Last status received from the service — null until first response arrives.</summary>
     StatusResponsePayload? LastKnownStatus { get; }

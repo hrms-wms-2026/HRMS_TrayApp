@@ -2,6 +2,7 @@ namespace ONEVO.Agent.TrayApp.Collectors;
 
 using System.Linq;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
 /// <summary>
@@ -33,6 +34,7 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
     private readonly ILogger<CollectorCoordinator> _logger;
     private readonly IEnumerable<IAgentCollector> _collectors;
     private readonly INamedPipeClient _pipeClient;
+    private readonly NotificationService _notificationService;
     private readonly object _gate = new();
     private readonly SemaphoreSlim _reconcileLock = new(1, 1);
 
@@ -56,14 +58,17 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
     public CollectorCoordinator(
         ILogger<CollectorCoordinator> logger,
         IEnumerable<IAgentCollector> collectors,
-        INamedPipeClient pipeClient)
+        INamedPipeClient pipeClient,
+        NotificationService notificationService)
     {
         _logger = logger;
         _collectors = collectors;
         _pipeClient = pipeClient;
+        _notificationService = notificationService;
 
         _pipeClient.OnStateReceived += OnStateReceived;
         _pipeClient.OnPolicyReceived += OnPolicyReceived;
+        _pipeClient.OnNotificationReceived += OnWellnessNotificationReceived;
         _pipeClient.OnDisconnected += OnDisconnected;
     }
 
@@ -98,6 +103,14 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
         }
         BootLog($"Policy received Version={policy.Version} Activity={policy.ActivitySignalEnabled}");
         _ = ReconcileAsync();
+    }
+
+    private void OnWellnessNotificationReceived(NotificationPushPayload payload)
+    {
+        if (string.Equals(payload.Type, "LongIdleAlert", StringComparison.OrdinalIgnoreCase))
+            _notificationService.ShowWarning(payload.Title, payload.Message);
+        else
+            _notificationService.ShowInfo(payload.Title, payload.Message);
     }
 
     private void OnDisconnected()
@@ -270,6 +283,7 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
     {
         _pipeClient.OnStateReceived -= OnStateReceived;
         _pipeClient.OnPolicyReceived -= OnPolicyReceived;
+        _pipeClient.OnNotificationReceived -= OnWellnessNotificationReceived;
         _pipeClient.OnDisconnected -= OnDisconnected;
         await StopAllAsync();
         _reconcileLock.Dispose();
