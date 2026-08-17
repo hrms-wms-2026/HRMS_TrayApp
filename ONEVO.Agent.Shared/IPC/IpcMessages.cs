@@ -18,6 +18,9 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: effective policy for collector enablement.</summary>
     public const string PolicyPush = "PolicyPush";
 
+    /// <summary>Service → Tray: a wellness notification (break reminder / long idle) to show as a toast.</summary>
+    public const string NotificationPush = "NotificationPush";
+
     /// <summary>Tray → Service: employee-entered activation code from web portal.</summary>
     public const string ActivationCodeSubmit = "ActivationCodeSubmit";
 
@@ -113,6 +116,14 @@ public sealed record CollectionRecordAckPayload
 public sealed record PolicyPushPayload
 {
     public required AgentPolicy Policy { get; init; }
+}
+
+public sealed record NotificationPushPayload
+{
+    public required Guid NotificationId { get; init; }
+    public required string Type { get; init; }
+    public required string Title { get; init; }
+    public required string Message { get; init; }
 }
 
 public sealed record ActivationCodeSubmitPayload(string Code);

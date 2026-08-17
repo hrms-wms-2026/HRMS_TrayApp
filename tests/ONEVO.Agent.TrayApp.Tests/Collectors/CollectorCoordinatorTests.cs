@@ -1,10 +1,14 @@
 namespace ONEVO.Agent.TrayApp.Tests.Collectors;
 
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 
 public sealed class CollectorCoordinatorTests : IAsyncDisposable
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(3);
+
+    private static NotificationService CreateNotificationService() =>
+        new(NullLogger<NotificationService>.Instance);
 
     private static AgentPolicy EnabledPolicy(bool activityEnabled = true) => new()
     {
@@ -25,7 +29,8 @@ public sealed class CollectorCoordinatorTests : IAsyncDisposable
         _sut = new CollectorCoordinator(
             NullLogger<CollectorCoordinator>.Instance,
             [_collector],
-            _pipe);
+            _pipe,
+            CreateNotificationService());
     }
 
     [Fact]
@@ -189,7 +194,7 @@ public sealed class CollectorCoordinatorTests : IAsyncDisposable
         var selfStopping = new SelfStoppingAgentCollector();
         var pipe = new FakeNamedPipeClient();
         await using var sut = new CollectorCoordinator(
-            NullLogger<CollectorCoordinator>.Instance, [selfStopping], pipe);
+            NullLogger<CollectorCoordinator>.Instance, [selfStopping], pipe, CreateNotificationService());
 
         pipe.SimulatePolicy(EnabledPolicy());
         pipe.SimulateState(MonitoringState.Active);
@@ -220,7 +225,7 @@ public sealed class CollectorCoordinatorTests : IAsyncDisposable
         var neverEligible = new SelfStoppingAgentCollector { RefuseToStart = true };
         var pipe = new FakeNamedPipeClient();
         await using var sut = new CollectorCoordinator(
-            NullLogger<CollectorCoordinator>.Instance, [neverEligible], pipe);
+            NullLogger<CollectorCoordinator>.Instance, [neverEligible], pipe, CreateNotificationService());
 
         pipe.SimulatePolicy(EnabledPolicy());
         pipe.SimulateState(MonitoringState.Active);

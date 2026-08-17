@@ -114,6 +114,46 @@ public sealed class OnevoApiClient
         return new PolicyResult(true, null, policy);
     }
 
+    /// <summary>Polls for pending break/idle notifications. Auth: Bearer Device JWT.</summary>
+    public async Task<List<PendingNotificationPayload>> GetPendingNotificationsAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.PendingTrayNotifications);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            var response = await client.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode) return [];
+
+            var body = await response.Content.ReadFromJsonAsync<PendingNotificationsResponse>(cancellationToken: ct);
+            return body?.Notifications ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.PendingTrayNotifications);
+            return [];
+        }
+    }
+
+    /// <summary>Acknowledges a delivered notification so it isn't re-sent next poll. Best-effort.</summary>
+    public async Task AckNotificationAsync(string accessToken, Guid notificationId, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        var route = string.Format(AgentApiRoutes.AckTrayNotification, notificationId);
+        using var request = new HttpRequestMessage(HttpMethod.Post, route);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
+        }
+    }
+
     /// <summary>Creates a new enrollment attempt. Auth: Bearer Device JWT.</summary>
     public async Task<EnrollmentAttemptResult> CreateEnrollmentAttemptAsync(string accessToken, CancellationToken ct)
     {
@@ -248,7 +288,16 @@ public sealed class OnevoApiClient
         string Code, string DeviceName, string DeviceOs, string DeviceFingerprint);
 
     private sealed record RefreshRequestBody(string RefreshToken, string DeviceFingerprint);
+
+    private sealed record PendingNotificationsResponse(
+        [property: JsonPropertyName("notifications")] List<PendingNotificationPayload> Notifications);
 }
+
+public sealed record PendingNotificationPayload(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("type")] string Type,
+    [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("message")] string Message);
 
 /// <summary>Wire-format mirror of the backend's TrayAuthResponseDto.</summary>
 public sealed record TrayAuthPayload(

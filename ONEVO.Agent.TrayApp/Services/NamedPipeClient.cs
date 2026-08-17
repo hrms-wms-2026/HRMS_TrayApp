@@ -24,6 +24,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public event Action<MonitoringState>? OnStateReceived;
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
+    public event Action<NotificationPushPayload>? OnNotificationReceived;
 
     public StatusResponsePayload? LastKnownStatus { get; private set; }
     public AgentPolicy? LastKnownPolicy { get; private set; }
@@ -499,6 +500,13 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                             LastKnownPolicy = policyPayload.Policy;
                             OnPolicyReceived?.Invoke(policyPayload.Policy);
                         }
+                        break;
+                    }
+                    case IpcMessageTypes.NotificationPush:
+                    {
+                        var notificationPayload = envelope.Payload?.Deserialize<NotificationPushPayload>();
+                        if (notificationPayload is not null)
+                            OnNotificationReceived?.Invoke(notificationPayload);
                         break;
                     }
                     case IpcMessageTypes.CollectionRecordAck:

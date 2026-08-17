@@ -366,6 +366,8 @@ internal sealed class FakeScreenshotCaptureService : IScreenshotCaptureService
     }
 }
 
+#pragma warning disable CS0067 // event is part of INamedPipeClient contract; fakes do not raise it
+
 /// <summary>Minimal <see cref="INamedPipeClient"/> fake that only observes evidence submission.</summary>
 internal sealed class RecordingPipeClient : INamedPipeClient
 {
@@ -373,6 +375,7 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public event Action<MonitoringState>? OnStateReceived;
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
+    public event Action<NotificationPushPayload>? OnNotificationReceived;
 
     public StatusResponsePayload? LastKnownStatus => null;
     public AgentPolicy? LastKnownPolicy { get; set; }
