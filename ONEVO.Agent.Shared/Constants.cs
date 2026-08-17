@@ -9,6 +9,14 @@ public static class Constants
     public const int ReconnectMaxAttempts = 5;
     public const int ReconnectBaseDelayMs = 1_000;
 
+    /// <summary>
+    /// Once the initial exponential-backoff burst (<see cref="ReconnectMaxAttempts"/> tries) is
+    /// exhausted, the client keeps retrying at this fixed cadence indefinitely rather than giving
+    /// up permanently — the Service can come back (crash recovery, restart, update) well after
+    /// the burst window, and the Tray App must not require a manual relaunch to notice.
+    /// </summary>
+    public const int ReconnectSteadyStateDelayMs = 15_000;
+
     /// <summary>Default activity capture interval (seconds). Max backend interval is 300.</summary>
     public const int DefaultActivitySnapshotIntervalSeconds = 60;
 
