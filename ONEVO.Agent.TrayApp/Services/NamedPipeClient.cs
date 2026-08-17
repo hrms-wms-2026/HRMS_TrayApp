@@ -43,43 +43,76 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 
     private async Task ConnectWithRetryAsync(CancellationToken ct)
     {
-        for (int attempt = 0; attempt < Constants.ReconnectMaxAttempts; attempt++)
+        // Outer loop: keeps the client alive for the lifetime of the app. Each iteration runs one
+        // exponential-backoff burst; if the burst can't connect (or a live connection later drops),
+        // it falls back to a slow fixed-interval retry (Constants.ReconnectSteadyStateDelayMs)
+        // instead of giving up — the Service restarting/recovering minutes later must not require
+        // a manual Tray App relaunch to be noticed.
+        var disconnectedSignalled = false;
+
+        while (!ct.IsCancellationRequested)
         {
-            if (ct.IsCancellationRequested) return;
-            try
+            var connected = false;
+
+            for (int attempt = 0; attempt < Constants.ReconnectMaxAttempts && !ct.IsCancellationRequested; attempt++)
             {
-                _pipe = new NamedPipeClientStream(
-                    ".", Constants.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-                await _pipe.ConnectAsync(Constants.IpcConnectionTimeoutMs, ct);
-                await AuthenticateAsync(_pipe, ct);
-
-                var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-                _writer = new StreamWriter(_pipe, utf8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
-                _logger.LogInformation("Connected to ONEVO Agent Service");
-
-                await RequestStatusAsync(ct);
-                await ReadLoopAsync(_pipe, utf8, ct);
-                return;
-            }
-            catch (OperationCanceledException) { return; }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Connect attempt {Attempt}/{Max} failed: {Msg}",
-                    attempt + 1, Constants.ReconnectMaxAttempts, ex.Message);
-                _pipe?.Dispose();
-                _pipe = null;
-                _writer = null;
-
-                if (attempt < Constants.ReconnectMaxAttempts - 1)
+                try
                 {
-                    var delayMs = Constants.ReconnectBaseDelayMs * (1 << attempt);
-                    delayMs += Random.Shared.Next(0, 500);
-                    await Task.Delay(delayMs, ct);
+                    _pipe = new NamedPipeClientStream(
+                        ".", Constants.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                    await _pipe.ConnectAsync(Constants.IpcConnectionTimeoutMs, ct);
+                    await AuthenticateAsync(_pipe, ct);
+
+                    var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+                    _writer = new StreamWriter(_pipe, utf8, bufferSize: 1024, leaveOpen: true) { AutoFlush = true };
+                    _logger.LogInformation("Connected to ONEVO Agent Service");
+                    connected = true;
+                    disconnectedSignalled = false;
+
+                    await RequestStatusAsync(ct);
+                    await ReadLoopAsync(_pipe, utf8, ct); // blocks until disconnected; invokes OnDisconnected itself
+                    disconnectedSignalled = true;
+                    break;
+                }
+                catch (OperationCanceledException) { return; }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning("Connect attempt {Attempt}/{Max} failed: {Msg}",
+                        attempt + 1, Constants.ReconnectMaxAttempts, ex.Message);
+                    _pipe?.Dispose();
+                    _pipe = null;
+                    _writer = null;
+
+                    if (attempt < Constants.ReconnectMaxAttempts - 1)
+                    {
+                        var delayMs = Constants.ReconnectBaseDelayMs * (1 << attempt);
+                        delayMs += Random.Shared.Next(0, 500);
+                        await Task.Delay(delayMs, ct);
+                    }
                 }
             }
+
+            if (ct.IsCancellationRequested) return;
+
+            // Only fire OnDisconnected on the transition into "disconnected" — ReadLoopAsync already
+            // signalled it if we lost a live connection; avoid a redundant call every steady-state retry.
+            if (!connected && !disconnectedSignalled)
+            {
+                _logger.LogError("Failed to connect to Service after {Max} attempts; retrying every {Delay}ms",
+                    Constants.ReconnectMaxAttempts, Constants.ReconnectSteadyStateDelayMs);
+                disconnectedSignalled = true;
+                OnDisconnected?.Invoke();
+            }
+
+            try
+            {
+                await Task.Delay(Constants.ReconnectSteadyStateDelayMs, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
-        _logger.LogError("Failed to connect to Service after {Max} attempts", Constants.ReconnectMaxAttempts);
-        OnDisconnected?.Invoke();
     }
 
     private static async Task AuthenticateAsync(NamedPipeClientStream pipe, CancellationToken ct)

@@ -5,22 +5,23 @@
              xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.WorkLocationPage"
              x:DataType="vm:WorkLocationViewModel"
-             Title="Select Your Work Location">
+             Title="Find Your Work Location">
 
   <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="#EEF2FF" Offset="0.45" />
         <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
       </LinearGradientBrush>
     </Grid.Background>
     <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
 
-    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="4*,6*" ColumnSpacing="24">
+    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="22">
 
-      <!-- Ambient glow blobs sit behind the glass panels so the translucency has something to catch -->
-      <Ellipse Grid.ColumnSpan="2" WidthRequest="420" HeightRequest="420"
-               HorizontalOptions="Start" VerticalOptions="Start" Margin="-110,-90,0,0" Opacity="0.85">
+      <Ellipse Grid.ColumnSpan="2" WidthRequest="460" HeightRequest="460"
+               HorizontalOptions="Start" VerticalOptions="Start" Margin="-140,-100,0,0" Opacity="0.9"
+               InputTransparent="True">
         <Ellipse.Fill>
           <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
             <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
@@ -28,8 +29,9 @@
           </RadialGradientBrush>
         </Ellipse.Fill>
       </Ellipse>
-      <Ellipse Grid.Column="1" WidthRequest="360" HeightRequest="360"
-               HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-90,-90" Opacity="0.85">
+      <Ellipse Grid.Column="1" WidthRequest="380" HeightRequest="380"
+               HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-110,-80" Opacity="0.9"
+               InputTransparent="True">
         <Ellipse.Fill>
           <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
             <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
@@ -38,138 +40,171 @@
         </Ellipse.Fill>
       </Ellipse>
 
-      <!-- Left illustration -->
-      <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassPanel}"
-              MinimumWidthRequest="0">
-        <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12" Padding="24">
-          <Border WidthRequest="120" HeightRequest="120" Style="{StaticResource GlassInputRow}"
-                  StrokeShape="RoundRectangle 60" Padding="0" HorizontalOptions="Center">
-            <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
-                   FontSize="56" TextColor="{StaticResource Primary}"
-                   HorizontalOptions="Center" VerticalOptions="Center" />
-          </Border>
-          <Label Text="Choose where you work today."
-                 FontSize="12" TextColor="{StaticResource TextSecondary}"
-                 HorizontalTextAlignment="Center" />
-        </VerticalStackLayout>
-      </Border>
+      <!-- Left: 3D pin illustration -->
+      <Grid x:Name="LeftPane" Grid.Column="0" MinimumWidthRequest="0">
+        <Image Source="location_hero.png"
+               Aspect="AspectFit"
+               HorizontalOptions="Fill"
+               VerticalOptions="Fill"
+               Margin="4" />
+      </Grid>
 
-      <ScrollView x:Name="RightPane" Grid.Column="1">
-        <VerticalStackLayout Padding="8,0,0,0" Spacing="0">
-          <HorizontalStackLayout Spacing="6">
-            <Label Text="Select Your " Style="{StaticResource PageTitle}" />
-            <Label Text="Work Location" Style="{StaticResource PageTitleAccent}" />
-          </HorizontalStackLayout>
-          <Label Text="Choose your current work location before continuing."
-                 Style="{StaticResource PageSubtitle}"
-                 HorizontalTextAlignment="Start"
-                 Margin="0,6,0,12" />
+      <!-- Right: find / pick / confirm — button stays on screen -->
+      <Grid x:Name="RightPane" Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="0">
 
-          <!-- Live GPS -->
-          <Border Style="{StaticResource GlassCard}" Padding="12,10" Margin="0,0,0,12">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" RowDefinitions="Auto,Auto">
-              <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
-                <Label Text="Live location"
-                       FontAttributes="Bold" FontSize="13"
-                       TextColor="{StaticResource TextPrimary}" />
-                <Label Text="{Binding LiveLocationStatus}"
-                       FontSize="11" TextColor="{StaticResource TextSecondary}"
-                       LineBreakMode="WordWrap" />
-              </VerticalStackLayout>
-              <Button Grid.Row="0" Grid.Column="1"
-                      Text="📍 Detect"
-                      Command="{Binding DetectLiveLocationCommand}"
-                      IsEnabled="{Binding IsDetectingLocation, Converter={StaticResource InvertBoolConverter}}"
-                      BackgroundColor="{StaticResource PrimarySoft}"
-                      TextColor="{StaticResource Primary}"
-                      FontAttributes="Bold"
-                      FontSize="12"
-                      CornerRadius="18"
-                      HeightRequest="40"
-                      Padding="14,0"
-                      VerticalOptions="Center" />
-              <ActivityIndicator Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                 IsRunning="{Binding IsDetectingLocation}"
-                                 IsVisible="{Binding IsDetectingLocation}"
-                                 Color="{StaticResource Primary}"
-                                 HeightRequest="24"
-                                 HorizontalOptions="Start"
-                                 Margin="0,6,0,0" />
-            </Grid>
-          </Border>
+        <HorizontalStackLayout Grid.Row="0" Spacing="6">
+          <Label Text="Find Your " Style="{StaticResource PageTitle}" />
+          <Label Text="Work Location" Style="{StaticResource PageTitleBrand}" />
+        </HorizontalStackLayout>
+        <Label Grid.Row="1"
+               Text="Choose where you'll be working from today."
+               Style="{StaticResource PageSubtitle}"
+               HorizontalTextAlignment="Start"
+               Margin="0,6,0,14" />
 
-          <Border Style="{StaticResource GlassInputRow}" Margin="0,0,0,14">
-            <HorizontalStackLayout Spacing="10">
-              <Label Text="{StaticResource IconSearch}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="16" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
-              <Entry Placeholder="Search location..."
-                     Text="{Binding SearchText}"
-                     BackgroundColor="Transparent"
-                     PlaceholderColor="{StaticResource TextMuted}"
-                     FontSize="14"
-                     HorizontalOptions="Fill" />
-            </HorizontalStackLayout>
-          </Border>
-
-          <CollectionView ItemsSource="{Binding FilteredLocations}"
-                          SelectedItem="{Binding SelectedLocation}"
-                          SelectionMode="Single"
-                          Margin="0,0,0,20">
-            <CollectionView.ItemTemplate>
-              <DataTemplate x:DataType="vm:WorkLocationOption">
-                <Border Style="{StaticResource GlassCard}" Margin="0,0,0,8" Padding="14,14">
-                  <Border.Triggers>
-                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                      <Setter Property="Stroke" Value="{StaticResource Primary}" />
-                      <Setter Property="StrokeThickness" Value="2" />
-                      <Setter Property="BackgroundColor" Value="{StaticResource PrimarySoft}" />
+        <!-- Find a Location / live GPS — matches the mock hero card -->
+        <Border Grid.Row="2" StrokeShape="RoundRectangle 18" StrokeThickness="0"
+                Padding="16,14" Margin="0,0,0,12">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.5" />
+              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Border.Shadow>
+            <Shadow Brush="#66175CFF" Offset="0,8" Radius="18" Opacity="0.35" />
+          </Border.Shadow>
+          <Border.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding DetectLiveLocationCommand}" />
+          </Border.GestureRecognizers>
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Border Grid.Column="0" WidthRequest="40" HeightRequest="40"
+                    StrokeShape="RoundRectangle 20" StrokeThickness="0"
+                    BackgroundColor="#33FFFFFF" VerticalOptions="Center">
+              <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="18" TextColor="White"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+              <Label Text="Find a Location" FontAttributes="Bold" FontSize="15" TextColor="White" />
+              <Label Text="{Binding LiveLocationStatus}"
+                     FontSize="11" TextColor="#E6FFFFFF"
+                     LineBreakMode="TailTruncation" MaxLines="2" />
+            </VerticalStackLayout>
+            <Border Grid.Column="2" StrokeShape="RoundRectangle 12" StrokeThickness="0"
+                    BackgroundColor="#E8FFF3" Padding="10,4" VerticalOptions="Center"
+                    HeightRequest="26">
+              <HorizontalStackLayout Spacing="6">
+                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center">
+                  <Ellipse.Fill>
+                    <SolidColorBrush Color="{StaticResource StatusGreen}" />
+                  </Ellipse.Fill>
+                  <Ellipse.Triggers>
+                    <DataTrigger TargetType="Ellipse" Binding="{Binding HasLiveFix}" Value="False">
+                      <Setter Property="Fill" Value="{StaticResource TextMuted}" />
                     </DataTrigger>
-                  </Border.Triggers>
-                  <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="12">
-                    <Border Grid.Column="0" WidthRequest="36" HeightRequest="36"
-                            StrokeShape="RoundRectangle 10" BackgroundColor="{StaticResource PrimarySoft}"
-                            StrokeThickness="0">
-                      <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
-                             FontSize="16" TextColor="{StaticResource Primary}"
-                             HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Border>
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                      <Label Text="{Binding DisplayName}"
-                             FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="14" />
-                      <Label Text="{Binding SubTitle}"
-                             TextColor="{StaticResource TextSecondary}" FontSize="11" />
-                    </VerticalStackLayout>
-                    <Border Grid.Column="2"
-                            WidthRequest="22" HeightRequest="22"
-                            StrokeShape="RoundRectangle 11"
-                            Stroke="{StaticResource Primary}" StrokeThickness="2"
-                            BackgroundColor="Transparent"
-                            VerticalOptions="Center">
-                      <Border.Triggers>
-                        <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                          <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                        </DataTrigger>
-                      </Border.Triggers>
-                      <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
-                             FontSize="12" TextColor="White"
-                             HorizontalOptions="Center" VerticalOptions="Center"
-                             IsVisible="{Binding IsSelected}" />
-                    </Border>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </CollectionView.ItemTemplate>
-          </CollectionView>
+                  </Ellipse.Triggers>
+                </Ellipse>
+                <Label FontSize="11" FontAttributes="Bold" VerticalOptions="Center"
+                       TextColor="{StaticResource StatusGreen}">
+                  <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding HasLiveFix}" Value="False">
+                      <Setter Property="Text" Value="Detect" />
+                      <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+                    </DataTrigger>
+                  </Label.Triggers>
+                  <Label.Text>Live</Label.Text>
+                </Label>
+              </HorizontalStackLayout>
+            </Border>
+          </Grid>
+        </Border>
 
-          <Border Style="{StaticResource GradientButtonBorder}">
-            <Button Text="📍  Confirm Location"
-                    Command="{Binding SaveAndContinueCommand}"
-                    Style="{StaticResource GradientButtonOverlay}" />
-          </Border>
-        </VerticalStackLayout>
-      </ScrollView>
+        <CollectionView Grid.Row="3"
+                        ItemsSource="{Binding ApprovedLocations}"
+                        SelectedItem="{Binding SelectedLocation}"
+                        SelectionMode="Single"
+                        Margin="0,0,0,12">
+          <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="vm:WorkLocationOption">
+              <Border Style="{StaticResource GlassCard}" Margin="0,0,0,8" Padding="14,12">
+                <Border.Triggers>
+                  <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                    <Setter Property="StrokeThickness" Value="1.6" />
+                  </DataTrigger>
+                </Border.Triggers>
+                <Grid ColumnDefinitions="40,*,Auto" ColumnSpacing="12">
+                  <Border Grid.Column="0" Style="{StaticResource IconTile}"
+                          StrokeShape="RoundRectangle 12" WidthRequest="36" HeightRequest="36">
+                    <Label Text="{StaticResource IconWork}" FontFamily="Segoe MDL2 Assets"
+                           FontSize="16" TextColor="{StaticResource Primary}"
+                           HorizontalOptions="Center" VerticalOptions="Center">
+                      <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding Code}" Value="WFH">
+                          <Setter Property="Text" Value="{StaticResource IconPerson}" />
+                        </DataTrigger>
+                      </Label.Triggers>
+                    </Label>
+                  </Border>
+                  <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
+                    <Label Text="{Binding DisplayName}"
+                           FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" FontSize="14" />
+                    <Label Text="{Binding SubTitle}"
+                           TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                  </VerticalStackLayout>
+                  <Border Grid.Column="2"
+                          WidthRequest="24" HeightRequest="24"
+                          StrokeShape="RoundRectangle 12"
+                          Stroke="{StaticResource SoftOutline}" StrokeThickness="2"
+                          BackgroundColor="Transparent"
+                          VerticalOptions="Center">
+                    <Border.Triggers>
+                      <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                        <Setter Property="StrokeThickness" Value="0" />
+                      </DataTrigger>
+                    </Border.Triggers>
+                    <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                           FontSize="12" TextColor="White"
+                           HorizontalOptions="Center" VerticalOptions="Center"
+                           IsVisible="{Binding IsSelected}" />
+                  </Border>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Border Grid.Row="4" Style="{StaticResource GradientButtonBorder}">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Grid>
+            <Button Command="{Binding SaveAndContinueCommand}"
+                    Style="{StaticResource GradientButtonOverlay}"
+                    Text=""
+                    SemanticProperties.Description="Confirm Location" />
+            <HorizontalStackLayout InputTransparent="True"
+                                   HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+              <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="16" TextColor="White" VerticalOptions="Center" />
+              <Label Text="Confirm Location" FontSize="15" FontAttributes="Bold"
+                     TextColor="White" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+          </Grid>
+        </Border>
+      </Grid>
     </Grid>
 
-    <controls:FooterStatusBar Grid.Row="2" ConnectionLabel="Connected" />
+    <controls:FooterStatusBar Grid.Row="2"
+                              VersionText="Version 1.0.0"
+                              ConnectionLabel="Connected"
+                              IsConnected="True" />
   </Grid>
 </ContentPage>

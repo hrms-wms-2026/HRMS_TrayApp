@@ -71,6 +71,25 @@ public sealed class DeviceStateIngestItem
     public bool IsIdle { get; set; }
 }
 
+/// <summary>Wire format for POST /api/v1/monitoring/meetings/signals.</summary>
+public sealed class MeetingSignalIngestRequest
+{
+    [JsonPropertyName("signals")]
+    public List<MeetingSignalIngestItem> Signals { get; set; } = [];
+}
+
+public sealed class MeetingSignalIngestItem
+{
+    [JsonPropertyName("captured_at")]
+    public DateTimeOffset CapturedAt { get; set; }
+
+    [JsonPropertyName("is_meeting_app_running")]
+    public bool IsMeetingAppRunning { get; set; }
+
+    [JsonPropertyName("process_name")]
+    public string? ProcessName { get; set; }
+}
+
 /// <summary>Wire format for POST /api/v1/monitoring/work-sessions.</summary>
 public sealed class WorkSessionSubmitRequest
 {
