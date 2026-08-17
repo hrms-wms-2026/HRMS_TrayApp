@@ -11,6 +11,7 @@ public static class CollectionRecordTypes
     public const string FacePhoto           = "face_photo";
     public const string WorkSession         = "work_session";
     public const string InactivityCaptureAttempt = "inactivity_capture_attempt";
+    public const string MeetingSignal       = "meeting_signal";
 }
 
 public static class CollectionSchemaVersions
@@ -22,6 +23,7 @@ public static class CollectionSchemaVersions
     public const string FacePhotoV1           = "1.0";
     public const string WorkSessionV1         = "1.0";
     public const string InactivityCaptureAttemptV1 = "1.0";
+    public const string MeetingSignalV1       = "1.0";
 }
 
 /// <summary>
@@ -38,6 +40,17 @@ public sealed record WorkSessionPayload
     public required TimeSpan AccumulatedWork { get; init; }
     public required int BreakSessionCount { get; init; }
     public string? ScheduleDisplay { get; init; }
+}
+
+/// <summary>
+/// Phase 1 probabilistic meeting-app-presence sample (§7.4). ProcessName identifies
+/// which known meeting app was found running - never proof of an active meeting.
+/// </summary>
+public sealed record MeetingSignalPayload
+{
+    public required DateTimeOffset CapturedAt { get; init; }
+    public required bool IsMeetingAppRunning { get; init; }
+    public string? ProcessName { get; init; }
 }
 
 public sealed record CollectionRecord

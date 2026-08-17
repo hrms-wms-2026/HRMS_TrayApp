@@ -123,6 +123,8 @@ public sealed class ActivitySyncService : BackgroundService
                         await FlushAppUsageSnapshotsAsync(records, jwt, ct),
                     CollectionRecordTypes.DeviceStateSnapshot =>
                         await FlushDeviceStateSnapshotsAsync(records, jwt, ct),
+                    CollectionRecordTypes.MeetingSignal =>
+                        await FlushMeetingSignalsAsync(records, jwt, ct),
                     _ => records
                 };
 
@@ -213,7 +215,8 @@ public sealed class ActivitySyncService : BackgroundService
     private static bool IsBatchableType(string recordType) =>
         recordType is CollectionRecordTypes.ActivitySnapshot
             or CollectionRecordTypes.AppUsageSnapshot
-            or CollectionRecordTypes.DeviceStateSnapshot;
+            or CollectionRecordTypes.DeviceStateSnapshot
+            or CollectionRecordTypes.MeetingSignal;
 
     private static List<BufferedCollectionRecord> CollectAdjacentSameType(
         IReadOnlyList<BufferedCollectionRecord> peeked, int startIndex)
@@ -718,6 +721,42 @@ public sealed class ActivitySyncService : BackgroundService
         return await PostBatchAsync(
             AgentApiRoutes.DeviceStateSnapshots, jwt,
             new DeviceStateIngestRequest { Snapshots = items },
+            used, ct);
+    }
+
+    private async Task<List<CollectionRecord>> FlushMeetingSignalsAsync(
+        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    {
+        if (records.Count == 0) return [];
+
+        var items = new List<MeetingSignalIngestItem>();
+        var used  = new List<CollectionRecord>();
+
+        foreach (var record in records)
+        {
+            try
+            {
+                var signal = record.Payload.Deserialize<MeetingSignalPayload>(JsonOptions);
+                if (signal is null) continue;
+
+                items.Add(new MeetingSignalIngestItem
+                {
+                    CapturedAt          = signal.CapturedAt,
+                    IsMeetingAppRunning = signal.IsMeetingAppRunning,
+                    ProcessName         = signal.ProcessName
+                });
+                used.Add(record);
+            }
+            catch (JsonException)
+            {
+                _logger.LogWarning("Corrupt meeting-signal record quarantined eventId={EventId}", record.EventId);
+            }
+        }
+
+        if (items.Count == 0) return [];
+        return await PostBatchAsync(
+            AgentApiRoutes.MeetingSignals, jwt,
+            new MeetingSignalIngestRequest { Signals = items },
             used, ct);
     }
 

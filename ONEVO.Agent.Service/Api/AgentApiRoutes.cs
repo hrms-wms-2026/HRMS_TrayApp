@@ -5,6 +5,7 @@ public static class AgentApiRoutes
     public const string ActivitySnapshots   = "/api/v1/monitoring/activity/snapshots";
     public const string AppUsageSnapshots   = "/api/v1/monitoring/app-usage/snapshots";
     public const string DeviceStateSnapshots = "/api/v1/monitoring/device-state/snapshots";
+    public const string MeetingSignals = "/api/v1/monitoring/meetings/signals";
     public const string WorkSessionSubmit   = "/api/v1/monitoring/work-sessions";
     public const string CheckInSubmit       = "/api/v1/monitoring/check-in";
     public const string FaceScanUpload      = "/api/v1/monitoring/check-in/{0}/face-scan";

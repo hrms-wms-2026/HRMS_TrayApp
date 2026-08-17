@@ -414,6 +414,34 @@ public class ActivitySyncServiceTests
     }
 
     [Fact]
+    public async Task FlushAsync_MeetingSignalRecord_PostsToMeetingSignalsRoute()
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.MeetingSignal,
+            CollectionSchemaVersions.MeetingSignalV1,
+            new MeetingSignalPayload
+            {
+                CapturedAt = DateTimeOffset.UtcNow,
+                IsMeetingAppRunning = true,
+                ProcessName = "teams.exe"
+            }));
+
+        var factory = new CapturingHttpClientFactory(_ =>
+            new HttpResponseMessage(HttpStatusCode.Accepted));
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        var request = Assert.Single(factory.Requests);
+        Assert.EndsWith(AgentApiRoutes.MeetingSignals, request.Uri!.AbsolutePath, StringComparison.Ordinal);
+        Assert.Equal(0, buffer.Count);
+    }
+
+    [Fact]
     public async Task FlushAsync_FacePhotoRecord_PostsCheckInThenFaceScan()
     {
         var imageBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 };
