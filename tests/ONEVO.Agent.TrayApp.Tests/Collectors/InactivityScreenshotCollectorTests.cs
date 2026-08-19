@@ -15,6 +15,7 @@ public sealed class InactivityScreenshotCollectorTests
         ScreenshotEnabled = true,
         InactivityScreenshotEnabled = true,
         CameraVerificationEnabled = false,
+        IdleThresholdMinutes = 5,
         ValidUntil = validUntil ?? DateTimeOffset.UtcNow.AddHours(1)
     };
 
@@ -47,6 +48,22 @@ public sealed class InactivityScreenshotCollectorTests
         if (idleSeconds >= 600)
             await _sut.EvaluateAsync(600, DateTimeOffset.Parse("2026-08-10T01:10:00Z"), default);
         Assert.Equal(expected, _prompt.RequestCount);
+    }
+
+    [Fact]
+    public async Task Prompts_at_the_policys_configured_threshold_not_a_hardcoded_one()
+    {
+        var tenMinutePolicy = EnabledPolicy() with { IdleThresholdMinutes = 10 };
+        await _sut.StartAsync(tenMinutePolicy, default);
+
+        // 300s (the old hardcoded default, and still the value every other test in this file
+        // uses) must NOT fire a prompt once the collector is configured for 10 minutes.
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        Assert.Equal(0, _prompt.RequestCount);
+
+        // The policy's actual configured threshold (600s) must fire it.
+        await _sut.EvaluateAsync(600, DateTimeOffset.Parse("2026-08-10T01:10:00Z"), default);
+        Assert.Equal(1, _prompt.RequestCount);
     }
 
     [Fact]
