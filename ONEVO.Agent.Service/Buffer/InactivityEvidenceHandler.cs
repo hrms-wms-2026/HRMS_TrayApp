@@ -4,7 +4,6 @@ using System.Text.Json;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
-using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
@@ -54,7 +53,7 @@ public sealed class InactivityEvidenceHandler
         if (_stateMachine.CurrentState != MonitoringState.Active)
             return new EvidenceTransferAckPayload(start.Attempt.AttemptId, false, "monitoring_not_active");
 
-        if (start.Attempt.IdleDurationSeconds < Constants.InactivityThresholdSeconds)
+        if (start.Attempt.IdleDurationSeconds < _policyCache.Current.IdleThresholdMinutes * 60)
             return new EvidenceTransferAckPayload(start.Attempt.AttemptId, false, "idle_too_short");
 
         if (_buffer.HasPendingOrSyncedAttempt(start.Attempt.AttemptId))
