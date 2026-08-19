@@ -504,6 +504,7 @@ public sealed class ActivitySyncService : BackgroundService
         })
         {
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
+            req.Headers.Add("Idempotency-Key", buffered.Record.EventId);
             HttpResponseMessage resp;
             try { resp = await client.SendAsync(req, ct); }
             catch (Exception ex)
