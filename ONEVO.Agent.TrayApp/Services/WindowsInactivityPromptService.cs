@@ -20,8 +20,16 @@ using Microsoft.Windows.AppNotifications.Builder;
 public sealed class WindowsInactivityPromptService : IInactivityPromptService
 {
     private const string NotificationTitle = "Activity check";
-    private const string NotificationBody =
-        "No keyboard or mouse activity was detected for 5 minutes. Allow a screenshot of all connected monitors?";
+
+    /// <summary>
+    /// Derived from the actual idle duration that triggered this specific prompt (floor'd to
+    /// whole minutes) rather than any shared constant or cached policy value, so the copy can
+    /// never drift out of sync with the real per-tenant configured threshold — it previously
+    /// hardcoded "5 minutes" as a literal string, which went stale the moment an admin (or a
+    /// test) configured a different threshold.
+    /// </summary>
+    internal static string BuildNotificationBody(TimeSpan idleFor) =>
+        $"No keyboard or mouse activity was detected for {(int)idleFor.TotalMinutes} minutes. Allow a screenshot of all connected monitors?";
 
     private readonly NotificationActivationRouter _router;
     private readonly ILogger<WindowsInactivityPromptService> _logger;
@@ -51,7 +59,7 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
     {
         try
         {
-            Show(attemptId, expiresIn);
+            Show(attemptId, expiresIn, idleFor);
         }
         catch (Exception ex)
         {
@@ -96,13 +104,13 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         }
     }
 
-    private static void Show(Guid attemptId, TimeSpan expiresIn)
+    private static void Show(Guid attemptId, TimeSpan expiresIn, TimeSpan idleFor)
     {
         var attempt = attemptId.ToString();
 
         var notification = new AppNotificationBuilder()
             .AddText(NotificationTitle)
-            .AddText(NotificationBody)
+            .AddText(BuildNotificationBody(idleFor))
             .AddButton(new AppNotificationButton("Allow")
                 .AddArgument("attempt", attempt)
                 .AddArgument("decision", "allow"))
