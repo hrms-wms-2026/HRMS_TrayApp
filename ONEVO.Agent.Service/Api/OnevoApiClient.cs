@@ -108,6 +108,7 @@ public sealed class OnevoApiClient
             ScreenshotEnabled = payload.ScreenshotEnabled,
             InactivityScreenshotEnabled = payload.InactivityScreenshotEnabled,
             CameraVerificationEnabled = payload.CameraVerificationEnabled,
+            IdleThresholdMinutes = payload.IdleThresholdMinutes,
             ValidUntil = payload.ValidUntil
         };
 
@@ -323,6 +324,7 @@ public sealed record TrayAgentPolicyPayload(
     [property: JsonPropertyName("screenshot_enabled")] bool ScreenshotEnabled,
     [property: JsonPropertyName("inactivity_screenshot_enabled")] bool InactivityScreenshotEnabled,
     [property: JsonPropertyName("camera_verification_enabled")] bool CameraVerificationEnabled,
+    [property: JsonPropertyName("idle_threshold_minutes")] int IdleThresholdMinutes,
     [property: JsonPropertyName("valid_until")] DateTimeOffset ValidUntil);
 
 public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);
