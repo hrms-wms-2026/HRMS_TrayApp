@@ -98,7 +98,7 @@
             </Grid>
 
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
-              <Button Grid.Column="0" Text="View Dashboard"
+              <Button Grid.Column="0" Text="View Summary"
                       ImageSource="icon_chart_blue.png"
                       Command="{Binding OpenDashboardCommand}"
                       Style="{StaticResource OutlineButton}"

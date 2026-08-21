@@ -264,7 +264,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = "https://app.onexsoworkspace.com/dashboard",
+                FileName = WorkspaceLinks.DashboardUrl,
                 UseShellExecute = true
             });
         }
@@ -281,22 +281,13 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             if (!Directory.Exists(dir))
                 dir = downloads;
 
-            var path = Path.Combine(dir, $"OneXso-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
-            var sb = new StringBuilder();
-            sb.AppendLine("OneXso WorkPulse — Daily Work Summary");
-            sb.AppendLine($"Status: {StatusText}");
-            sb.AppendLine($"Clock In:  {ClockInDisplay}");
-            sb.AppendLine($"Clock Out: {ClockOutDisplay}");
-            sb.AppendLine($"Total Shift: {TotalShiftDisplay}");
-            sb.AppendLine($"Working: {WorkingTimeDisplay}");
-            sb.AppendLine($"Break: {BreakTimeDisplay}");
-            sb.AppendLine($"Productive: {ProductiveTimeDisplay}");
-            sb.AppendLine($"Idle: {IdleTimeDisplay}");
-            sb.AppendLine($"Break Sessions: {BreakSessionsDisplay}");
-            sb.AppendLine("Top Apps:");
-            foreach (var app in TopApps)
-                sb.AppendLine($"  - {app.Name}: {app.Duration}");
-            await File.WriteAllTextAsync(path, sb.ToString());
+            var path = Path.Combine(dir, $"OneXso-Daily-Summary-{DateTime.Now:yyyyMMdd-HHmmss}.pdf");
+            var bytes = DailySummaryPdfBuilder.Build(new DailySummaryPdfData(
+                StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
+                WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
+                BreakSessionsDisplay, [.. TopApps]));
+
+            await File.WriteAllBytesAsync(path, bytes);
             Message = $"Summary saved to {path}";
         }
         catch (Exception ex)

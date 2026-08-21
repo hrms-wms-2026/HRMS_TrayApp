@@ -18,6 +18,7 @@
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.7.250909003" />
     <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />
     <PackageVersion Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageVersion Include="QuestPDF" Version="2025.7.0" />
     <!-- Tests -->
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />

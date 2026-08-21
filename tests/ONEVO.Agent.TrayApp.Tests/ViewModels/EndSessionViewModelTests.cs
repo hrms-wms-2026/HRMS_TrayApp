@@ -66,4 +66,30 @@ public sealed class EndSessionViewModelTests
         Assert.Equal("00:30:00", vm.BreakTimeDisplay);
         Assert.NotEqual("—", vm.ClockInDisplay);
     }
+
+    [Fact]
+    public async Task DownloadSummaryCommand_WritesPdfFile()
+    {
+        var vm = new EndSessionViewModel(new FakeNamedPipeClient());
+        var clockIn  = DateTimeOffset.Parse("2026-08-06T09:00:00+05:30");
+        var clockOut = DateTimeOffset.Parse("2026-08-06T18:00:00+05:30");
+        vm.LoadSummary(clockIn, clockOut, TimeSpan.FromMinutes(30), TimeSpan.Zero, TimeSpan.Zero);
+
+        await vm.DownloadSummaryCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.NotNull(vm.Message);
+        var path = vm.Message!["Summary saved to ".Length..];
+        try
+        {
+            Assert.EndsWith(".pdf", path, StringComparison.OrdinalIgnoreCase);
+            Assert.True(File.Exists(path));
+            var bytes = await File.ReadAllBytesAsync(path);
+            Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }
