@@ -35,6 +35,10 @@ using ONEVO.Agent.TrayApp.Services;
 /// </remarks>
 public sealed class InactivityScreenshotCollector : IAgentCollector
 {
+    private static readonly string BootLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ONEVO", "Agent", "tray-boot.log");
+
     private readonly ILogger<InactivityScreenshotCollector> _logger;
     private readonly IIdleTimeProvider _idleTimeProvider;
     private readonly IInactivityPromptService _promptService;
@@ -376,13 +380,17 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
                 Sha256 = sha256
             };
 
+            BootLog($"attempt {attemptId} outcome={outcome} idleFor={(int)idleFor.TotalSeconds}s failureCode={failureCode ?? "-"}");
+
             try
             {
                 await _pipeClient.SubmitInactivityAttemptAsync(attempt, jpegBytes, CancellationToken.None)
                     .ConfigureAwait(false);
+                BootLog($"attempt {attemptId} submitted to IPC");
             }
             catch (Exception ex)
             {
+                BootLog($"attempt {attemptId} IPC submit failed: {ex.Message}");
                 _logger.LogWarning(ex, "{Name}: failed to submit inactivity attempt {AttemptId}", Name, attemptId);
             }
         }
@@ -406,4 +414,17 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     }
 
     private static bool IsExpired(AgentPolicy policy, DateTimeOffset now) => policy.ValidUntil <= now;
+
+    private static void BootLog(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
+            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [InactivityScreenshot] {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // ignore
+        }
+    }
 }

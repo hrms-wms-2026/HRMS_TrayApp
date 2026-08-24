@@ -28,7 +28,7 @@ public partial class ClockInPage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
-        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
+        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane, narrowLeftMaxHeight: 300);
     }
 
     protected override void OnAppearing()

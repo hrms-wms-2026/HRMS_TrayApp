@@ -18,7 +18,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     [ObservableProperty] private string _connectionLabel = "Not Connected";
     [ObservableProperty] private string _versionText = "Version 1.0.0";
     [ObservableProperty] private string _hintText =
-        "Paste the 8-character code from the employee portal, or tap below to open it.";
+        "Paste the activation code copied from the OneXso Workspace web portal.";
 
     public ConnectWorkspaceViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
@@ -141,7 +141,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     private static void OpenEmployeePortal() =>
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
-            FileName        = "https://app.onexsoworkspace.com",
+            FileName        = WorkspaceLinks.PortalUrl,
             UseShellExecute = true
         });
 }

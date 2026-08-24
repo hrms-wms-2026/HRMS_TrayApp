@@ -9,6 +9,12 @@ public partial class ConnectWorkspacePage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
-        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
+        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane, narrowLeftMaxHeight: 280);
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await PageAnimations.EntranceAsync(LeftPane, RightPane);
     }
 }

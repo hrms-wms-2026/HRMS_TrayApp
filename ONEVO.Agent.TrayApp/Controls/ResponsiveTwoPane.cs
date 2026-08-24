@@ -8,7 +8,7 @@ public static class ResponsiveTwoPane
 {
     public const double WideBreakpoint = 860;
 
-    public static void Attach(VisualElement host, Grid paneGrid, View? leftPane = null, View? rightPane = null)
+    public static void Attach(VisualElement host, Grid paneGrid, View? leftPane = null, View? rightPane = null, double narrowLeftMaxHeight = 180)
     {
         // Capture the design-time wide column setup (if any) once.
         var wideColumns = paneGrid.ColumnDefinitions
@@ -44,7 +44,7 @@ public static class ResponsiveTwoPane
                 {
                     Grid.SetColumn(leftPane, 0);
                     Grid.SetRow(leftPane, 0);
-                    leftPane.MaximumHeightRequest = 180;
+                    leftPane.MaximumHeightRequest = narrowLeftMaxHeight;
                 }
                 if (rightPane is not null)
                 {

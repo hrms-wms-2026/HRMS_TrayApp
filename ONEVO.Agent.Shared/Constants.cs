@@ -24,14 +24,23 @@ public static class Constants
     public const int MaxEventsPerInterval = 100_000;
 
     /// <summary>Seconds of continuous no mouse/keyboard input before the inactivity prompt is shown.</summary>
-    public const int InactivityThresholdSeconds = 300;
+    public const int InactivityThresholdSeconds = 120;
 
     /// <summary>Seconds the employee has to respond to the Allow/Skip inactivity prompt before it times out.</summary>
-    public const int InactivityPromptExpirySeconds = 270;
+    public const int InactivityPromptExpirySeconds = 108;
 
     /// <summary>Size (bytes) of each evidence-transfer chunk sent over IPC.</summary>
     public const int EvidenceChunkSizeBytes = 32_768;
 
     /// <summary>Max allowed size (bytes) of a single inactivity screenshot.</summary>
     public const int MaxScreenshotBytes = 10_485_760;
+
+    /// <summary>
+    /// Max raw JPEG size (bytes) for a clock-in face photo. Unlike inactivity screenshots, this
+    /// image travels as one base64 field inside a single <see cref="MaxMessageLengthBytes"/> IPC
+    /// line rather than through the chunked evidence-transfer protocol, so it must stay small
+    /// enough that base64 inflation (~4/3) plus JSON envelope overhead still fits — 40 KB raw
+    /// encodes to ~53 KB, leaving well over 10 KB of headroom under the 64 KB line cap.
+    /// </summary>
+    public const int MaxFacePhotoJpegBytes = 40_000;
 }

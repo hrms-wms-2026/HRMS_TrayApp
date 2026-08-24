@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="ONEVO.Agent.TrayApp.Controls.FooterStatusBar"
              x:Name="Root">
-  <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,12,0,0">
+  <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,8,0,0">
     <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
       <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets"
              FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />

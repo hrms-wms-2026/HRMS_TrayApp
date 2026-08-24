@@ -3,25 +3,46 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
              x:Class="ONEVO.Agent.TrayApp.Views.ClockInPage"
-             x:DataType="vm:ClockInViewModel"
-             BackgroundColor="{StaticResource Background}">
+             x:DataType="vm:ClockInViewModel">
 
-  <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="20,16">
+  <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="20,12">
+    <Grid.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
+      </LinearGradientBrush>
+    </Grid.Background>
+
+    <!-- Ambient glow so glass cards have color to catch -->
+    <Ellipse Grid.RowSpan="4" WidthRequest="520" HeightRequest="520"
+             HorizontalOptions="Start" VerticalOptions="Start" Margin="-180,-140,0,0" Opacity="0.9"
+             InputTransparent="True">
+      <Ellipse.Fill>
+        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+          <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
+          <GradientStop Color="#00175CFF" Offset="1" />
+        </RadialGradientBrush>
+      </Ellipse.Fill>
+    </Ellipse>
+    <Ellipse Grid.RowSpan="4" WidthRequest="440" HeightRequest="440"
+             HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-160,-80" Opacity="0.9"
+             InputTransparent="True">
+      <Ellipse.Fill>
+        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+          <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
+          <GradientStop Color="#006D28D9" Offset="1" />
+        </RadialGradientBrush>
+      </Ellipse.Fill>
+    </Ellipse>
 
     <!-- ── Header ─────────────────────────────────────────────────────── -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,10">
       <HorizontalStackLayout Grid.Column="0" Spacing="12">
-
-        <!-- OneXso logo -->
-        <Border WidthRequest="42" HeightRequest="42"
-                StrokeShape="RoundRectangle 13" StrokeThickness="0"
-                BackgroundColor="Transparent">
-          <Image Source="onexso_logo_mark.svg"
-                 Aspect="AspectFit"
-                 WidthRequest="42" HeightRequest="42"
-                 HorizontalOptions="Center" VerticalOptions="Center" />
-        </Border>
-
+        <Image Source="onexso_x_mark.png"
+               Aspect="AspectFit"
+               WidthRequest="40" HeightRequest="40"
+               VerticalOptions="Center" />
         <VerticalStackLayout VerticalOptions="Center" Spacing="1">
           <Label Text="OneXso Workspace" FontSize="14" FontAttributes="Bold"
                  TextColor="{StaticResource TextPrimary}" />
@@ -29,49 +50,47 @@
                  FontSize="10" TextColor="{StaticResource TextSecondary}" />
         </VerticalStackLayout>
       </HorizontalStackLayout>
-
-      <Image Grid.Column="2" Source="icon_ellipsis.svg" WidthRequest="18" HeightRequest="18"
-             VerticalOptions="Center" />
     </Grid>
 
     <!-- ── Main body ──────────────────────────────────────────────────── -->
-    <ScrollView Grid.Row="1">
-    <Grid x:Name="PaneGrid" ColumnDefinitions="*,*" ColumnSpacing="24">
+    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="24">
 
-      <!-- LEFT: greeting + date/time + illustration ───────────────────── -->
-      <VerticalStackLayout x:Name="LeftPane" Grid.Column="0" Spacing="0">
+      <!-- LEFT: greeting + date/time + large desk photo -->
+      <Grid x:Name="LeftPane" Grid.Column="0"
+            RowDefinitions="Auto,Auto,Auto,*" RowSpacing="0">
 
-        <!-- "Good Morning, Pirakeerthan 👋" -->
-        <HorizontalStackLayout Spacing="0" Margin="0,0,0,6">
-          <Label Text="{Binding Greeting}"
-                 FontSize="26" FontAttributes="Bold"
-                 TextColor="{StaticResource TextPrimary}" />
-          <Label Text=", "
-                 FontSize="26" FontAttributes="Bold"
-                 TextColor="{StaticResource TextPrimary}" />
-          <Label Text="{Binding EmployeeName}"
-                 FontSize="26" FontAttributes="Bold"
-                 TextColor="{StaticResource Primary}" />
-          <Label Text=" 👋" FontSize="24" VerticalOptions="Center" Margin="2,0,0,0" />
-        </HorizontalStackLayout>
+        <Label Grid.Row="0" Margin="0,0,0,6" LineBreakMode="WordWrap">
+          <Label.FormattedText>
+            <FormattedString>
+              <Span Text="{Binding Greeting}" FontSize="24" FontAttributes="Bold"
+                    TextColor="{StaticResource TextPrimary}" />
+              <Span Text=", " FontSize="24" FontAttributes="Bold"
+                    TextColor="{StaticResource TextPrimary}" />
+              <Span Text="{Binding EmployeeName}" FontSize="24" FontAttributes="Bold"
+                    TextColor="{StaticResource BrandTitle}" />
+              <Span Text=" 👋" FontSize="22" />
+            </FormattedString>
+          </Label.FormattedText>
+        </Label>
 
-        <Label Text="Welcome back to OneXso Workspace."
-               FontSize="13" TextColor="{StaticResource TextSecondary}" Margin="0,0,0,2" />
-        <Label Text="Ready to begin your workday?"
-               FontSize="13" TextColor="{StaticResource TextSecondary}" Margin="0,0,0,18" />
+        <VerticalStackLayout Grid.Row="1" Margin="0,0,0,14">
+          <Label Text="Welcome back to OneXso Workspace."
+                 FontSize="13" TextColor="{StaticResource TextSecondary}" Margin="0,0,0,2" />
+          <Label Text="Ready to begin your workday?"
+                 FontSize="13" TextColor="{StaticResource TextSecondary}" />
+        </VerticalStackLayout>
 
-        <!-- Date + Time cards -->
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,0,0,18">
-
-          <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="14,12">
-            <HorizontalStackLayout Spacing="10">
-              <Border WidthRequest="36" HeightRequest="36"
-                      StrokeShape="RoundRectangle 10" StrokeThickness="0"
-                      BackgroundColor="#EEF4FF" VerticalOptions="Center">
-                <Image Source="icon_calendar.svg" WidthRequest="18" HeightRequest="18"
+        <!-- Date + Time chips -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,0,0,12">
+          <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="10,8">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <Border Style="{StaticResource IconTile}" WidthRequest="40" HeightRequest="40"
+                      StrokeShape="RoundRectangle 12">
+                <Label Text="{StaticResource IconCalendar}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" TextColor="{StaticResource Primary}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
-              <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+              <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
                 <Label Text="Today's Date" FontSize="10"
                        TextColor="{StaticResource TextSecondary}" />
                 <Label Text="{Binding CurrentDateDisplay}"
@@ -79,69 +98,60 @@
                        TextColor="{StaticResource Primary}"
                        LineBreakMode="TailTruncation" />
               </VerticalStackLayout>
-            </HorizontalStackLayout>
+            </Grid>
           </Border>
 
-          <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="14,12">
-            <HorizontalStackLayout Spacing="10">
-              <Border WidthRequest="36" HeightRequest="36"
-                      StrokeShape="RoundRectangle 10" StrokeThickness="0"
-                      BackgroundColor="#EEF4FF" VerticalOptions="Center">
-                <Image Source="icon_clock.svg" WidthRequest="18" HeightRequest="18"
+          <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="10,8">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <Border Style="{StaticResource IconTile}" WidthRequest="40" HeightRequest="40"
+                      StrokeShape="RoundRectangle 12">
+                <Label Text="{StaticResource IconClock}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" TextColor="{StaticResource Primary}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
-              <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+              <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
                 <Label Text="Current Time" FontSize="10"
                        TextColor="{StaticResource TextSecondary}" />
                 <Label Text="{Binding CurrentTimeDisplay}"
                        FontSize="14" FontAttributes="Bold"
                        TextColor="{StaticResource Primary}" />
               </VerticalStackLayout>
-            </HorizontalStackLayout>
+            </Grid>
           </Border>
         </Grid>
 
-        <!-- Illustration card — desk-scene artwork (Resources/Images/workspace_illustration.png) -->
-        <Border Style="{StaticResource GlassPanel}" Padding="24" VerticalOptions="FillAndExpand">
-          <Border.Shadow>
-            <Shadow Brush="#10000040" Offset="0,4" Radius="14" Opacity="0.1" />
-          </Border.Shadow>
-          <Image Source="workspace_illustration.png"
-                 Aspect="AspectFit"
-                 HorizontalOptions="Center" VerticalOptions="Center" />
-        </Border>
-      </VerticalStackLayout>
+        <!-- Desk illustration sits on the page wash — no card / separate background -->
+        <Image Grid.Row="3" Source="clockin_hero.png"
+               Aspect="AspectFit"
+               HorizontalOptions="Fill"
+               VerticalOptions="Fill" />
+      </Grid>
 
       <!-- RIGHT: Status + CLOCK IN ────────────────────────────────────── -->
-      <VerticalStackLayout x:Name="RightPane" Grid.Column="1" Spacing="0" VerticalOptions="Start">
+      <VerticalStackLayout x:Name="RightPane" Grid.Column="1" Spacing="0" VerticalOptions="Fill">
 
-        <!-- Green dot + "Ready to Start Work" -->
         <HorizontalStackLayout Spacing="10" Margin="0,2,0,8">
-          <Image x:Name="StatusDot" Source="icon_status_ready.svg"
-                 WidthRequest="14" HeightRequest="14"
-                 VerticalOptions="Center" />
+          <Ellipse x:Name="StatusDot" WidthRequest="14" HeightRequest="14"
+                   Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
           <Label Text="Ready to Start Work"
                  FontSize="22" FontAttributes="Bold"
-                 TextColor="{StaticResource TextPrimary}" />
+                 TextColor="{StaticResource TextPrimary}"
+                 VerticalOptions="Center" />
         </HorizontalStackLayout>
 
         <Label Text="Click the button below to begin today's attendance."
                FontSize="12" TextColor="{StaticResource TextSecondary}"
-               Margin="0,0,0,22" />
+               Margin="0,0,0,18" />
 
-        <!-- Working Status | divider | Live Timer -->
-        <Border Style="{StaticResource GlassCard}" Padding="18,16" Margin="0,0,0,24">
+        <Border Style="{StaticResource GlassCard}" Padding="16,14" Margin="0,0,0,20">
           <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="4">
-
-            <!-- Briefcase icon -->
-            <Border Grid.Column="0" WidthRequest="40" HeightRequest="40"
-                    StrokeShape="RoundRectangle 12" StrokeThickness="0"
-                    BackgroundColor="#EEF4FF" VerticalOptions="Center">
-              <Image Source="icon_briefcase.svg" WidthRequest="20" HeightRequest="20"
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" WidthRequest="40" HeightRequest="40"
+                    StrokeShape="RoundRectangle 12">
+              <Label Text="{StaticResource IconWork}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="16" TextColor="{StaticResource Primary}"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
 
-            <!-- Working Status -->
             <VerticalStackLayout Grid.Column="1" Spacing="2"
                                  VerticalOptions="Center" Margin="10,0,0,0">
               <Label Text="Working Status" FontSize="10"
@@ -151,12 +161,10 @@
                      TextColor="{StaticResource Primary}" />
             </VerticalStackLayout>
 
-            <!-- Vertical divider -->
             <BoxView Grid.Column="2" WidthRequest="1"
                      BackgroundColor="{StaticResource Separator}"
                      Margin="6,2" />
 
-            <!-- Live Timer -->
             <VerticalStackLayout Grid.Column="3" Spacing="2"
                                  VerticalOptions="Center" Margin="12,0,0,0">
               <Label Text="Live Timer" FontSize="10"
@@ -169,8 +177,8 @@
         </Border>
 
         <!-- CLOCK IN — glowing gradient pill with premium hover/press interaction -->
-        <Border x:Name="ClockInGlow" StrokeShape="RoundRectangle 40" StrokeThickness="1.4"
-                HeightRequest="78" Margin="0,0,0,10">
+        <Border x:Name="ClockInGlow" StrokeShape="RoundRectangle 44" StrokeThickness="1.4"
+                HeightRequest="92" Margin="0,0,0,10" VerticalOptions="Start">
           <Border.Stroke>
             <SolidColorBrush x:Name="ClockInStrokeBrush" Color="#00FFFFFF" />
           </Border.Stroke>
@@ -186,7 +194,6 @@
           </Border.Shadow>
 
           <Grid>
-            <!-- Light sweep — one-shot on hover-enter, input-transparent -->
             <BoxView x:Name="ClockInShimmer" InputTransparent="True" Opacity="0"
                      WidthRequest="46" HorizontalOptions="Start" VerticalOptions="Fill"
                      TranslationX="-60">
@@ -199,7 +206,6 @@
               </BoxView.Background>
             </BoxView>
 
-            <!-- Sparkles — subtle twinkle while hovering, input-transparent -->
             <Ellipse x:Name="ClockInSparkle1" WidthRequest="4" HeightRequest="4" Fill="White"
                      Opacity="0" InputTransparent="True"
                      HorizontalOptions="Start" VerticalOptions="Start" Margin="36,12,0,0" />
@@ -210,11 +216,10 @@
                      Opacity="0" InputTransparent="True"
                      HorizontalOptions="End" VerticalOptions="Start" Margin="0,16,66,0" />
 
-            <!-- Real hit target — keeps native Windows hover cursor + disabled state for free -->
             <Button x:Name="ClockInButtonHit" Text=""
                     Command="{Binding ClockInCommand}"
                     BackgroundColor="Transparent"
-                    HeightRequest="78" HorizontalOptions="Fill"
+                    HeightRequest="92" HorizontalOptions="Fill"
                     Pressed="OnClockInPressed" Released="OnClockInReleased"
                     IsEnabled="{Binding IsClockinIn, Converter={StaticResource InvertBoolConverter}}">
               <Button.GestureRecognizers>
@@ -223,13 +228,13 @@
               </Button.GestureRecognizers>
             </Button>
 
-            <!-- Visual content — input-transparent so clicks pass through to the Button -->
-            <HorizontalStackLayout InputTransparent="True" Spacing="10"
+            <HorizontalStackLayout InputTransparent="True" Spacing="12"
                                    HorizontalOptions="Center" VerticalOptions="Center">
-              <Border x:Name="ClockInIconCircle" WidthRequest="34" HeightRequest="34"
-                      StrokeShape="RoundRectangle 17" StrokeThickness="0"
-                      BackgroundColor="#26FFFFFF">
-                <Image Source="icon_clock_white.png" WidthRequest="16" HeightRequest="16"
+              <Border x:Name="ClockInIconCircle" WidthRequest="42" HeightRequest="42"
+                      StrokeShape="RoundRectangle 21" StrokeThickness="0"
+                      BackgroundColor="#33FFFFFF">
+                <Label Text="{StaticResource IconClock}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="18" TextColor="White"
                        HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
               <Label Text="CLOCK IN" TextColor="White" FontSize="22" FontAttributes="Bold"
@@ -248,60 +253,65 @@
                            HorizontalOptions="Center" Margin="0,8,0,0" />
       </VerticalStackLayout>
     </Grid>
-    </ScrollView>
 
     <!-- ── Bottom status cards ──────────────────────────────────────────── -->
     <Grid Grid.Row="2" ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="0,12,0,8">
 
-      <!-- Current Status -->
       <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="14,12">
-        <Grid ColumnDefinitions="*,Auto">
-          <HorizontalStackLayout Grid.Column="0" Spacing="8">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <Border Grid.Column="0" Style="{StaticResource IconTile}"
+                  BackgroundColor="#DCFCE7">
             <Ellipse WidthRequest="10" HeightRequest="10"
-                     Fill="{StaticResource StatusGreen}" VerticalOptions="Center" />
-            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
-              <Label Text="Current Status" FontSize="10"
-                     TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding ConnectionStatus}" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource StatusGreen}" />
-            </VerticalStackLayout>
-          </HorizontalStackLayout>
-          <Image Grid.Column="1" Source="icon_connection.svg" WidthRequest="15" HeightRequest="15"
-                 VerticalOptions="Center" Opacity="0.6" />
+                     Fill="{StaticResource StatusGreen}"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+          </Border>
+          <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+            <Label Text="Current Status" FontSize="10"
+                   TextColor="{StaticResource TextSecondary}" />
+            <Label Text="{Binding ConnectionStatus}" FontSize="13" FontAttributes="Bold"
+                   TextColor="{StaticResource StatusGreen}" />
+          </VerticalStackLayout>
+          <Label Grid.Column="2" Text="{StaticResource IconWifi}" FontFamily="Segoe MDL2 Assets"
+                 FontSize="14" TextColor="{StaticResource Primary}"
+                 Opacity="0.7" VerticalOptions="Center" />
         </Grid>
       </Border>
 
-      <!-- Internet -->
       <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="14,12">
-        <Grid ColumnDefinitions="*,Auto">
-          <HorizontalStackLayout Grid.Column="0" Spacing="8">
-            <Image Source="icon_globe.svg" WidthRequest="18" HeightRequest="18" VerticalOptions="Center" />
-            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
-              <Label Text="Internet" FontSize="10"
-                     TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding InternetStatus}" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource Primary}" />
-            </VerticalStackLayout>
-          </HorizontalStackLayout>
-          <Image Grid.Column="1" Source="icon_wifi.svg" WidthRequest="15" HeightRequest="15"
-                 VerticalOptions="Center" Opacity="0.6" />
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <Border Grid.Column="0" Style="{StaticResource IconTile}">
+            <Label Text="{StaticResource IconGlobe}" FontFamily="Segoe MDL2 Assets"
+                   FontSize="15" TextColor="{StaticResource Primary}"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
+          </Border>
+          <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+            <Label Text="Internet" FontSize="10"
+                   TextColor="{StaticResource TextSecondary}" />
+            <Label Text="{Binding InternetStatus}" FontSize="13" FontAttributes="Bold"
+                   TextColor="{StaticResource Primary}" />
+          </VerticalStackLayout>
+          <Label Grid.Column="2" Text="{StaticResource IconWifi}" FontFamily="Segoe MDL2 Assets"
+                 FontSize="14" TextColor="{StaticResource Primary}"
+                 Opacity="0.7" VerticalOptions="Center" />
         </Grid>
       </Border>
 
-      <!-- Device -->
       <Border Grid.Column="2" Style="{StaticResource GlassCard}" Padding="14,12">
-        <Grid ColumnDefinitions="*,Auto">
-          <HorizontalStackLayout Grid.Column="0" Spacing="8">
-            <Image Source="icon_windows.svg" WidthRequest="18" HeightRequest="18" VerticalOptions="Center" />
-            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
-              <Label Text="Device" FontSize="10"
-                     TextColor="{StaticResource TextSecondary}" />
-              <Label Text="{Binding DeviceType}" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource Primary}" />
-            </VerticalStackLayout>
-          </HorizontalStackLayout>
-          <Image Grid.Column="1" Source="icon_desktop.svg" WidthRequest="15" HeightRequest="15"
-                 VerticalOptions="Center" Opacity="0.6" />
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+          <Border Grid.Column="0" Style="{StaticResource IconTile}">
+            <Label Text="{StaticResource IconMonitor}" FontFamily="Segoe MDL2 Assets"
+                   FontSize="15" TextColor="{StaticResource Primary}"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
+          </Border>
+          <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+            <Label Text="Device" FontSize="10"
+                   TextColor="{StaticResource TextSecondary}" />
+            <Label Text="{Binding DeviceType}" FontSize="13" FontAttributes="Bold"
+                   TextColor="{StaticResource Primary}" />
+          </VerticalStackLayout>
+          <Label Grid.Column="2" Text="{StaticResource IconApps}" FontFamily="Segoe MDL2 Assets"
+                 FontSize="14" TextColor="{StaticResource Primary}"
+                 Opacity="0.7" VerticalOptions="Center" />
         </Grid>
       </Border>
     </Grid>
@@ -312,7 +322,8 @@
         <HorizontalStackLayout.GestureRecognizers>
           <TapGestureRecognizer Command="{Binding SignOutCommand}" />
         </HorizontalStackLayout.GestureRecognizers>
-        <Label Text="{StaticResource IconPower}" FontFamily="Segoe MDL2 Assets" FontSize="11" TextColor="{StaticResource TextMuted}" />
+        <Label Text="{StaticResource IconSettings}" FontFamily="Segoe MDL2 Assets"
+               FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
         <Label Text="Sign Out" FontSize="11" TextColor="{StaticResource TextMuted}" />
         <ActivityIndicator IsRunning="{Binding IsSigningOut}"
                            IsVisible="{Binding IsSigningOut}"
