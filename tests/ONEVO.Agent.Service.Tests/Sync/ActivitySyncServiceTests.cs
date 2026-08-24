@@ -492,6 +492,58 @@ public class ActivitySyncServiceTests
     }
 
     [Fact]
+    public async Task FlushAsync_FacePhotoRecord_CheckInRequest_SendsIdempotencyKeyHeader()
+    {
+        var payload = new FacePhotoPayload
+        {
+            Format = "jpeg",
+            Data   = Convert.ToBase64String(new byte[] { 1, 2, 3 })
+        };
+        var eventId = Guid.NewGuid().ToString("N");
+        var record = new CollectionRecord
+        {
+            EventId          = eventId,
+            RecordType       = CollectionRecordTypes.FacePhoto,
+            SchemaVersion    = CollectionSchemaVersions.FacePhotoV1,
+            CaptureTimestamp = DateTimeOffset.UtcNow,
+            DeviceId         = "test",
+            Payload          = JsonSerializer.SerializeToElement(payload)
+        };
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(record);
+
+        string? capturedIdempotencyKey = null;
+        var factory = new CapturingHttpClientFactory(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/check-in", StringComparison.Ordinal)
+                && req.Method == HttpMethod.Post)
+            {
+                capturedIdempotencyKey = req.Headers.TryGetValues("Idempotency-Key", out var values)
+                    ? values.FirstOrDefault()
+                    : null;
+                var checkInBody = JsonSerializer.Serialize(new
+                {
+                    check_in_id = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"),
+                    face_scan_required = true
+                });
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(checkInBody, System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(eventId, capturedIdempotencyKey);
+    }
+
+    [Fact]
     public async Task FlushAsync_FacePhotoRecord_CheckInFails5xx_RequeuesRecord()
     {
         var payload = new FacePhotoPayload

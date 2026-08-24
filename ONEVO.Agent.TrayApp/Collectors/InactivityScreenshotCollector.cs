@@ -51,6 +51,8 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     private bool _started;
     private bool _running;
     private AgentPolicy? _policy;
+    private int _idleThresholdSeconds;
+    private int _promptExpirySeconds;
     private CancellationTokenSource? _loopCts;
     private Task? _loopTask;
 
@@ -113,6 +115,11 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
             _started = true;
             _running = true;
             _policy = policy;
+            _idleThresholdSeconds = policy.IdleThresholdMinutes * 60;
+            // Same 90% ratio the old fixed 300s/270s pair used: the expiry window must end
+            // before the next bucket boundary, or a slow-to-respond employee could see two
+            // prompts stack while still inside a single continuous idle period.
+            _promptExpirySeconds = (int)(_idleThresholdSeconds * 0.9);
             _lastPromptedBucket = 0;
             _lastIdleSeconds = 0;
             loopCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -253,7 +260,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
                     _lastPromptedBucket = 0; // new input outside a pending prompt -> new period
                 _lastIdleSeconds = idleSeconds;
 
-                var bucket = idleSeconds / Constants.InactivityThresholdSeconds;
+                var bucket = idleSeconds / _idleThresholdSeconds;
                 if (bucket == 0)
                 {
                     _lastPromptedBucket = 0;
@@ -302,7 +309,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
             try
             {
                 decision = await _promptService.PromptAsync(
-                        attemptId, idleFor, TimeSpan.FromSeconds(Constants.InactivityPromptExpirySeconds), ct)
+                        attemptId, idleFor, TimeSpan.FromSeconds(_promptExpirySeconds), ct)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException)

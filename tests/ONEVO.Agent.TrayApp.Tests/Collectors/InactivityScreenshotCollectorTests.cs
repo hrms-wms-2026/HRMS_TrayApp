@@ -15,6 +15,7 @@ public sealed class InactivityScreenshotCollectorTests
         ScreenshotEnabled = true,
         InactivityScreenshotEnabled = true,
         CameraVerificationEnabled = false,
+        IdleThresholdMinutes = 5,
         ValidUntil = validUntil ?? DateTimeOffset.UtcNow.AddHours(1)
     };
 
@@ -35,18 +36,34 @@ public sealed class InactivityScreenshotCollectorTests
     }
 
     [Theory]
-    [InlineData(119, 0)]
-    [InlineData(120, 1)]
-    [InlineData(239, 1)]
-    [InlineData(240, 2)]
-    public async Task Prompts_once_per_threshold_bucket(int idleSeconds, int expected)
+    [InlineData(299, 0)]
+    [InlineData(300, 1)]
+    [InlineData(599, 1)]
+    [InlineData(600, 2)]
+    public async Task Prompts_once_per_five_minute_bucket(int idleSeconds, int expected)
     {
         await _sut.StartAsync(EnabledPolicy(), default);
-        if (idleSeconds >= 120)
-            await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
-        if (idleSeconds >= 240)
-            await _sut.EvaluateAsync(240, DateTimeOffset.Parse("2026-08-10T01:10:00Z"), default);
+        if (idleSeconds >= 300)
+            await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        if (idleSeconds >= 600)
+            await _sut.EvaluateAsync(600, DateTimeOffset.Parse("2026-08-10T01:10:00Z"), default);
         Assert.Equal(expected, _prompt.RequestCount);
+    }
+
+    [Fact]
+    public async Task Prompts_at_the_policys_configured_threshold_not_a_hardcoded_one()
+    {
+        var tenMinutePolicy = EnabledPolicy() with { IdleThresholdMinutes = 10 };
+        await _sut.StartAsync(tenMinutePolicy, default);
+
+        // 300s (the old hardcoded default, and still the value every other test in this file
+        // uses) must NOT fire a prompt once the collector is configured for 10 minutes.
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        Assert.Equal(0, _prompt.RequestCount);
+
+        // The policy's actual configured threshold (600s) must fire it.
+        await _sut.EvaluateAsync(600, DateTimeOffset.Parse("2026-08-10T01:10:00Z"), default);
+        Assert.Equal(1, _prompt.RequestCount);
     }
 
     [Fact]
@@ -58,7 +75,7 @@ public sealed class InactivityScreenshotCollectorTests
             new Rectangle(-1920, 0, 3840, 1080), "abc123", null);
 
         await _sut.StartAsync(EnabledPolicy(), default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
 
         Assert.Equal(1, _capture.CallCount);
         var submitted = Assert.Single(_pipe.Submitted);
@@ -75,7 +92,7 @@ public sealed class InactivityScreenshotCollectorTests
         _prompt.NextDecision = InactivityPromptDecision.Declined;
 
         await _sut.StartAsync(EnabledPolicy(), default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
 
         Assert.Equal(0, _capture.CallCount);
         var submitted = Assert.Single(_pipe.Submitted);
@@ -89,7 +106,7 @@ public sealed class InactivityScreenshotCollectorTests
         _prompt.NextDecision = InactivityPromptDecision.TimedOut;
 
         await _sut.StartAsync(EnabledPolicy(), default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
 
         Assert.Equal(0, _capture.CallCount);
         var submitted = Assert.Single(_pipe.Submitted);
@@ -104,7 +121,7 @@ public sealed class InactivityScreenshotCollectorTests
             false, ReadOnlyMemory<byte>.Empty, null, 0, default, null, ScreenshotFailureCodes.NoDisplays);
 
         await _sut.StartAsync(EnabledPolicy(), default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
 
         var submitted = Assert.Single(_pipe.Submitted);
         Assert.Equal(InactivityCaptureOutcomes.CaptureFailed, submitted.Attempt.Outcome);
@@ -118,7 +135,7 @@ public sealed class InactivityScreenshotCollectorTests
         _prompt.NextDecision = InactivityPromptDecision.Declined;
 
         await _sut.StartAsync(EnabledPolicy(), default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
         Assert.Equal(1, _prompt.RequestCount);
 
         // Employee interacts — idle counter resets well below the threshold.
@@ -126,7 +143,7 @@ public sealed class InactivityScreenshotCollectorTests
         Assert.Equal(1, _prompt.RequestCount); // no prompt for a sub-threshold tick
 
         // A brand-new continuous idle period crosses the first bucket again.
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:10:05Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:10:05Z"), default);
         Assert.Equal(2, _prompt.RequestCount);
     }
 
@@ -145,7 +162,7 @@ public sealed class InactivityScreenshotCollectorTests
         await sut.StartAsync(EnabledPolicy(), default);
 
         var t1 = DateTimeOffset.Parse("2026-08-10T01:05:00Z");
-        var firstEvaluate = sut.EvaluateAsync(120, t1, default);
+        var firstEvaluate = sut.EvaluateAsync(300, t1, default);
 
         // Deterministic handshake — wait for the prompt to actually be requested, no sleeps.
         await gated.Entered;
@@ -181,18 +198,18 @@ public sealed class InactivityScreenshotCollectorTests
         await sut.StartAsync(EnabledPolicy(), default);
 
         var t1 = DateTimeOffset.Parse("2026-08-10T01:05:00Z");
-        var firstEvaluate = sut.EvaluateAsync(120, t1, default);
+        var firstEvaluate = sut.EvaluateAsync(300, t1, default);
         await gated.Entered;
         await sut.EvaluateAsync(2, t1.AddSeconds(1), default); // activity resumed -> cancel
         await firstEvaluate;
 
         Assert.Equal(InactivityCaptureOutcomes.ActivityResumed, _pipe.Submitted[0].Attempt.Outcome);
 
-        // A brand-new continuous idle period climbs back to the same threshold bucket boundary. Reset
+        // A brand-new continuous idle period climbs back to the same 300s bucket boundary. Reset
         // the gate's handshake so `Entered` reports this second request specifically, and only wait
         // for the prompt to be *requested* — resolving it fully isn't needed to prove the fix.
         gated.ResetEntered();
-        _ = sut.EvaluateAsync(120, t1.AddMinutes(10), default);
+        _ = sut.EvaluateAsync(300, t1.AddMinutes(10), default);
         await gated.Entered;
 
         Assert.Equal(2, gated.RequestCount);
@@ -204,7 +221,7 @@ public sealed class InactivityScreenshotCollectorTests
         var disabled = EnabledPolicy() with { InactivityScreenshotEnabled = false };
 
         await _sut.StartAsync(disabled, default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
 
         Assert.False(_sut.IsRunning);
         Assert.Equal(0, _prompt.RequestCount);
@@ -217,7 +234,7 @@ public sealed class InactivityScreenshotCollectorTests
         var expired = EnabledPolicy(DateTimeOffset.UtcNow.AddMinutes(-5));
 
         await _sut.StartAsync(expired, default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.UtcNow, default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.UtcNow, default);
 
         Assert.False(_sut.IsRunning);
         Assert.Equal(0, _prompt.RequestCount);
@@ -231,7 +248,7 @@ public sealed class InactivityScreenshotCollectorTests
         // reconfiguration flow) leaves exactly one loop alive and exactly one new prompt fires.
         var early = EnabledPolicy(DateTimeOffset.Parse("2026-08-10T01:04:00Z"));
         await _sut.StartAsync(early, default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default); // now > ValidUntil
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default); // now > ValidUntil
 
         Assert.Equal(0, _prompt.RequestCount);
         Assert.False(_sut.IsRunning);
@@ -240,7 +257,7 @@ public sealed class InactivityScreenshotCollectorTests
 
         var fresh = EnabledPolicy(DateTimeOffset.UtcNow.AddHours(1));
         await _sut.StartAsync(fresh, default);
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T02:05:00Z"), default);
+        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T02:05:00Z"), default);
 
         Assert.Equal(1, _prompt.RequestCount);
         Assert.True(_sut.IsRunning);
@@ -263,7 +280,7 @@ public sealed class InactivityScreenshotCollectorTests
 
         await sut.StartAsync(EnabledPolicy(), default);
         var t1 = DateTimeOffset.Parse("2026-08-10T01:05:00Z");
-        var evaluateTask = sut.EvaluateAsync(120, t1, default);
+        var evaluateTask = sut.EvaluateAsync(300, t1, default);
         await gated.Entered;
 
         await sut.StopAsync(default);
@@ -283,7 +300,7 @@ public sealed class InactivityScreenshotCollectorTests
 
         await _sut.StartAsync(EnabledPolicy(), default);
         var ex = await Record.ExceptionAsync(() =>
-            _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default));
+            _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default));
 
         Assert.Null(ex);
     }
