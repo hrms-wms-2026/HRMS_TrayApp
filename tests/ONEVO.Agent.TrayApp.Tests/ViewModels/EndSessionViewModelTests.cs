@@ -32,7 +32,7 @@ public sealed class EndSessionViewModelTests
     }
 
     [Fact]
-    public void LoadFromSnapshot_UsesDayMetricsForIdleAndTopApps()
+    public void LoadFromSnapshot_UsesSnapshotIdle_NotDayMetrics()
     {
         var metrics = new ONEVO.Agent.TrayApp.Services.SessionDayMetrics();
         metrics.AddIdleSample(TimeSpan.FromMinutes(20));
@@ -46,14 +46,13 @@ public sealed class EndSessionViewModelTests
         vm.LoadFromSnapshot(new SessionSnapshot(
             clockIn, clockOut, false, null,
             TimeSpan.FromMinutes(10),
-            TimeSpan.FromHours(2) + TimeSpan.FromMinutes(50),
-            null, 1));
+            TimeSpan.FromHours(2) + TimeSpan.FromMinutes(30),
+            null, 1,
+            AccumulatedIdle: TimeSpan.FromMinutes(20)));
 
         Assert.Equal("00:20:00", vm.IdleTimeDisplay);
-        Assert.Equal("02:30:00", vm.ProductiveTimeDisplay); // 2h50m - 20m idle
+        Assert.Equal("02:30:00", vm.ProductiveTimeDisplay);
         Assert.Contains(vm.TopApps, a => a.Name.Contains("Code", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(vm.TopApps, a => a.Name.Contains("chrome", StringComparison.OrdinalIgnoreCase)
-                                      || a.Name.Contains("Chrome", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

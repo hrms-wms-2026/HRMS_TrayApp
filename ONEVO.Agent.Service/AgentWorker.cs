@@ -172,6 +172,8 @@ public sealed class AgentWorker : BackgroundService
 
     private async Task HandleMessageAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
     {
+        _presenceSession.ObserveInbound(DateTimeOffset.UtcNow);
+
         switch (envelope.Type)
         {
             case IpcMessageTypes.StatusRequest:
@@ -423,10 +425,11 @@ public sealed class AgentWorker : BackgroundService
                 snap.AccumulatedBreak,
                 snap.AccumulatedWork,
                 snap.BreakSessionCount,
-                snap.ScheduleDisplay);
+                snap.ScheduleDisplay,
+                snap.AccumulatedIdle);
             _logger.LogInformation(
-                "Session saved to SQLite Work={Work} Break={Break} Breaks={Count} Db={Db}",
-                snap.AccumulatedWork, snap.AccumulatedBreak, snap.BreakSessionCount,
+                "Session saved to SQLite Work={Work} Break={Break} Idle={Idle} Breaks={Count} Db={Db}",
+                snap.AccumulatedWork, snap.AccumulatedBreak, snap.AccumulatedIdle, snap.BreakSessionCount,
                 _activityBuffer.DatabasePath);
 
             EnqueueWorkSessionSync(snap);
@@ -458,6 +461,7 @@ public sealed class AgentWorker : BackgroundService
             ClockOutAt = snap.ClockOutAt.Value,
             AccumulatedBreak = snap.AccumulatedBreak,
             AccumulatedWork = snap.AccumulatedWork,
+            AccumulatedIdle = snap.AccumulatedIdle,
             BreakSessionCount = snap.BreakSessionCount,
             ScheduleDisplay = snap.ScheduleDisplay
         };
@@ -583,6 +587,7 @@ public sealed class AgentWorker : BackgroundService
         }
 
         var accepted = 0;
+        var idleChanged = false;
         foreach (var record in payload.Records)
         {
             if (record.RecordType is not (CollectionRecordTypes.ActivitySnapshot
@@ -591,6 +596,20 @@ public sealed class AgentWorker : BackgroundService
                 or CollectionRecordTypes.Screenshot
                 or CollectionRecordTypes.FacePhoto))
                 continue;
+
+            if (record.RecordType == CollectionRecordTypes.DeviceStateSnapshot)
+            {
+                try
+                {
+                    var device = record.Payload.Deserialize<DeviceStateSnapshotPayload>();
+                    if (device is not null)
+                        idleChanged |= _presenceSession.ApplyDeviceStateIdle(device);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "DeviceState payload could not be applied to presence idle");
+                }
+            }
 
             if (_activityBuffer.TryEnqueue(record))
                 accepted++;
@@ -612,6 +631,18 @@ public sealed class AgentWorker : BackgroundService
             Payload = JsonSerializer.SerializeToElement(
                 new CollectionRecordAckPayload { AcceptedCount = accepted })
         });
+
+        if (idleChanged)
+        {
+            try
+            {
+                await _pipeServer.BroadcastAsync(BuildStatusEnvelope(correlationId: null));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to broadcast status after idle change");
+            }
+        }
     }
 
     private async Task HandleActivationCodeSubmitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)

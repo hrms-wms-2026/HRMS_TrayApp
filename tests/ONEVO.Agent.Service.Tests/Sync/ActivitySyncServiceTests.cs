@@ -518,6 +518,99 @@ public class ActivitySyncServiceTests
     }
 
     [Fact]
+    public async Task FlushAsync_InactivityAttempt404_QuarantinesAndDoesNotBlockLaterWorkSession()
+    {
+        // A hardcoded route returning 404 is a permanent condition (endpoint missing), not a
+        // transient one — unlike the 5xx case in FlushAsync_FailedInactivityAttempt_BlocksLaterWorkSession
+        // above, it must not deadlock everything queued behind it.
+        var attemptId = Guid.NewGuid();
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(attemptId, InactivityCaptureOutcomes.Declined),
+            "test",
+            null,
+            0,
+            DateTimeOffset.UtcNow.AddHours(72)));
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.WorkSession,
+            CollectionSchemaVersions.WorkSessionV1,
+            new WorkSessionPayload
+            {
+                SessionId = Guid.NewGuid(),
+                ClockInAt = DateTimeOffset.UtcNow.AddHours(-8),
+                ClockOutAt = DateTimeOffset.UtcNow,
+                AccumulatedBreak = TimeSpan.FromMinutes(30),
+                AccumulatedWork = TimeSpan.FromHours(7),
+                BreakSessionCount = 1,
+                ScheduleDisplay = "09:00 AM – 06:00 PM"
+            }));
+
+        var factory = new CapturingHttpClientFactory(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith(AgentApiRoutes.InactivityAttemptSubmit, StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(0, buffer.Count);
+        Assert.Equal(2, factory.Requests.Count);
+    }
+
+    [Fact]
+    public async Task FlushAsync_AppUsageSnapshotBatch400_DropsAndDoesNotBlockLaterActivitySnapshot()
+    {
+        // A 400 (e.g. the backend's 24h freshness window rejecting a stale batch) will never
+        // succeed on retry — it must be dropped, not requeued forever, so unrelated fresher data
+        // queued behind it still gets a chance to sync in the same flush cycle.
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.AppUsageSnapshot,
+            CollectionSchemaVersions.AppUsageSnapshotV1,
+            new AppUsageSnapshotPayload
+            {
+                CapturedAt = DateTimeOffset.UtcNow.AddDays(-3),
+                ProcessName = "stale.exe"
+            }));
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.ActivitySnapshot,
+            CollectionSchemaVersions.ActivitySnapshotV1,
+            new ActivitySnapshotPayload
+            {
+                CapturedAt = DateTimeOffset.UtcNow,
+                KeyboardEventsCount = 1,
+                MouseEventsCount = 1,
+                ActiveSeconds = 1,
+                IdleSeconds = 0,
+                IntensityScore = 1,
+                ForegroundProcessName = "code.exe"
+            }));
+
+        var factory = new CapturingHttpClientFactory(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith(AgentApiRoutes.AppUsageSnapshots, StringComparison.Ordinal))
+                return new HttpResponseMessage(HttpStatusCode.BadRequest);
+
+            return new HttpResponseMessage(HttpStatusCode.Accepted);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(0, buffer.Count);
+        Assert.Equal(2, factory.Requests.Count);
+    }
+
+    [Fact]
     public async Task FlushAsync_FacePhotoRecord_CheckInFails4xx_QuarantinesRecord()
     {
         var payload = new FacePhotoPayload

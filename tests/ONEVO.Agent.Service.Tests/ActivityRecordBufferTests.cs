@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
@@ -150,9 +151,81 @@ public class ActivityRecordBufferTests
         using var buffer = ActivityRecordBuffer.CreateInMemory();
         var cin = DateTimeOffset.Parse("2026-08-07T04:00:00Z");
         var cout = DateTimeOffset.Parse("2026-08-07T12:00:00Z");
-        buffer.SaveSessionHistory(cin, cout, TimeSpan.FromMinutes(30), TimeSpan.FromHours(7.5), 2, "09:00 AM – 06:00 PM");
+        buffer.SaveSessionHistory(cin, cout, TimeSpan.FromMinutes(30), TimeSpan.FromHours(7.5), 2, "09:00 AM – 06:00 PM", TimeSpan.Zero);
         // No exception = success; Count is for collection_records only
         Assert.Equal(0, buffer.Count);
+    }
+
+    [Fact]
+    public void SaveSessionHistory_persists_idle_seconds()
+    {
+        using var buffer = ActivityRecordBuffer.CreateInMemory();
+        var cin = DateTimeOffset.Parse("2026-08-07T04:00:00Z");
+        var cout = DateTimeOffset.Parse("2026-08-07T12:00:00Z");
+        buffer.SaveSessionHistory(
+            cin, cout,
+            TimeSpan.FromMinutes(30),
+            TimeSpan.FromHours(7),
+            2,
+            "09:00 AM – 06:00 PM",
+            TimeSpan.FromMinutes(20));
+
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={buffer.DatabasePath}");
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT accumulated_idle_sec FROM session_history LIMIT 1;";
+        var idle = Convert.ToDouble(cmd.ExecuteScalar());
+        Assert.Equal(1200, idle, 0.001);
+    }
+
+    [Fact]
+    public void InitializeSchema_AddsIdleColumnOnLegacySessionHistory()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"onevo-idle-{Guid.NewGuid():N}.db");
+        try
+        {
+            SQLitePCL.Batteries_V2.Init();
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}"))
+            {
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText =
+                    """
+                    CREATE TABLE session_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        clock_in_at TEXT,
+                        clock_out_at TEXT,
+                        accumulated_break_sec REAL NOT NULL DEFAULT 0,
+                        accumulated_work_sec REAL NOT NULL DEFAULT 0,
+                        break_session_count INTEGER NOT NULL DEFAULT 0,
+                        schedule_display TEXT,
+                        created_at TEXT NOT NULL
+                    );
+                    """;
+                cmd.ExecuteNonQuery();
+            }
+
+            using (var buffer = new ActivityRecordBuffer(path, maxRecords: 100))
+            {
+                buffer.SaveSessionHistory(
+                    DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+                    TimeSpan.Zero, TimeSpan.Zero, 0, null, TimeSpan.FromSeconds(9));
+            }
+
+            using var read = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}");
+            read.Open();
+            using var q = read.CreateCommand();
+            q.CommandText = "SELECT accumulated_idle_sec FROM session_history LIMIT 1;";
+            Assert.Equal(9d, Convert.ToDouble(q.ExecuteScalar()), 0.001);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path))
+            {
+                try { File.Delete(path); } catch { /* ignore */ }
+            }
+        }
     }
 
     [Fact]

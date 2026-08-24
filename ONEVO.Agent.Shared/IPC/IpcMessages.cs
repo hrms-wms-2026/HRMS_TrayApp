@@ -84,7 +84,10 @@ public sealed record SessionSnapshot(
     TimeSpan AccumulatedBreak,
     TimeSpan AccumulatedWork,
     string? ScheduleDisplay,
-    int BreakSessionCount);
+    int BreakSessionCount,
+    TimeSpan AccumulatedIdle = default,
+    bool IsIdle = false,
+    DateTimeOffset? CurrentIdleStartedAt = null);
 
 public sealed record StatusResponsePayload(
     MonitoringState State,

@@ -25,6 +25,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<AgentStateMachine>();
         services.AddSingleton<LifecycleGate>();
         services.AddSingleton<PresenceSession>();
+        services.AddSingleton<ISystemPowerEvents, SystemPowerEvents>();
+        services.AddHostedService<PowerModeIdleListener>();
         services.AddSingleton<PolicyCache>();
         services.AddSingleton<IEvidenceProtector, DpapiEvidenceProtector>();
         services.AddSingleton<EvidenceSpoolStore>();

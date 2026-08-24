@@ -339,6 +339,21 @@ public sealed class ActivitySyncService : BackgroundService
                 return InactivityFlushOutcome.RetryableFailure;
             }
 
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                // A hardcoded route 404ing is a permanent condition (endpoint missing/moved), not a
+                // transient one. Treating it as retryable deadlocks the whole FIFO queue forever: this
+                // record never moves, so nothing behind it — including unrelated app-usage/activity
+                // snapshots — ever gets a chance to sync (confirmed: 768 app_usage_snapshot rows stuck
+                // pending behind exactly this since 2026-08-18).
+                _logger.LogWarning(
+                    "Inactivity attempt endpoint not found (404) — quarantining eventId={EventId}",
+                    buffered.Record.EventId);
+                _buffer.QuarantineRow(buffered.RowId, "endpoint_not_found");
+                DeleteSpoolForEvent(buffered.Record.EventId);
+                return InactivityFlushOutcome.Quarantined;
+            }
+
             _logger.LogWarning(
                 "Unexpected inactivity upload status={Status} eventId={EventId}",
                 (int)response.StatusCode, buffered.Record.EventId);
@@ -606,6 +621,17 @@ public sealed class ActivitySyncService : BackgroundService
             return [];
         }
 
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // A validation rejection (e.g. the backend's 24h freshness window on snapshot ingest)
+            // will never succeed on retry — re-queueing it forever blocks every record behind it in
+            // this FIFO buffer, including unrelated, still-syncable fresh data. Drop it instead.
+            _logger.LogWarning(
+                "Validation rejected (400) for {Route} — dropping {Count} unrecoverable record(s), will not retry",
+                route, records.Count);
+            return [];
+        }
+
         _logger.LogWarning(
             "Non-success status={Status} for {Route} — re-queue {Count}",
             (int)response.StatusCode, route, records.Count);
@@ -793,6 +819,7 @@ public sealed class ActivitySyncService : BackgroundService
                 ClockOutAt = session.ClockOutAt,
                 AccumulatedBreakSeconds = (int)session.AccumulatedBreak.TotalSeconds,
                 AccumulatedWorkSeconds = (int)session.AccumulatedWork.TotalSeconds,
+                AccumulatedIdleSeconds = (int)session.AccumulatedIdle.TotalSeconds,
                 BreakSessionCount = session.BreakSessionCount,
                 ScheduleDisplay = session.ScheduleDisplay
             };
@@ -836,6 +863,17 @@ public sealed class ActivitySyncService : BackgroundService
             _logger.LogWarning(
                 "Rejected status={Status} for {Route} — dropping pending re-enrollment",
                 (int)response.StatusCode, route);
+            return [];
+        }
+
+        if (response.StatusCode == HttpStatusCode.BadRequest)
+        {
+            // A validation rejection (e.g. the backend's 24h freshness window on snapshot ingest)
+            // will never succeed on retry — re-queueing it forever blocks every record behind it in
+            // this FIFO buffer, including unrelated, still-syncable fresh data. Drop it instead.
+            _logger.LogWarning(
+                "Validation rejected (400) for {Route} — dropping {Count} unrecoverable record(s), will not retry",
+                route, records.Count);
             return [];
         }
 

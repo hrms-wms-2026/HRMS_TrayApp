@@ -108,6 +108,9 @@ public sealed class WorkSessionSubmitRequest
     [JsonPropertyName("accumulated_work_seconds")]
     public int AccumulatedWorkSeconds { get; set; }
 
+    [JsonPropertyName("accumulated_idle_seconds")]
+    public int AccumulatedIdleSeconds { get; set; }
+
     [JsonPropertyName("break_session_count")]
     public int BreakSessionCount { get; set; }
 
