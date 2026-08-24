@@ -68,9 +68,10 @@
 
           <!-- Gradient ring -->
           <Border WidthRequest="244" HeightRequest="244"
-                  StrokeShape="RoundRectangle 122">
+                  StrokeShape="RoundRectangle 122"
                   StrokeThickness="0"
-                  HorizontalOptions="Center" VerticalOptions="Center">
+                  HorizontalOptions="Center"
+                  VerticalOptions="Center">
             <Border.Background>
               <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                 <GradientStop Color="#22C7F0" Offset="0" />
