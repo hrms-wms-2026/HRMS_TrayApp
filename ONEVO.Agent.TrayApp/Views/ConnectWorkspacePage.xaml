@@ -11,17 +11,18 @@
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="#EEF2FF" Offset="0.45" />
         <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
       </LinearGradientBrush>
     </Grid.Background>
 
     <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
 
-    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="24">
+    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="20">
 
       <!-- Ambient glow blobs sit behind the glass panels so the translucency has something to catch -->
-      <Ellipse Grid.ColumnSpan="2" WidthRequest="440" HeightRequest="440"
-               HorizontalOptions="Start" VerticalOptions="Start" Margin="-120,-100,0,0" Opacity="0.85">
+      <Ellipse Grid.ColumnSpan="2" WidthRequest="520" HeightRequest="520"
+               HorizontalOptions="Start" VerticalOptions="Start" Margin="-160,-120,0,0" Opacity="0.95">
         <Ellipse.Fill>
           <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
             <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
@@ -29,8 +30,8 @@
           </RadialGradientBrush>
         </Ellipse.Fill>
       </Ellipse>
-      <Ellipse Grid.Column="1" WidthRequest="380" HeightRequest="380"
-               HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-100,-100" Opacity="0.85">
+      <Ellipse Grid.Column="1" WidthRequest="420" HeightRequest="420"
+               HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-120,-80" Opacity="0.95">
         <Ellipse.Fill>
           <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
             <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
@@ -38,8 +39,8 @@
           </RadialGradientBrush>
         </Ellipse.Fill>
       </Ellipse>
-      <Ellipse Grid.Column="1" WidthRequest="260" HeightRequest="260"
-               HorizontalOptions="Center" VerticalOptions="Start" Margin="0,-60,0,0" Opacity="0.5">
+      <Ellipse Grid.Column="1" WidthRequest="280" HeightRequest="280"
+               HorizontalOptions="Center" VerticalOptions="Start" Margin="40,-80,0,0" Opacity="0.65">
         <Ellipse.Fill>
           <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
             <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
@@ -48,65 +49,42 @@
         </Ellipse.Fill>
       </Ellipse>
 
-      <!-- Left: illustration panel -->
-      <Border x:Name="LeftPane" Grid.Column="0" Style="{StaticResource GlassPanel}"
-              MinimumWidthRequest="0">
-        <Grid>
-          <Ellipse WidthRequest="220" HeightRequest="220"
-                   HorizontalOptions="Center" VerticalOptions="Center" Opacity="0.35">
-            <Ellipse.Fill>
-              <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-                <GradientStop Color="#B8C9FF" Offset="0" />
-                <GradientStop Color="#B8C9FF00" Offset="1" />
-              </RadialGradientBrush>
-            </Ellipse.Fill>
-          </Ellipse>
+      <!-- Left: 3D workspace photo (raster — not reconstructed in XAML) -->
+      <Grid x:Name="LeftPane" Grid.Column="0" MinimumWidthRequest="0">
+        <Image Source="workspace_connect.png"
+               Aspect="AspectFit"
+               HorizontalOptions="Fill"
+               VerticalOptions="Fill"
+               Margin="0,4,4,4" />
+      </Grid>
 
-          <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10" Padding="24">
-            <!-- Cloud lock stack -->
-            <Border WidthRequest="88" HeightRequest="64" Style="{StaticResource GlassInputRow}"
-                    StrokeShape="RoundRectangle 20"
-                    HorizontalOptions="Center" Margin="0,0,0,4">
-              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="32" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
+      <!-- Right: form — fills the pane, no scroll -->
+      <Grid x:Name="RightPane" Grid.Column="1"
+            RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*"
+            Padding="4,0,0,0">
 
-            <Label Text="💻" FontSize="72" HorizontalOptions="Center" />
-            <Border Style="{StaticResource GlassInputRow}" StrokeShape="RoundRectangle 14"
-                    Padding="12,8" HorizontalOptions="Center">
-              <HorizontalStackLayout Spacing="8">
-                <Image Source="onexso_logo_mark.svg"
-                       Aspect="AspectFit"
-                       WidthRequest="28" HeightRequest="28"
-                       VerticalOptions="Center" />
-                <Label Text="Connected" FontSize="12" FontAttributes="Bold"
-                       TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
-              </HorizontalStackLayout>
-            </Border>
-          </VerticalStackLayout>
-        </Grid>
-      </Border>
-
-      <!-- Right: form -->
-      <ScrollView x:Name="RightPane" Grid.Column="1">
-        <VerticalStackLayout Spacing="0" Padding="4,0,0,0">
-
-          <HorizontalStackLayout Spacing="6" Margin="0,0,0,6">
-            <Label Text="Welcome to " Style="{StaticResource PageTitle}" />
-            <Label Text="OneXso Workspace" Style="{StaticResource PageTitleAccent}" />
-          </HorizontalStackLayout>
-          <Label Text="Paste your activation code below to securely&#x0a;connect your desktop application."
+          <Label Grid.Row="0" Margin="0,0,0,4">
+            <Label.FormattedText>
+              <FormattedString>
+                <Span Text="Welcome to " FontSize="24" FontAttributes="Bold"
+                      TextColor="{StaticResource TextPrimary}" />
+                <Span Text="OneXso Workspace" FontSize="24" FontAttributes="Bold"
+                      TextColor="{StaticResource BrandTitle}" />
+              </FormattedString>
+            </Label.FormattedText>
+          </Label>
+          <Label Grid.Row="1"
+                 Text="Paste your activation code below to securely connect your desktop application."
                  Style="{StaticResource PageSubtitle}"
                  HorizontalTextAlignment="Start"
-                 Margin="0,0,0,22" />
+                 Margin="0,0,0,12" />
 
-          <Border Style="{StaticResource GlassCard}" Margin="0,0,0,10">
-            <VerticalStackLayout Spacing="10">
+          <Border Grid.Row="2" Style="{StaticResource GlassCard}" Padding="16,12" Margin="0,0,0,8">
+            <VerticalStackLayout Spacing="8">
               <Label Text="Activation Code" FontAttributes="Bold"
                      TextColor="{StaticResource TextPrimary}" FontSize="13" />
 
-              <Border Style="{StaticResource GlassInputRow}">
+              <Border Style="{StaticResource GlassInputRow}" Padding="14,6">
                 <Grid ColumnDefinitions="*,Auto">
                   <Entry Grid.Column="0"
                          Placeholder="Paste your activation code here..."
@@ -139,35 +117,82 @@
             </VerticalStackLayout>
           </Border>
 
-          <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}"
-                 FontSize="12" Margin="4,4,0,4"
+          <Label Grid.Row="3" Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}"
+                 FontSize="12" Margin="4,0,0,6"
                  IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
 
-          <Border Style="{StaticResource GradientButtonBorder}" Margin="0,8,0,0">
-            <Button Text="🔗  Connect"
-                    Command="{Binding VerifyAndConnectCommand}"
-                    Style="{StaticResource GradientButtonOverlay}" />
+          <Border Grid.Row="4" Style="{StaticResource GradientButtonBorder}" Margin="0,2,0,0">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+                <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+                <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+              <Button Command="{Binding VerifyAndConnectCommand}"
+                      Style="{StaticResource GradientButtonOverlay}"
+                      Text=""
+                      SemanticProperties.Description="Connect" />
+              <HorizontalStackLayout InputTransparent="True"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     Spacing="8">
+                <Label Text="{StaticResource IconLink}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" TextColor="White" VerticalOptions="Center" />
+                <Label Text="Connect" FontSize="15" FontAttributes="Bold"
+                       TextColor="White" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+            </Grid>
           </Border>
 
-          <Button Text="🌐  Open Activation Website"
-                  Command="{Binding OpenEmployeePortalCommand}"
-                  Style="{StaticResource OutlineButton}"
-                  Margin="0,12,0,0" />
+          <Border Grid.Row="5"
+                  StrokeShape="RoundRectangle 28"
+                  Stroke="{StaticResource SoftOutline}"
+                  StrokeThickness="1.4"
+                  HeightRequest="56"
+                  Margin="0,10,0,0"
+                  Padding="0">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="{StaticResource GlassSurfaceTop}" Offset="0" />
+                <GradientStop Color="{StaticResource GlassSurfaceBottom}" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+              <Button Command="{Binding OpenEmployeePortalCommand}"
+                      BackgroundColor="Transparent"
+                      Text=""
+                      HeightRequest="56"
+                      SemanticProperties.Description="Open Activation Website" />
+              <HorizontalStackLayout InputTransparent="True"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     Spacing="8">
+                <Label Text="{StaticResource IconGlobe}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="16" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+                <Label Text="Open Activation Website" FontSize="15" FontAttributes="Bold"
+                       TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+            </Grid>
+          </Border>
 
-          <ActivityIndicator IsRunning="{Binding IsConnecting}"
+          <ActivityIndicator Grid.Row="6"
+                             IsRunning="{Binding IsConnecting}"
                              IsVisible="{Binding IsConnecting}"
                              Color="{StaticResource Primary}"
-                             Margin="0,12,0,0" />
+                             Margin="0,8,0,0" />
 
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,24,0,0">
-            <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="14,12">
-              <VerticalStackLayout Spacing="6">
+          <Grid Grid.Row="7" ColumnDefinitions="*,*" ColumnSpacing="12"
+                VerticalOptions="End" Margin="0,12,0,0">
+            <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="12,10">
+              <VerticalStackLayout Spacing="4">
                 <HorizontalStackLayout Spacing="8">
                   <Border WidthRequest="28" HeightRequest="28"
                           StrokeShape="RoundRectangle 14" BackgroundColor="{StaticResource AccentSoft}"
                           StrokeThickness="0">
                     <Label Text="{StaticResource IconHelp}" FontFamily="Segoe MDL2 Assets"
-                           FontSize="13" TextColor="{StaticResource Primary}"
+                           FontSize="13" TextColor="{StaticResource BrandTitle}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
                   </Border>
                   <Label Text="Need Help?" FontAttributes="Bold"
@@ -178,14 +203,14 @@
                        FontSize="11" TextColor="{StaticResource TextSecondary}" />
               </VerticalStackLayout>
             </Border>
-            <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="14,12">
-              <VerticalStackLayout Spacing="6">
+            <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="12,10">
+              <VerticalStackLayout Spacing="4">
                 <HorizontalStackLayout Spacing="8">
                   <Border WidthRequest="28" HeightRequest="28"
                           StrokeShape="RoundRectangle 14" BackgroundColor="{StaticResource AccentSoft}"
                           StrokeThickness="0">
                     <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
-                           FontSize="13" TextColor="{StaticResource Primary}"
+                           FontSize="13" TextColor="{StaticResource BrandTitle}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
                   </Border>
                   <Label Text="Secure Connection" FontAttributes="Bold"
@@ -197,8 +222,7 @@
               </VerticalStackLayout>
             </Border>
           </Grid>
-        </VerticalStackLayout>
-      </ScrollView>
+      </Grid>
     </Grid>
 
     <controls:FooterStatusBar Grid.Row="2"

@@ -1,7 +1,6 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using ONEVO.Agent.Shared.IPC;
@@ -124,6 +123,9 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         var breakTime = session.AccumulatedBreak < TimeSpan.Zero
             ? TimeSpan.Zero
             : session.AccumulatedBreak;
+        var idle = session.AccumulatedIdle < TimeSpan.Zero
+            ? TimeSpan.Zero
+            : session.AccumulatedIdle;
         var workTime = session.AccumulatedWork < TimeSpan.Zero
             ? TimeSpan.Zero
             : session.AccumulatedWork;
@@ -135,12 +137,14 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         {
             var wall = session.ClockOutAt.Value - session.ClockInAt.Value;
             if (wall < TimeSpan.Zero) wall = TimeSpan.Zero;
-            workTime = wall - breakTime;
+            workTime = wall - breakTime - idle;
             if (workTime < TimeSpan.Zero) workTime = TimeSpan.Zero;
         }
 
         BreakTimeDisplay   = Format(breakTime);
         WorkingTimeDisplay = Format(workTime);
+        IdleTimeDisplay    = Format(idle);
+        ProductiveTimeDisplay = Format(workTime);
         BreakSessionsDisplay = Math.Max(0, session.BreakSessionCount).ToString();
 
         if (session.ClockInAt is not null && session.ClockOutAt is not null)
@@ -154,15 +158,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             TotalShiftDisplay = Format(workTime + breakTime);
         }
 
-        // Productive ≈ work minus measured idle (clamped).
-        var idle = _dayMetrics.TotalIdle;
-        if (idle > workTime) idle = workTime;
-        var productive = workTime - idle;
-        if (productive < TimeSpan.Zero) productive = TimeSpan.Zero;
-
-        IdleTimeDisplay       = Format(idle);
-        ProductiveTimeDisplay = Format(productive);
-
+        // Productive equals payroll work (idle already excluded server-side).
         StatusText = "Clocked Out";
         Message    = "Here is your daily monitoring summary for today.";
 
@@ -250,26 +246,13 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             AccumulatedBreak: breakTime,
             AccumulatedWork: (clockOut - clockIn) - breakTime - afkTime,
             ScheduleDisplay: null,
-            BreakSessionCount: breakTime > TimeSpan.Zero ? 1 : 0));
+            BreakSessionCount: breakTime > TimeSpan.Zero ? 1 : 0,
+            AccumulatedIdle: afkTime));
         _ = meetingTime;
     }
 
     private static string Format(TimeSpan t) =>
         $"{(int)t.TotalHours:00}:{t.Minutes:00}:{t.Seconds:00}";
-
-    [RelayCommand]
-    private static void OpenDashboard()
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = "https://app.onexsoworkspace.com/dashboard",
-                UseShellExecute = true
-            });
-        }
-        catch { /* ignore */ }
-    }
 
     [RelayCommand]
     private async Task DownloadSummaryAsync()
@@ -281,22 +264,13 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             if (!Directory.Exists(dir))
                 dir = downloads;
 
-            var path = Path.Combine(dir, $"OneXso-Workday-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
-            var sb = new StringBuilder();
-            sb.AppendLine("OneXso WorkPulse — Daily Work Summary");
-            sb.AppendLine($"Status: {StatusText}");
-            sb.AppendLine($"Clock In:  {ClockInDisplay}");
-            sb.AppendLine($"Clock Out: {ClockOutDisplay}");
-            sb.AppendLine($"Total Shift: {TotalShiftDisplay}");
-            sb.AppendLine($"Working: {WorkingTimeDisplay}");
-            sb.AppendLine($"Break: {BreakTimeDisplay}");
-            sb.AppendLine($"Productive: {ProductiveTimeDisplay}");
-            sb.AppendLine($"Idle: {IdleTimeDisplay}");
-            sb.AppendLine($"Break Sessions: {BreakSessionsDisplay}");
-            sb.AppendLine("Top Apps:");
-            foreach (var app in TopApps)
-                sb.AppendLine($"  - {app.Name}: {app.Duration}");
-            await File.WriteAllTextAsync(path, sb.ToString());
+            var path = Path.Combine(dir, $"OneXso-Daily-Summary-{DateTime.Now:yyyyMMdd-HHmmss}.pdf");
+            var bytes = DailySummaryPdfBuilder.Build(new DailySummaryPdfData(
+                StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
+                WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
+                BreakSessionsDisplay, [.. TopApps]));
+
+            await File.WriteAllBytesAsync(path, bytes);
             Message = $"Summary saved to {path}";
         }
         catch (Exception ex)

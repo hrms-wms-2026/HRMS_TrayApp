@@ -38,6 +38,7 @@ public sealed record WorkSessionPayload
     public required DateTimeOffset ClockOutAt { get; init; }
     public required TimeSpan AccumulatedBreak { get; init; }
     public required TimeSpan AccumulatedWork { get; init; }
+    public TimeSpan AccumulatedIdle { get; init; }
     public required int BreakSessionCount { get; init; }
     public string? ScheduleDisplay { get; init; }
 }

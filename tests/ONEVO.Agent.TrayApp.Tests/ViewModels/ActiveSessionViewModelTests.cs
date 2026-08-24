@@ -15,6 +15,7 @@ public sealed class ActiveSessionViewModelTests
         Assert.False(vm.IsOnBreak);
         Assert.Equal("Working", vm.StatusText);
         Assert.False(vm.IsBreakConfirmVisible);
+        Assert.Equal("", vm.HintMessage);
     }
 
     [Fact]
@@ -43,6 +44,7 @@ public sealed class ActiveSessionViewModelTests
         Assert.Contains(LifecycleAction.StartBreak, pipe.LifecycleActions);
         Assert.True(vm.IsOnBreak);
         Assert.Equal("On Break", vm.StatusText);
+        Assert.Equal("Break started. Enjoy your break! ☕", vm.HintMessage);
     }
 
     [Fact]
@@ -137,6 +139,53 @@ public sealed class ActiveSessionViewModelTests
         vm.UpdateTimersCore();
         var second = vm.PrimaryTimer;
         Assert.NotEqual(first, second);
+    }
+
+    [Fact]
+    public void ApplySession_IdleOpen_WorkDurationExcludesIdle()
+    {
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());
+        var clockIn = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var idleStart = DateTimeOffset.UtcNow.AddMinutes(-2);
+        vm.ApplySession(new SessionSnapshot(
+            ClockInAt: clockIn,
+            ClockOutAt: null,
+            IsOnBreak: false,
+            CurrentBreakStartedAt: null,
+            AccumulatedBreak: TimeSpan.Zero,
+            AccumulatedWork: TimeSpan.FromMinutes(8),
+            ScheduleDisplay: "09:00 AM – 06:00 PM",
+            BreakSessionCount: 0,
+            AccumulatedIdle: TimeSpan.Zero,
+            IsIdle: true,
+            CurrentIdleStartedAt: idleStart));
+
+        var workParts = vm.WorkDurationDisplay.Split(':');
+        var workSecs = int.Parse(workParts[0]) * 3600 + int.Parse(workParts[1]) * 60 + int.Parse(workParts[2]);
+        Assert.InRange(workSecs, 7 * 60 - 5, 8 * 60 + 5);
+
+        var idleParts = vm.IdleTimeDisplay.Split(':');
+        var idleSecs = int.Parse(idleParts[0]) * 3600 + int.Parse(idleParts[1]) * 60 + int.Parse(idleParts[2]);
+        Assert.InRange(idleSecs, 110, 130);
+    }
+
+    [Fact]
+    public void ApplySession_ClosedIdle_ShowsIdleAndReducedWork()
+    {
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());
+        var clockIn = DateTimeOffset.UtcNow.AddHours(-1);
+        vm.ApplySession(new SessionSnapshot(
+            clockIn, null, false, null,
+            TimeSpan.Zero, TimeSpan.FromMinutes(50),
+            "09:00 AM – 06:00 PM", 0,
+            AccumulatedIdle: TimeSpan.FromMinutes(10),
+            IsIdle: false,
+            CurrentIdleStartedAt: null));
+
+        Assert.Equal("00:10:00", vm.IdleTimeDisplay);
+        var workParts = vm.WorkDurationDisplay.Split(':');
+        var workSecs = int.Parse(workParts[0]) * 3600 + int.Parse(workParts[1]) * 60 + int.Parse(workParts[2]);
+        Assert.InRange(workSecs, 49 * 60, 51 * 60);
     }
 
     [Fact]

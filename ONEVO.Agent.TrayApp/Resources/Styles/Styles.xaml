@@ -34,7 +34,7 @@
         <Setter Property="Padding" Value="16" />
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="#14000040" Offset="0,4" Radius="14" Opacity="0.12" />
+                <Shadow Brush="#22003366" Offset="0,8" Radius="22" Opacity="0.18" />
             </Setter.Value>
         </Setter>
     </Style>
@@ -129,6 +129,36 @@
         <Setter Property="FontSize" Value="14" />
     </Style>
 
+    <!-- Cream pill that wraps the live break timer + coffee glyph -->
+    <Style x:Key="BreakTimerPill" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource BreakTimerPillFill}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+        <Setter Property="Stroke" Value="{StaticResource BreakTimerPillStroke}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="8,6,14,6" />
+        <Setter Property="HorizontalOptions" Value="End" />
+    </Style>
+
+    <!-- Saturated orange→amber End Break CTA (on-break target) -->
+    <Style x:Key="OrangeGradientButtonBorder" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 28" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="HeightRequest" Value="52" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                    <GradientStop Color="{StaticResource BreakAccent}" Offset="0" />
+                    <GradientStop Color="{StaticResource BreakAccentEnd}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#80FF8A14" Offset="0,8" Radius="18" Opacity="0.45" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="RedPillButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="{StaticResource ButtonRed}" />
         <Setter Property="TextColor" Value="White" />
@@ -150,6 +180,35 @@
         <Setter Property="FontSize" Value="26" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{StaticResource Primary}" />
+    </Style>
+
+    <!-- Page heading — purple brand portion (Connect welcome line) -->
+    <Style x:Key="PageTitleBrand" TargetType="Label">
+        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource BrandTitle}" />
+    </Style>
+
+    <!-- Soft rounded square that holds a glyph or a raster icon tile -->
+    <Style x:Key="IconTile" TargetType="Border">
+        <Setter Property="WidthRequest" Value="36" />
+        <Setter Property="HeightRequest" Value="36" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="BackgroundColor" Value="{StaticResource PrimarySoft}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- Soft outlined secondary action — frosted white pill -->
+    <Style x:Key="SoftOutlineButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{StaticResource GlassSurfaceTop}" />
+        <Setter Property="TextColor" Value="{StaticResource Primary}" />
+        <Setter Property="BorderColor" Value="{StaticResource SoftOutline}" />
+        <Setter Property="BorderWidth" Value="1.4" />
+        <Setter Property="CornerRadius" Value="28" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
     </Style>
 
     <!-- Page subtitle / description -->

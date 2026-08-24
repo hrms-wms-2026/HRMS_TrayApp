@@ -119,8 +119,8 @@ public partial class App : Microsoft.Maui.Controls.Application
             Title         = "OneXso WorkPulse",
             Width         = 960,
             Height        = 700,
-            MinimumWidth  = 720,
-            MinimumHeight = 520
+            MinimumWidth  = 900,
+            MinimumHeight = 640
         };
 
         window.Created    += (_, _) =>

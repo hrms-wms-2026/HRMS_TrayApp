@@ -15,6 +15,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private DateTimeOffset? _clockInAt;
     private TimeSpan _accumulatedBreak;
     private DateTimeOffset? _currentBreakStartedAt;
+    private TimeSpan _accumulatedIdle;
+    private DateTimeOffset? _currentIdleStartedAt;
     private int _breakSessionCount;
     private bool _subscribed;
 
@@ -27,14 +29,15 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _scheduleDisplay   = "09:00 AM – 06:00 PM";
     [ObservableProperty] private string _workDurationDisplay = "00:00:00";
     [ObservableProperty] private string _breakTimeDisplay  = "00:00:00";
+    [ObservableProperty] private string _idleTimeDisplay = "00:00:00";
     [ObservableProperty] private string _productiveTimeDisplay = "00:00:00";
-    // No tasks feature exists yet — show "—" rather than a fabricated count (see architecture §21).
-    [ObservableProperty] private string _tasksCompletedDisplay = "—";
+    [ObservableProperty] private bool _isIdle;
     [ObservableProperty] private bool   _isOnBreak;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isBusyAction;
     [ObservableProperty] private string? _syncMessage;
     [ObservableProperty] private string? _errorMessage;
+    [ObservableProperty] private string _hintMessage = "";
 
     public ActiveSessionViewModel(
         INamedPipeClient pipe,
@@ -122,6 +125,13 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
                 ? TimeSpan.Zero
                 : session.AccumulatedBreak;
             _currentBreakStartedAt = NormalizeUtc(session.CurrentBreakStartedAt);
+            _accumulatedIdle = session.AccumulatedIdle < TimeSpan.Zero
+                ? TimeSpan.Zero
+                : session.AccumulatedIdle;
+            _currentIdleStartedAt = NormalizeUtc(session.CurrentIdleStartedAt);
+            IsIdle = session.IsIdle;
+            if (IsIdle && _currentIdleStartedAt is null)
+                _currentIdleStartedAt = DateTimeOffset.UtcNow;
             _breakSessionCount = session.BreakSessionCount;
             IsOnBreak = isOnBreakOverride ?? session.IsOnBreak;
 
@@ -166,6 +176,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             HeaderSubtitle    = "Take a short break. You're doing great!";
             StatusText        = "On Break";
             PrimaryTimerLabel = "Break Timer";
+            HintMessage       = "Break started. Enjoy your break! ☕";
+            SyncMessage       = null;
         }
         else
         {
@@ -173,6 +185,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             HeaderSubtitle    = "Have a productive and successful day ahead.";
             StatusText        = "Working";
             PrimaryTimerLabel = "Live Shift Timer";
+            HintMessage       = "";
         }
     }
 
@@ -203,19 +216,35 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         if (breakTotal < TimeSpan.Zero)
             breakTotal = TimeSpan.Zero;
 
+        TimeSpan openIdle = TimeSpan.Zero;
+        if (IsIdle)
+        {
+            if (_currentIdleStartedAt is null)
+                _currentIdleStartedAt = now;
+
+            openIdle = now - _currentIdleStartedAt.Value;
+            if (openIdle < TimeSpan.Zero)
+                openIdle = TimeSpan.Zero;
+        }
+
+        var idleTotal = _accumulatedIdle + openIdle;
+        if (idleTotal < TimeSpan.Zero)
+            idleTotal = TimeSpan.Zero;
+
         TimeSpan work = TimeSpan.Zero;
         if (_clockInAt is not null)
         {
             var wall = now - _clockInAt.Value;
             if (wall < TimeSpan.Zero)
                 wall = TimeSpan.Zero;
-            work = wall - breakTotal;
+            work = wall - breakTotal - idleTotal;
             if (work < TimeSpan.Zero)
                 work = TimeSpan.Zero;
         }
 
         WorkDurationDisplay   = Format(work);
         BreakTimeDisplay      = Format(breakTotal);
+        IdleTimeDisplay       = Format(idleTotal);
         ProductiveTimeDisplay = Format(work);
 
         // Primary big timer: break segment while on break, else work (live shift).
@@ -319,7 +348,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = "https://app.onexsoworkspace.com/dashboard",
+                FileName = WorkspaceLinks.DashboardUrl,
                 UseShellExecute = true
             });
         }

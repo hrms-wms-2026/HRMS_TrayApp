@@ -7,8 +7,8 @@ public sealed class NotificationActivationRouterTests
     private static readonly Guid AttemptId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     [Theory]
-    [InlineData("attempt=11111111-1111-1111-1111-111111111111&decision=allow", InactivityPromptDecision.Allowed)]
-    [InlineData("attempt=11111111-1111-1111-1111-111111111111&decision=skip", InactivityPromptDecision.Declined)]
+    [InlineData("attempt=11111111-1111-1111-1111-111111111111;decision=allow", InactivityPromptDecision.Allowed)]
+    [InlineData("attempt=11111111-1111-1111-1111-111111111111;decision=skip", InactivityPromptDecision.Declined)]
     public async Task Routes_only_known_attempt_and_decision(string args, InactivityPromptDecision expected)
     {
         var router = new NotificationActivationRouter();
@@ -24,7 +24,7 @@ public sealed class NotificationActivationRouterTests
 
         // Nobody is waiting on this attempt id — must not throw.
         var exception = Record.Exception(() =>
-            router.Route("attempt=22222222-2222-2222-2222-222222222222&decision=allow"));
+            router.Route("attempt=22222222-2222-2222-2222-222222222222;decision=allow"));
 
         Assert.Null(exception);
     }
@@ -47,7 +47,7 @@ public sealed class NotificationActivationRouterTests
         var router = new NotificationActivationRouter();
         var pending = router.WaitAsync(AttemptId, default);
 
-        router.Route($"attempt={AttemptId}&decision=maybe");
+        router.Route($"attempt={AttemptId};decision=maybe");
 
         Assert.False(pending.IsCompleted);
     }
@@ -57,7 +57,7 @@ public sealed class NotificationActivationRouterTests
     {
         var router = new NotificationActivationRouter();
         var pending = router.WaitAsync(AttemptId, default);
-        var args = $"attempt={AttemptId}&decision=allow";
+        var args = $"attempt={AttemptId};decision=allow";
 
         router.Route(args);
         var exception = Record.Exception(() => router.Route(args));

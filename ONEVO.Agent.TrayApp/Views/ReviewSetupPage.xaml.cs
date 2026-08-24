@@ -9,7 +9,7 @@ public partial class ReviewSetupPage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
-        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
+        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane, narrowLeftMaxHeight: 240);
     }
 
     protected override void OnAppearing()

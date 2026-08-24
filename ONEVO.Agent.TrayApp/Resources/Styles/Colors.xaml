@@ -30,11 +30,16 @@
     <Color x:Key="GlassRowSurface">#99FFFFFF</Color>
     <Color x:Key="GlassBorderStart">#CCFFFFFF</Color>
     <Color x:Key="GlassBorderEnd">#26FFFFFF</Color>
-    <Color x:Key="GlassGlowPrimary">#5922C7F0</Color>
-    <Color x:Key="GlassGlowAccent">#596D28D9</Color>
+    <Color x:Key="GlassGlowPrimary">#8A22C7F0</Color>
+    <Color x:Key="GlassGlowAccent">#8A6D28D9</Color>
     <Color x:Key="AccentSoft">#F1E9FE</Color>
-    <Color x:Key="BackgroundWashStart">#EFF4FF</Color>
-    <Color x:Key="BackgroundWashEnd">#F3ECFF</Color>
+    <Color x:Key="BackgroundWashStart">#DCE8FF</Color>
+    <Color x:Key="BackgroundWashEnd">#E9DCFF</Color>
+    <Color x:Key="BrandTitle">#6C4DFF</Color>
+    <Color x:Key="ConnectButtonStart">#3B82F6</Color>
+    <Color x:Key="ConnectButtonMid">#6366F1</Color>
+    <Color x:Key="ConnectButtonEnd">#8B5CF6</Color>
+    <Color x:Key="SoftOutline">#C7D2FE</Color>
 
     <!-- Status -->
     <Color x:Key="StatusGreen">#22C55E</Color>
@@ -43,6 +48,10 @@
     <Color x:Key="StatusBlue">#2563EB</Color>
     <Color x:Key="ButtonOrange">#F59E0B</Color>
     <Color x:Key="ButtonOrangeEnd">#F97316</Color>
+    <Color x:Key="BreakAccent">#FF8A14</Color>
+    <Color x:Key="BreakAccentEnd">#FFB020</Color>
+    <Color x:Key="BreakTimerPillFill">#FFF3E0</Color>
+    <Color x:Key="BreakTimerPillStroke">#FFE2B8</Color>
     <Color x:Key="ButtonRed">#EF4444</Color>
     <Color x:Key="ButtonRedEnd">#DC2626</Color>
 

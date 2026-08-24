@@ -1,6 +1,8 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 
@@ -9,6 +11,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     private readonly ICameraService _camera;
     private readonly INamedPipeClient _pipe;
     private readonly IPreferencesStore _prefs;
+    private readonly ILogger<PhotoCaptureWindowViewModel> _logger;
     private byte[]? _capturedBytes;
     private string? _captureContext;
 
@@ -37,12 +40,17 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         IsCaptured ||
         !string.Equals(CaptureStatusText, DefaultPrompt, StringComparison.Ordinal);
 
-    public PhotoCaptureWindowViewModel(ICameraService camera, INamedPipeClient pipe, IPreferencesStore prefs)
+    public PhotoCaptureWindowViewModel(
+        ICameraService camera,
+        INamedPipeClient pipe,
+        IPreferencesStore prefs,
+        ILogger<PhotoCaptureWindowViewModel>? logger = null)
     {
         Title   = "Face Verification";
         _camera = camera;
         _pipe   = pipe;
         _prefs  = prefs;
+        _logger = logger ?? NullLoggerFactory.Instance.CreateLogger<PhotoCaptureWindowViewModel>();
     }
 
     /// <summary>
@@ -102,46 +110,11 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private async Task Continue()
     {
-        if (_capturedBytes is { Length: > 0 })
-        {
-            try
-            {
-                double? lat = double.TryParse(
-                    _prefs.Get("onevo.live_latitude", ""),
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var la) ? la : null;
-                double? lon = double.TryParse(
-                    _prefs.Get("onevo.live_longitude", ""),
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var lo) ? lo : null;
-                var locationDisplay = _prefs.Get("onevo.work_location_display", "");
-
-                var payload = new FacePhotoPayload
-                {
-                    Format          = "jpeg",
-                    Data            = Convert.ToBase64String(_capturedBytes),
-                    Latitude        = lat,
-                    Longitude       = lon,
-                    LocationAddress = string.IsNullOrEmpty(locationDisplay) ? null : locationDisplay
-                };
-                var record = new CollectionRecord
-                {
-                    EventId          = Guid.NewGuid().ToString("N"),
-                    RecordType       = CollectionRecordTypes.FacePhoto,
-                    SchemaVersion    = CollectionSchemaVersions.FacePhotoV1,
-                    CaptureTimestamp = DateTimeOffset.UtcNow,
-                    DeviceId         = Environment.MachineName,
-                    Payload          = JsonSerializer.SerializeToElement(payload)
-                };
-                await _pipe.SubmitCollectionRecordsAsync([record], CancellationToken.None);
-            }
-            catch { /* non-blocking — photo send failure should not block navigation */ }
-        }
-
         if (_captureContext == "clockin")
         {
+            // Clock-in must land first: the Service only accepts collection-record submits
+            // (including this face photo) while monitoring is Active, and ClockIn is what
+            // transitions it there. Submitting the photo before this would always be rejected.
             CaptureStatusText = "Completing clock-in...";
             var result = await _pipe.SendLifecycleAsync(LifecycleAction.ClockIn, CancellationToken.None);
             if (result is null || !result.Success)
@@ -152,14 +125,63 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
                 return;
             }
 
+            await SubmitFacePhotoRecordAsync();
+
             try { await Shell.Current.GoToAsync("//active"); }
             catch { /* unit tests */ }
             return;
         }
 
+        await SubmitFacePhotoRecordAsync();
+
         try { Preferences.Set("onevo.face_verified", true); }
         catch { /* no MAUI Preferences host in unit tests */ }
         try { await Shell.Current.GoToAsync("//review"); }
         catch { /* unit tests */ }
+    }
+
+    private async Task SubmitFacePhotoRecordAsync()
+    {
+        if (_capturedBytes is not { Length: > 0 }) return;
+
+        try
+        {
+            double? lat = double.TryParse(
+                _prefs.Get("onevo.live_latitude", ""),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var la) ? la : null;
+            double? lon = double.TryParse(
+                _prefs.Get("onevo.live_longitude", ""),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var lo) ? lo : null;
+            var locationDisplay = _prefs.Get("onevo.work_location_display", "");
+
+            var payload = new FacePhotoPayload
+            {
+                Format          = "jpeg",
+                Data            = Convert.ToBase64String(_capturedBytes),
+                Latitude        = lat,
+                Longitude       = lon,
+                LocationAddress = string.IsNullOrEmpty(locationDisplay) ? null : locationDisplay
+            };
+            var record = new CollectionRecord
+            {
+                EventId          = Guid.NewGuid().ToString("N"),
+                RecordType       = CollectionRecordTypes.FacePhoto,
+                SchemaVersion    = CollectionSchemaVersions.FacePhotoV1,
+                CaptureTimestamp = DateTimeOffset.UtcNow,
+                DeviceId         = Environment.MachineName,
+                Payload          = JsonSerializer.SerializeToElement(payload)
+            };
+            await _pipe.SubmitCollectionRecordsAsync([record], CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // Non-blocking by design — a photo send failure should not trap the employee mid
+            // clock-in/enrollment flow — but it must not vanish silently either.
+            _logger.LogWarning(ex, "Face photo submit failed");
+        }
     }
 }

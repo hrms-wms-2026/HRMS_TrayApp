@@ -13,12 +13,17 @@ using Microsoft.Windows.AppNotifications.Builder;
 /// constructor, and forwards raw activation argument strings to a <see cref="NotificationActivationRouter"/>
 /// — the router itself has no Windows App SDK dependency and is unit-tested independently. The
 /// <c>AppNotificationManager.Default.Register()</c>/<c>Unregister()</c> lifecycle calls happen
-/// once at process scope in <c>Platforms/Windows/App.xaml.cs</c>, not here; this class only needs
-/// the manager to already be registered by the time <see cref="PromptAsync"/> is first called,
-/// which app startup guarantees.
+/// once at process scope in <c>Platforms/Windows/App.xaml.cs</c>, not here — but this constructor's
+/// Subscribe must run BEFORE that Register() call (Windows App SDK requirement: subscribing after
+/// Register() throws), which is why <c>MauiProgram.CreateMauiApp()</c> eagerly resolves
+/// <see cref="IInactivityPromptService"/> and only then does <c>App.xaml.cs</c> call Register().
 /// </remarks>
 public sealed class WindowsInactivityPromptService : IInactivityPromptService
 {
+    private static readonly string BootLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ONEVO", "Agent", "tray-boot.log");
+
     private const string NotificationTitle = "Activity check";
 
     /// <summary>
@@ -44,9 +49,11 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         try
         {
             AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
+            BootLog("Subscribed to AppNotificationManager.NotificationInvoked OK");
         }
         catch (Exception ex)
         {
+            BootLog($"Subscribe to NotificationInvoked FAILED: {ex}");
             _logger.LogWarning(ex, "Failed to subscribe to AppNotificationManager.NotificationInvoked");
         }
     }
@@ -60,9 +67,11 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         try
         {
             Show(attemptId, expiresIn, idleFor);
+            BootLog($"Show() succeeded for attempt {attemptId}");
         }
         catch (Exception ex)
         {
+            BootLog($"Show() FAILED for attempt {attemptId}: {ex}");
             _logger.LogWarning(ex, "Failed to show inactivity prompt notification for attempt {AttemptId}", attemptId);
         }
 
@@ -134,9 +143,24 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
 
     private void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
     {
+        BootLog($"NotificationInvoked argument='{args.Argument}'");
+
         // Intentionally does nothing beyond routing: no Window.Activate(), no Shell navigation, no
         // foregrounding of the MAUI window. That is how this satisfies "do not activate or
         // foreground the MAUI window" for both the Allow and Skip buttons.
         _router.Route(args.Argument);
+    }
+
+    private static void BootLog(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
+            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [InactivityPrompt] {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // ignore
+        }
     }
 }

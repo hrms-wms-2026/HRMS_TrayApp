@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
@@ -101,5 +102,38 @@ public sealed class PhotoCaptureWindowViewModelTests
         Assert.InRange(payload.Latitude!.Value,  13.08, 13.09);
         Assert.InRange(payload.Longitude!.Value, 80.27, 80.28);
         Assert.Equal("Chennai Office", payload.LocationAddress);
+    }
+
+    [Fact]
+    public async Task Continue_ClockinContext_SendsLifecycleClockInBeforeSubmittingPhoto()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm   = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(["lifecycle:ClockIn", "submit"], pipe.CallOrder);
+        Assert.Single(pipe.Submitted);
+    }
+
+    [Fact]
+    public async Task Continue_ClockinContext_DoesNotSubmitPhotoWhenLifecycleFails()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLifecycleResult = new LifecycleResultPayload(false, "device_locked", "Device is locked.", MonitoringState.Stopped, null)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.Empty(pipe.Submitted);
+        Assert.Equal("Device is locked.", vm.CaptureStatusText);
     }
 }
