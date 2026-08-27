@@ -3,12 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="ONEVO.Agent.TrayApp.Controls.AppHeaderBar"
              x:Name="Root">
-  <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,0,0,12">
+  <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,0,0,8">
     <HorizontalStackLayout Grid.Column="0" Spacing="10">
       <Border WidthRequest="40" HeightRequest="40"
               StrokeShape="RoundRectangle 12" StrokeThickness="0"
               BackgroundColor="Transparent">
-        <Image Source="onexso_logo_mark.svg"
+        <Image Source="onexso_x_mark.png"
                Aspect="AspectFit"
                WidthRequest="40" HeightRequest="40"
                HorizontalOptions="Center" VerticalOptions="Center" />

@@ -45,8 +45,8 @@ public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
 
     private void StartScanAnimation()
     {
-        // ScanLine travels from top (0) to bottom (272px) of the circle frame, then reverses
-        const double frameHeight = 272;
+        // ScanLine travels from top (0) to bottom of the inner circle frame
+        const double frameHeight = 224;
         _scanAnimation = new Animation(v => ScanLine.TranslationY = v,
                                        start: 0,
                                        end: frameHeight,

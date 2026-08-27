@@ -1,8 +1,11 @@
 namespace ONEVO.Agent.TrayApp.Services;
 
+using System.Drawing;
 using Windows.Media.Capture;
 using Windows.Media.MediaProperties;
 using Windows.Storage.Streams;
+using ONEVO.Agent.Shared;
+using ONEVO.Agent.TrayApp.Capture;
 
 public sealed class CameraService : ICameraService
 {
@@ -62,9 +65,13 @@ public sealed class CameraService : ICameraService
             if (ownCapture) capture.Dispose();
 
             stream.Seek(0);
-            var bytes = new byte[stream.Size];
-            await stream.AsStreamForRead().ReadExactlyAsync(bytes, 0, bytes.Length, ct);
-            return bytes.Length > 0 ? bytes : null;
+
+            // The raw capture (full webcam resolution) routinely exceeds the single-line IPC
+            // message cap once base64-encoded. Downscale/re-encode to a bounded size the same
+            // way screenshots do (see JpegSizeReducer) rather than shipping it as-is.
+            using var bitmap = new Bitmap(stream.AsStreamForRead());
+            var encoded = JpegSizeReducer.Encode(bitmap, Constants.MaxFacePhotoJpegBytes, ct);
+            return encoded.Success ? encoded.JpegBytes.ToArray() : null;
         }
         catch
         {

@@ -9,7 +9,7 @@ public partial class WorkLocationPage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
-        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane);
+        ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane, narrowLeftMaxHeight: 240);
     }
 
     protected override async void OnAppearing()

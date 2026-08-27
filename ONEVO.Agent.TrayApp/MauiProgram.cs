@@ -9,6 +9,10 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+        DisableMauiAspireIntegration();
+
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
         builder.ConfigureMauiHandlers(h =>
@@ -117,4 +121,19 @@ public static class MauiProgram
 
         return app;
     }
+
+    /// <summary>
+    /// TrayApp is a standalone Windows tray app — never orchestrated by .NET Aspire. MAUI's
+    /// MauiApp.CreateBuilder() calls ConfigureEnvironmentVariables(), which — when this switch is
+    /// left at its default of true — reads both ASPNETCORE_ENVIRONMENT and DOTNET_ENVIRONMENT (its
+    /// Aspire-support code strips the "ASPNETCORE_"/"DOTNET_" prefix from each), collapsing both to
+    /// the same bare config key "ENVIRONMENT". Whenever a launcher sets both (e.g.
+    /// scripts/run-all.ps1 sets ASPNETCORE_ENVIRONMENT for the backend and DOTNET_ENVIRONMENT for
+    /// the Agent Service, and TrayApp inherits both from that same shell), the second insert throws
+    /// ArgumentException and the whole app fails to boot before any collector starts — confirmed via
+    /// tray-boot.log crashes spanning 2026-08-18 to 2026-08-21 and reproduced live. Since Aspire
+    /// integration is irrelevant to this app, disable it outright.
+    /// </summary>
+    internal static void DisableMauiAspireIntegration() =>
+        AppContext.SetSwitch("Microsoft.Maui.RuntimeFeature.EnableMauiAspire", false);
 }

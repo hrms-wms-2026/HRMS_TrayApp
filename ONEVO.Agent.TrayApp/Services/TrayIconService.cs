@@ -77,6 +77,11 @@ public sealed class TrayIconService : IDisposable
         };
 
         _notifyIcon.DoubleClick += (_, _) => OnTrayDoubleClick();
+        _notifyIcon.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+                OnTrayDoubleClick();
+        };
         _initialized = true;
         _logger.LogInformation("Tray icon initialized");
     }

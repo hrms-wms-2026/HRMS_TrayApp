@@ -105,7 +105,25 @@ public sealed class ActivityRecordBuffer : IDisposable
             );
             """;
         cmd.ExecuteNonQuery();
+        EnsureColumnUnlocked("session_history", "accumulated_idle_sec", "REAL NOT NULL DEFAULT 0");
         QuarantineLegacyScreenshotRecordsUnlocked();
+    }
+
+    private void EnsureColumnUnlocked(string table, string column, string declaration)
+    {
+        using var info = _conn.CreateCommand();
+        info.CommandText = $"PRAGMA table_info({table});";
+        using var reader = info.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+                return;
+        }
+        reader.Close();
+
+        using var alter = _conn.CreateCommand();
+        alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {declaration};";
+        alter.ExecuteNonQuery();
     }
 
     private void QuarantineLegacyScreenshotRecordsUnlocked()
@@ -492,7 +510,8 @@ public sealed class ActivityRecordBuffer : IDisposable
         TimeSpan accumulatedBreak,
         TimeSpan accumulatedWork,
         int breakSessionCount,
-        string? scheduleDisplay)
+        string? scheduleDisplay,
+        TimeSpan accumulatedIdle)
     {
         lock (_gate)
         {
@@ -501,9 +520,9 @@ public sealed class ActivityRecordBuffer : IDisposable
                 """
                 INSERT INTO session_history
                     (clock_in_at, clock_out_at, accumulated_break_sec, accumulated_work_sec,
-                     break_session_count, schedule_display, created_at)
+                     break_session_count, schedule_display, created_at, accumulated_idle_sec)
                 VALUES
-                    ($cin, $cout, $brk, $work, $breaks, $sched, $created);
+                    ($cin, $cout, $brk, $work, $breaks, $sched, $created, $idle);
                 """;
             cmd.Parameters.AddWithValue("$cin", (object?)clockIn?.ToUniversalTime().ToString("O") ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$cout", (object?)clockOut?.ToUniversalTime().ToString("O") ?? DBNull.Value);
@@ -512,6 +531,7 @@ public sealed class ActivityRecordBuffer : IDisposable
             cmd.Parameters.AddWithValue("$breaks", breakSessionCount);
             cmd.Parameters.AddWithValue("$sched", (object?)scheduleDisplay ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
+            cmd.Parameters.AddWithValue("$idle", accumulatedIdle.TotalSeconds);
             cmd.ExecuteNonQuery();
         }
     }

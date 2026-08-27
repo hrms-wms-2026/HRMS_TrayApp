@@ -8,18 +8,10 @@ public partial class App : MauiWinUIApplication
     {
         this.InitializeComponent();
 
-        try
-        {
-            AppNotificationManager.Default.Register();
-        }
-        catch (Exception ex)
-        {
-            BootLog($"AppNotificationManager.Register failed: {ex}");
-        }
-
         // ProcessExit fires on normal shutdown regardless of which path triggered it (tray "Exit",
         // Windows sign-off, etc.), so this is a self-contained, App-instance-independent place to
-        // undo Register() above without needing a hook into the shared MAUI window's lifecycle.
+        // undo Register() (in CreateMauiApp below) without needing a hook into the shared MAUI
+        // window's lifecycle.
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
             try
@@ -40,6 +32,24 @@ public partial class App : MauiWinUIApplication
             BootLog("CreateMauiApp enter");
             var app = MauiProgram.CreateMauiApp();
             BootLog("CreateMauiApp exit ok");
+
+            // Register() must run AFTER MauiProgram.CreateMauiApp() above, not before: that call
+            // eagerly constructs IInactivityPromptService, whose constructor subscribes to
+            // AppNotificationManager.NotificationInvoked. Windows App SDK requires every
+            // NotificationInvoked handler to be subscribed BEFORE Register() is called — calling
+            // Register() first (as this used to, in the constructor) makes the later Subscribe
+            // throw ("Must register event handlers before calling Register()"), which was silently
+            // swallowed, so the click-routing handler was never actually wired up.
+            try
+            {
+                AppNotificationManager.Default.Register();
+                BootLog("AppNotificationManager.Register OK");
+            }
+            catch (Exception ex)
+            {
+                BootLog($"AppNotificationManager.Register failed: {ex}");
+            }
+
             return app;
         }
         catch (Exception ex)
