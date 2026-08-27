@@ -1,24 +1,24 @@
 {
   "format": 1,
   "restore": {
-    "C:\\HR\\tray_app_maui\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj": {}
+    "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj": {}
   },
   "projects": {
-    "C:\\HR\\tray_app_maui\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj": {
+    "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\HR\\tray_app_maui\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj",
+        "projectUniqueName": "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj",
         "projectName": "ONEVO.Agent.Shared",
-        "projectPath": "C:\\HR\\tray_app_maui\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj",
-        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-        "outputPath": "C:\\HR\\tray_app_maui\\ONEVO.Agent.Shared\\obj\\",
+        "projectPath": "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj",
+        "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
+        "outputPath": "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.Shared\\obj\\",
         "projectStyle": "PackageReference",
         "centralPackageVersionsManagementEnabled": true,
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\User\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -90,7 +90,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.302/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",
@@ -368,21 +368,21 @@
         }
       }
     },
-    "C:\\HR\\tray_app_maui\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj": {
+    "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\HR\\tray_app_maui\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj",
+        "projectUniqueName": "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj",
         "projectName": "ONEVO.Agent.TrayApp",
-        "projectPath": "C:\\HR\\tray_app_maui\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj",
-        "packagesPath": "C:\\Users\\user\\.nuget\\packages\\",
-        "outputPath": "C:\\HR\\tray_app_maui\\ONEVO.Agent.TrayApp\\obj\\",
+        "projectPath": "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.TrayApp\\ONEVO.Agent.TrayApp.csproj",
+        "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
+        "outputPath": "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.TrayApp\\obj\\",
         "projectStyle": "PackageReference",
         "centralPackageVersionsManagementEnabled": true,
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\user\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\User\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
@@ -399,8 +399,8 @@
             "framework": "net10.0-windows10.0.19041",
             "targetAlias": "net10.0-windows10.0.19041.0",
             "projectReferences": {
-              "C:\\HR\\tray_app_maui\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj": {
-                "projectPath": "C:\\HR\\tray_app_maui\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj"
+              "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj": {
+                "projectPath": "C:\\onevoNew\\HRMS_TrayApp\\ONEVO.Agent.Shared\\ONEVO.Agent.Shared.csproj"
               }
             }
           }
@@ -492,7 +492,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.300/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.302/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.CSharp": "(,4.7.32767]",
             "Microsoft.VisualBasic": "(,10.4.32767]",

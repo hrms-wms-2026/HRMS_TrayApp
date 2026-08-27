@@ -89,8 +89,7 @@
       </Border>
 
       <!-- Right: form -->
-      <ScrollView x:Name="RightPane" Grid.Column="1">
-        <VerticalStackLayout Spacing="0" Padding="4,0,0,0">
+      <VerticalStackLayout x:Name="RightPane" Grid.Column="1" Spacing="0" Padding="4,0,0,0" VerticalOptions="Center">
 
           <HorizontalStackLayout Spacing="6" Margin="0,0,0,6">
             <Label Text="Welcome to " Style="{StaticResource PageTitle}" />
@@ -197,8 +196,7 @@
               </VerticalStackLayout>
             </Border>
           </Grid>
-        </VerticalStackLayout>
-      </ScrollView>
+      </VerticalStackLayout>
     </Grid>
 
     <controls:FooterStatusBar Grid.Row="2"

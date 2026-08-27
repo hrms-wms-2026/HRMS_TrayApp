@@ -11,10 +11,14 @@ using System;
 using System.Reflection;
 
 [assembly: System.Runtime.CompilerServices.InternalsVisibleToAttribute("ONEVO.Agent.TrayApp.Tests")]
+[assembly: System.Reflection.AssemblyMetadataAttribute("Microsoft.Maui.ApplicationModel.AppInfo.PackageName", "com.onevo.workpulse.agent")]
+[assembly: System.Reflection.AssemblyMetadataAttribute("Microsoft.Maui.ApplicationModel.AppInfo.PublisherName", "ONEVO")]
+[assembly: System.Reflection.AssemblyMetadataAttribute("Microsoft.Maui.ApplicationModel.AppInfo.Name", "OneXso WorkPulse")]
+[assembly: System.Reflection.AssemblyMetadataAttribute("Microsoft.Maui.ApplicationModel.AppInfo.Version", "1.0.0.0")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("ONEVO.Agent.TrayApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fe3aa3a773ad0d7d33fec65fd6440b796c7d18e9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+835215a4b474e47d75ecbb1f68b920a706754e6a")]
 [assembly: System.Reflection.AssemblyProductAttribute("ONEVO.Agent.TrayApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ONEVO.Agent.TrayApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
