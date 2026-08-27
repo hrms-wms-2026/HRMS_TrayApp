@@ -1,4 +1,5 @@
 using ONEVO.Agent.Service.Enrollment;
+using Xunit;
 
 namespace ONEVO.Agent.Service.Tests.Enrollment;
 

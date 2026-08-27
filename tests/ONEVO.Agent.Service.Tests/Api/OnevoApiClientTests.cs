@@ -13,9 +13,15 @@ public class OnevoApiClientTests
     public async Task StartDeviceAuthorizationAsync_SendsMetadataAndParsesResponse()
     {
         HttpRequestMessage? captured = null;
+        string? capturedBody = null;
         var handler = new StubHandler(request =>
         {
             captured = request;
+            // Read the outgoing body while the request is still alive — the
+            // production client disposes it (`using var request = ...`) as
+            // soon as SendAsync returns, so reading it after the client call
+            // completes throws ObjectDisposedException.
+            capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = JsonContent.Create(new
@@ -39,18 +45,19 @@ public class OnevoApiClientTests
         Assert.Equal(HttpMethod.Post, captured!.Method);
         Assert.Equal(AgentApiRoutes.DeviceAuthorizationStart, captured.RequestUri!.AbsolutePath);
         Assert.Null(captured.Headers.Authorization);
-        var body = await captured.Content!.ReadAsStringAsync();
-        Assert.Contains("device_name", body);
-        Assert.DoesNotContain("Authorization", body);
+        Assert.Contains("device_name", capturedBody);
+        Assert.DoesNotContain("Authorization", capturedBody);
     }
 
     [Fact]
     public async Task PollDeviceAuthorizationAsync_PendingParsesCodeAndKeepsDeviceCodeOutOfUrl()
     {
         HttpRequestMessage? captured = null;
+        string? capturedBody = null;
         var handler = new StubHandler(request =>
         {
             captured = request;
+            capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
             return new HttpResponseMessage(HttpStatusCode.BadRequest)
             {
                 Content = JsonContent.Create(new { code = "authorization_pending" })
@@ -62,9 +69,8 @@ public class OnevoApiClientTests
 
         Assert.Equal(DeviceAuthorizationPollState.AuthorizationPending, result.State);
         Assert.DoesNotContain("device-secret", captured!.RequestUri!.ToString());
-        var body = await captured.Content!.ReadAsStringAsync();
-        Assert.Contains("device-secret", body);
-        Assert.Contains("fingerprint", body);
+        Assert.Contains("device-secret", capturedBody);
+        Assert.Contains("fingerprint", capturedBody);
     }
 
     [Fact]

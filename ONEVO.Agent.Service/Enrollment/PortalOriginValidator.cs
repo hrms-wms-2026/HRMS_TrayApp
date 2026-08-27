@@ -41,15 +41,23 @@ public sealed class PortalOriginValidator
             || !string.IsNullOrEmpty(uri.Query)
             || !string.IsNullOrEmpty(uri.Fragment)
             || uri.HostNameType is not (UriHostNameType.Dns or UriHostNameType.IPv4)
-            || !HostLabel.IsMatch(uri.Host)
-            || !IsAllowedHost(uri.Host)
-            || !IsAllowedPort(uri))
+            || !HostLabel.IsMatch(uri.Host))
         {
             return false;
         }
 
         var origin = uri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
-        if (_development && _developmentOrigins.Count > 0 && !_developmentOrigins.Contains(origin))
+
+        // Explicit development origins (e.g. https://acme.localhost:4200) are
+        // trusted as-is: they intentionally live outside the production root
+        // domain, so the host/port checks below don't apply to them.
+        if (_development && _developmentOrigins.Contains(origin))
+        {
+            normalizedOrigin = origin;
+            return true;
+        }
+
+        if (!IsAllowedHost(uri.Host) || !IsAllowedPort(uri))
             return false;
 
         normalizedOrigin = origin;
