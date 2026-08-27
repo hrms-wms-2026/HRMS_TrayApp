@@ -2,6 +2,16 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
+    <x:Double x:Key="TrayActionHeight">48</x:Double>
+    <x:Double x:Key="TrayHeroActionHeight">64</x:Double>
+    <x:Double x:Key="TrayFaceFrameOuterSize">236</x:Double>
+    <x:Double x:Key="TrayFaceFrameRingSize">220</x:Double>
+    <x:Double x:Key="TrayFaceFrameInnerSize">204</x:Double>
+    <Thickness x:Key="TrayPagePadding">20,10</Thickness>
+    <Thickness x:Key="TrayDensePagePadding">20,8</Thickness>
+    <Thickness x:Key="TrayCardPadding">12,10</Thickness>
+    <Thickness x:Key="TrayDenseCardPadding">10,8</Thickness>
+
     <!-- Card container -->
     <Style x:Key="Card" TargetType="Border">
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
@@ -37,6 +47,57 @@
                 <Shadow Brush="#22003366" Offset="0,8" Radius="22" Opacity="0.18" />
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <Style x:Key="TrayCompactGlassCard" TargetType="Border" BasedOn="{StaticResource GlassCard}">
+        <Setter Property="Padding" Value="{StaticResource TrayCardPadding}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+    </Style>
+
+    <Style x:Key="TrayDenseGlassCard" TargetType="Border" BasedOn="{StaticResource GlassCard}">
+        <Setter Property="Padding" Value="{StaticResource TrayDenseCardPadding}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+    </Style>
+
+    <!-- Gradient button wrapper Border -->
+    <Style x:Key="GradientButtonBorder" TargetType="Border">
+        <Setter Property="StrokeShape" Value="RoundRectangle 28" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                    <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
+                    <GradientStop Color="{StaticResource PrimaryGradientMid}" Offset="0.5" />
+                    <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#60175CFF" Offset="0,8" Radius="18" Opacity="0.4" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Transparent overlay button on top of gradient border -->
+    <Style x:Key="GradientButtonOverlay" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="HorizontalOptions" Value="Fill" />
+    </Style>
+
+    <Style x:Key="TrayPrimaryActionBorder" TargetType="Border" BasedOn="{StaticResource GradientButtonBorder}">
+        <Setter Property="HeightRequest" Value="{StaticResource TrayActionHeight}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 24" />
+    </Style>
+
+    <Style x:Key="TrayPrimaryActionOverlay" TargetType="Button" BasedOn="{StaticResource GradientButtonOverlay}">
+        <Setter Property="HeightRequest" Value="{StaticResource TrayActionHeight}" />
+        <Setter Property="FontSize" Value="14" />
     </Style>
 
     <!-- Frosted-glass panel: for larger tinted surfaces (illustration pane, chips) -->
@@ -75,37 +136,6 @@
         </Setter>
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Padding" Value="12,4" />
-    </Style>
-
-    <!-- Gradient button wrapper Border -->
-    <Style x:Key="GradientButtonBorder" TargetType="Border">
-        <Setter Property="StrokeShape" Value="RoundRectangle 28" />
-        <Setter Property="StrokeThickness" Value="0" />
-        <Setter Property="HeightRequest" Value="56" />
-        <Setter Property="Background">
-            <Setter.Value>
-                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                    <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
-                    <GradientStop Color="{StaticResource PrimaryGradientMid}" Offset="0.5" />
-                    <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
-                </LinearGradientBrush>
-            </Setter.Value>
-        </Setter>
-        <Setter Property="Shadow">
-            <Setter.Value>
-                <Shadow Brush="#60175CFF" Offset="0,8" Radius="18" Opacity="0.4" />
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- Transparent overlay button on top of gradient border -->
-    <Style x:Key="GradientButtonOverlay" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="Transparent" />
-        <Setter Property="TextColor" Value="White" />
-        <Setter Property="FontSize" Value="15" />
-        <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="HeightRequest" Value="56" />
-        <Setter Property="HorizontalOptions" Value="Fill" />
     </Style>
 
     <!-- Outline secondary button -->

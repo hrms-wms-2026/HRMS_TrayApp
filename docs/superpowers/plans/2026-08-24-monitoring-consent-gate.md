@@ -724,8 +724,8 @@ public sealed class TrayMonitoringConsentController : ControllerBase
 
 - [ ] **Step 6: Full backend build + test run**
 
-Run: `dotnet build HRMS-Backend-v1.sln --no-restore` then `dotnet test HRMS-Backend-v1.sln --no-build` (from `C:\HR\HRMS-Backend-v1`)
-Expected: 0 warnings/errors, all tests green.
+There is no top-level `.sln`/`.slnx` in this repo — build and test per-project. Run (from `C:\HR\HRMS-Backend-v1`): `dotnet build src/ONEVO.Api` then `dotnet test tests/ONEVO.Tests.Unit`
+Expected: build succeeds (pre-existing warnings in unrelated files are normal — this repo does not have `TreatWarningsAsErrors` on); test run reports `Failed: 0` (baseline on this branch is 3110 passed, 0 failed — your new tests add to that count).
 
 - [ ] **Step 7: Commit**
 

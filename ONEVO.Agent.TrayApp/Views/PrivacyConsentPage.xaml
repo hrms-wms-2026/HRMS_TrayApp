@@ -48,7 +48,7 @@
              Style="{StaticResource PageSubtitle}" Margin="0,6,0,0" />
     </VerticalStackLayout>
 
-    <Border Grid.Row="2" Style="{StaticResource GlassCard}" Padding="16,4"
+    <Border Grid.Row="2" Style="{StaticResource TrayCompactGlassCard}" Padding="16,4"
             HorizontalOptions="Center" MaximumWidthRequest="640"
             VerticalOptions="Fill">
         <VerticalStackLayout Spacing="0" VerticalOptions="Center">
@@ -175,7 +175,7 @@
         </VerticalStackLayout>
     </Border>
 
-    <Border Grid.Row="3" Style="{StaticResource GradientButtonBorder}"
+    <Border Grid.Row="3" Style="{StaticResource TrayPrimaryActionBorder}"
             HorizontalOptions="Center" WidthRequest="420" Margin="0,10,0,0">
       <Border.Background>
         <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
@@ -186,7 +186,7 @@
       </Border.Background>
       <Grid>
         <Button Command="{Binding AllowAndContinueCommand}"
-                Style="{StaticResource GradientButtonOverlay}"
+                Style="{StaticResource TrayPrimaryActionOverlay}"
                 Text=""
                 SemanticProperties.Description="Allow and Continue" />
         <HorizontalStackLayout InputTransparent="True"

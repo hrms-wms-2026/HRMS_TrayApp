@@ -154,6 +154,16 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
+[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/IdentityVerificationPage.xaml]
+build_metadata.AdditionalFiles.GenKind = Xaml
+build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.IdentityVerificationPage.xaml
+build_metadata.AdditionalFiles.TargetPath = Views\IdentityVerificationPage.xaml
+build_metadata.AdditionalFiles.RelativePath = Views\IdentityVerificationPage.xaml
+build_metadata.AdditionalFiles.Inflator = Runtime
+build_metadata.AdditionalFiles.NoWarn = 
+build_metadata.AdditionalFiles.EnableDiagnostics = 
+build_metadata.AdditionalFiles.LineInfo = 
+
 [C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/PhotoCaptureWindow.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.PhotoCaptureWindow.xaml
@@ -199,16 +209,6 @@ build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.StatusPopup.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\StatusPopup.xaml
 build_metadata.AdditionalFiles.RelativePath = Views\StatusPopup.xaml
-build_metadata.AdditionalFiles.Inflator = Runtime
-build_metadata.AdditionalFiles.NoWarn = 
-build_metadata.AdditionalFiles.EnableDiagnostics = 
-build_metadata.AdditionalFiles.LineInfo = 
-
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/WorkLocationPage.xaml]
-build_metadata.AdditionalFiles.GenKind = Xaml
-build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.WorkLocationPage.xaml
-build_metadata.AdditionalFiles.TargetPath = Views\WorkLocationPage.xaml
-build_metadata.AdditionalFiles.RelativePath = Views\WorkLocationPage.xaml
 build_metadata.AdditionalFiles.Inflator = Runtime
 build_metadata.AdditionalFiles.NoWarn = 
 build_metadata.AdditionalFiles.EnableDiagnostics = 

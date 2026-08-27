@@ -18,6 +18,9 @@ public static class AgentApiRoutes
     public const string ActivationExchange = "/api/v1/monitoring/activation/exchange";
     public const string ActivationRefresh  = "/api/v1/monitoring/activation/refresh";
     public const string ActivationRevoke   = "/api/v1/monitoring/activation/revoke";
+    public const string DeviceAuthorizationStart = "/api/v1/monitoring/device-authorization/start";
+    public const string DeviceAuthorizationToken = "/api/v1/monitoring/device-authorization/token";
+    public const string ActivationHeartbeat = "/api/v1/monitoring/activation/heartbeat";
 
     public const string BiometricEnrollmentAttemptCreate   = "/api/v1/monitoring/biometrics/enrollment-attempts";
     public const string BiometricEnrollmentAttemptComplete = "/api/v1/monitoring/biometrics/enrollment-attempts/{0}/complete";

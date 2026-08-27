@@ -8,7 +8,8 @@
 
 param(
     [string]$InstallDir  = "$env:ProgramFiles\ONEVO\AgentService",
-    [string]$ServiceName = "ONEVO Agent Service"
+    [string]$ServiceName = "ONEVO Agent Service",
+    [string]$TrayExePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -58,6 +59,11 @@ Write-Host "Starting service..." -ForegroundColor Green
 Start-Service -Name $ServiceName
 
 Get-Service -Name $ServiceName | Format-Table Name, Status, StartType
+
+if (-not [string]::IsNullOrWhiteSpace($TrayExePath)) {
+    Write-Host "Registering onexso-workspace:// protocol..." -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot 'register-workspace-protocol.ps1') -TrayExePath $TrayExePath
+}
 
 Write-Host ""
 Write-Host "Installed to: $InstallDir" -ForegroundColor Green

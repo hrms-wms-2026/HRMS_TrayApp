@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
 
@@ -11,7 +12,8 @@ public sealed class PhotoCaptureWindowViewModelTests
     private static PhotoCaptureWindowViewModel MakeVm(bool cameraSucceeds = true) =>
         new(new FakeCameraService { ShouldReturnPhoto = cameraSucceeds },
             new FakeNamedPipeClient(),
-            new FakePreferencesStore());
+            new FakePreferencesStore(),
+            new CapturedPhotoBuffer());
 
     [Fact]
     public void InitialState_NotCaptured()
@@ -35,6 +37,27 @@ public sealed class PhotoCaptureWindowViewModelTests
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         Assert.True(vm.IsCaptured);
         Assert.False(vm.IsCapturing);
+    }
+
+    [Fact]
+    public async Task CapturePhotoCommand_ExposesCapturedBytesForConfirmation()
+    {
+        var vm = MakeVm(cameraSucceeds: true);
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.Equal([0xFF, 0xD8, 0xFF], vm.CapturedPhotoBytes);
+    }
+
+    [Fact]
+    public async Task SetContext_ClearsCapturedPhotoConfirmation()
+    {
+        var vm = MakeVm(cameraSucceeds: true);
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        vm.SetContext("clockin");
+
+        Assert.Null(vm.CapturedPhotoBytes);
     }
 
     [Fact]
@@ -72,7 +95,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     public async Task CapturePhotoCommand_CallsCameraService()
     {
         var fake = new FakeCameraService { ShouldReturnPhoto = true };
-        var vm   = new PhotoCaptureWindowViewModel(fake, new FakeNamedPipeClient(), new FakePreferencesStore());
+        var vm   = new PhotoCaptureWindowViewModel(fake, new FakeNamedPipeClient(), new FakePreferencesStore(), new CapturedPhotoBuffer());
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         Assert.Equal(1, fake.CallCount);
     }
@@ -87,7 +110,7 @@ public sealed class PhotoCaptureWindowViewModelTests
 
         var pipe = new FakeNamedPipeClient();
         var vm   = new PhotoCaptureWindowViewModel(
-            new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs);
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
 
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         await vm.ContinueCommand.ExecuteAsync(null);
@@ -107,9 +130,10 @@ public sealed class PhotoCaptureWindowViewModelTests
     [Fact]
     public async Task Continue_ClockinContext_SendsLifecycleClockInBeforeSubmittingPhoto()
     {
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
         var pipe = new FakeNamedPipeClient();
         var vm   = new PhotoCaptureWindowViewModel(
-            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore());
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
         vm.SetContext("clockin");
 
         await vm.CapturePhotoCommand.ExecuteAsync(null);
@@ -122,12 +146,13 @@ public sealed class PhotoCaptureWindowViewModelTests
     [Fact]
     public async Task Continue_ClockinContext_DoesNotSubmitPhotoWhenLifecycleFails()
     {
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
         var pipe = new FakeNamedPipeClient
         {
             NextLifecycleResult = new LifecycleResultPayload(false, "device_locked", "Device is locked.", MonitoringState.Stopped, null)
         };
         var vm = new PhotoCaptureWindowViewModel(
-            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore());
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
         vm.SetContext("clockin");
 
         await vm.CapturePhotoCommand.ExecuteAsync(null);

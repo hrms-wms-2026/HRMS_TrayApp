@@ -22,6 +22,13 @@ public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
                 else
                     StopScanAnimation();
             }
+            else if (e.PropertyName == nameof(PhotoCaptureWindowViewModel.CapturedPhotoBytes))
+            {
+                var bytes = vm.CapturedPhotoBytes;
+                CapturedPhotoPreview.Source = bytes is { Length: > 0 }
+                    ? ImageSource.FromStream(() => new MemoryStream(bytes))
+                    : null;
+            }
         };
     }
 
@@ -46,7 +53,7 @@ public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
     private void StartScanAnimation()
     {
         // ScanLine travels from top (0) to bottom of the inner circle frame
-        const double frameHeight = 224;
+        const double frameHeight = 204;
         _scanAnimation = new Animation(v => ScanLine.TranslationY = v,
                                        start: 0,
                                        end: frameHeight,

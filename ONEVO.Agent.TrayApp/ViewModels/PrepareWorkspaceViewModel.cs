@@ -46,13 +46,6 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    private async Task NavigateToLocation()
-    {
-        try { await Shell.Current.GoToAsync("//location"); }
-        catch { /* unit tests */ }
-    }
-
-    [RelayCommand]
     private async Task NavigateToPhoto()
     {
         try { await Shell.Current.GoToAsync("//photo"); }
@@ -62,7 +55,7 @@ public sealed partial class PrepareWorkspaceViewModel : BaseViewModel
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private async Task ContinueSetup()
     {
-        try { await Shell.Current.GoToAsync("//location"); }
+        try { await Shell.Current.GoToAsync("//photo"); }
         catch { /* unit tests */ }
     }
 }

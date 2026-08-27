@@ -52,11 +52,4 @@ public sealed class ReviewSetupViewModelTests
         var vm = new ReviewSetupViewModel();
         Assert.Equal(string.Empty, vm.FullName);
     }
-
-    [Fact]
-    public void WorkLocation_DefaultsEmpty()
-    {
-        var vm = new ReviewSetupViewModel();
-        Assert.Equal(string.Empty, vm.WorkLocation);
-    }
 }

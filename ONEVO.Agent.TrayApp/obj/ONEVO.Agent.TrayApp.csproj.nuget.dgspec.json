@@ -67,7 +67,9 @@
             "Microsoft.Maui.Controls": "10.0.20",
             "Microsoft.NET.Test.Sdk": "17.12.0",
             "Microsoft.Web.WebView2": "1.0.4129.50",
+            "Microsoft.Win32.SystemEvents": "9.0.0",
             "Microsoft.WindowsAppSDK": "1.7.250909003",
+            "QuestPDF": "2025.7.0",
             "SQLitePCLRaw.bundle_e_sqlite3": "3.0.5",
             "System.Drawing.Common": "9.0.0",
             "System.Security.Cryptography.ProtectedData": "9.0.0",
@@ -442,6 +444,11 @@
               "target": "Package",
               "version": "[1.7.250909003, )",
               "versionCentrallyManaged": true
+            },
+            "QuestPDF": {
+              "target": "Package",
+              "version": "[2025.7.0, )",
+              "versionCentrallyManaged": true
             }
           },
           "centralPackageVersions": {
@@ -457,7 +464,9 @@
             "Microsoft.Maui.Controls": "10.0.20",
             "Microsoft.NET.Test.Sdk": "17.12.0",
             "Microsoft.Web.WebView2": "1.0.4129.50",
+            "Microsoft.Win32.SystemEvents": "9.0.0",
             "Microsoft.WindowsAppSDK": "1.7.250909003",
+            "QuestPDF": "2025.7.0",
             "SQLitePCLRaw.bundle_e_sqlite3": "3.0.5",
             "System.Drawing.Common": "9.0.0",
             "System.Security.Cryptography.ProtectedData": "9.0.0",
