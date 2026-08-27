@@ -15,7 +15,7 @@ public sealed class InactivityScreenshotCollectorTests
         ScreenshotEnabled = true,
         InactivityScreenshotEnabled = true,
         CameraVerificationEnabled = false,
-        IdleThresholdMinutes = 5,
+        IdleThresholdMinutes = 2,
         ValidUntil = validUntil ?? DateTimeOffset.UtcNow.AddHours(1)
     };
 
@@ -36,18 +36,42 @@ public sealed class InactivityScreenshotCollectorTests
     }
 
     [Theory]
-    [InlineData(299, 0)]
-    [InlineData(300, 1)]
-    [InlineData(599, 1)]
-    [InlineData(600, 2)]
-    public async Task Prompts_once_per_five_minute_bucket(int idleSeconds, int expected)
+    [InlineData(119, 0)]
+    [InlineData(120, 1)]
+    [InlineData(239, 1)]
+    [InlineData(240, 2)]
+    public async Task Prompts_once_per_two_minute_bucket(int idleSeconds, int expected)
     {
         await _sut.StartAsync(EnabledPolicy(), default);
-        if (idleSeconds >= 300)
-            await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
-        if (idleSeconds >= 600)
-            await _sut.EvaluateAsync(600, DateTimeOffset.Parse("2026-08-10T01:10:00Z"), default);
+        if (idleSeconds >= 120)
+            await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:02:00Z"), default);
+        if (idleSeconds >= 240)
+            await _sut.EvaluateAsync(240, DateTimeOffset.Parse("2026-08-10T01:04:00Z"), default);
         Assert.Equal(expected, _prompt.RequestCount);
+    }
+
+    [Fact]
+    public async Task AgentPolicy_default_threshold_prompts_at_two_minutes()
+    {
+        var defaultPolicy = new AgentPolicy
+        {
+            Version = "v1",
+            ActivitySignalEnabled = true,
+            AppUsageEnabled = false,
+            ScreenshotEnabled = true,
+            InactivityScreenshotEnabled = true,
+            CameraVerificationEnabled = false,
+            ValidUntil = DateTimeOffset.UtcNow.AddHours(1)
+        };
+
+        await _sut.StartAsync(defaultPolicy, default);
+
+        await _sut.EvaluateAsync(119, DateTimeOffset.Parse("2026-08-10T01:01:59Z"), default);
+        Assert.Equal(0, _prompt.RequestCount);
+
+        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:02:00Z"), default);
+
+        Assert.Equal(1, _prompt.RequestCount);
     }
 
     [Fact]
@@ -56,9 +80,9 @@ public sealed class InactivityScreenshotCollectorTests
         var tenMinutePolicy = EnabledPolicy() with { IdleThresholdMinutes = 10 };
         await _sut.StartAsync(tenMinutePolicy, default);
 
-        // 300s (the old hardcoded default, and still the value every other test in this file
-        // uses) must NOT fire a prompt once the collector is configured for 10 minutes.
-        await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
+        // 120s (the default this file uses) must NOT fire a prompt once the collector is
+        // configured for 10 minutes.
+        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:02:00Z"), default);
         Assert.Equal(0, _prompt.RequestCount);
 
         // The policy's actual configured threshold (600s) must fire it.

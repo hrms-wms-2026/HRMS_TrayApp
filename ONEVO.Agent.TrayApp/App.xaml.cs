@@ -1,6 +1,7 @@
 namespace ONEVO.Agent.TrayApp;
 
 using ONEVO.Agent.TrayApp.Collectors;
+using ONEVO.Agent.TrayApp.Controls;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
@@ -117,10 +118,10 @@ public partial class App : Microsoft.Maui.Controls.Application
         var window = new Window(shell)
         {
             Title         = "OneXso WorkPulse",
-            Width         = 960,
-            Height        = 700,
-            MinimumWidth  = 900,
-            MinimumHeight = 640
+            Width         = TrayLayoutMetrics.DefaultWindowWidth,
+            Height        = TrayLayoutMetrics.DefaultWindowHeight,
+            MinimumWidth  = TrayLayoutMetrics.MinimumWindowWidth,
+            MinimumHeight = TrayLayoutMetrics.MinimumWindowHeight
         };
 
         window.Created    += (_, _) =>

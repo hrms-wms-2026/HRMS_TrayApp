@@ -1,5 +1,6 @@
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
 
@@ -7,8 +8,8 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 
 public sealed class ClockInViewModelTests
 {
-    private static ClockInViewModel Make(FakeNamedPipeClient? pipe = null) =>
-        new(pipe ?? new FakeNamedPipeClient());
+    private static ClockInViewModel Make(FakeNamedPipeClient? pipe = null, IPreferencesStore? preferences = null) =>
+        new(pipe ?? new FakeNamedPipeClient(), preferences ?? new FakePreferencesStore());
 
     [Fact]
     public void LiveTimer_DefaultsToZeroUntilClockIn()
@@ -50,7 +51,7 @@ public sealed class ClockInViewModelTests
     public async Task ClockInCommand_SendsLifecycleClockIn()
     {
         var pipe = new FakeNamedPipeClient();
-        var vm   = new ClockInViewModel(pipe);
+        var vm   = new ClockInViewModel(pipe, new FakePreferencesStore());
         await vm.ClockInCommand.ExecuteAsync(null);
         Assert.Contains(LifecycleAction.ClockIn, pipe.LifecycleActions);
     }
@@ -64,7 +65,7 @@ public sealed class ClockInViewModelTests
                 false, "ALREADY_CLOCKED_IN", "You are already clocked in.",
                 MonitoringState.Active, null)
         };
-        var vm = new ClockInViewModel(pipe);
+        var vm = new ClockInViewModel(pipe, new FakePreferencesStore());
         await vm.ClockInCommand.ExecuteAsync(null);
         Assert.Equal("You are already clocked in.", vm.ErrorMessage);
     }
@@ -74,5 +75,26 @@ public sealed class ClockInViewModelTests
     {
         var vm = Make();
         Assert.True(vm.ClockInCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void EmployeeName_RefreshesOnAppearing_AfterSignOutAndReLogin()
+    {
+        // Regression: ClockInPage is a cached Shell tab, so its ViewModel is
+        // constructed once and reused across sign-out/re-activation cycles.
+        // EmployeeName must be re-read from preferences on every OnAppearing,
+        // not only once at construction, or the previous employee's name
+        // survives into the next employee's session.
+        var preferences = new FakePreferencesStore();
+        preferences.Set(SessionPreferenceKeys.EmployeeDisplayName, "Alice");
+        var vm = Make(preferences: preferences);
+        Assert.Equal("Alice", vm.EmployeeName);
+
+        // Simulate sign-out clearing the session and a different employee
+        // activating on the same device.
+        preferences.Set(SessionPreferenceKeys.EmployeeDisplayName, "Bob");
+        vm.OnAppearing();
+
+        Assert.Equal("Bob", vm.EmployeeName);
     }
 }

@@ -10,4 +10,6 @@ public sealed class FakePreferencesStore : IPreferencesStore
         _values.TryGetValue(key, out var value) ? value : defaultValue;
 
     public void Set(string key, string value) => _values[key] = value;
+
+    public void Remove(string key) => _values.Remove(key);
 }

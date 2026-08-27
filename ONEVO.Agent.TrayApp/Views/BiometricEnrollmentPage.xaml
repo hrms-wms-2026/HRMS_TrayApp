@@ -7,7 +7,7 @@
              x:DataType="vm:BiometricEnrollmentViewModel"
              Title="{Binding Title}">
 
-  <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
+  <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource TrayPagePadding}">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />

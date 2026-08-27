@@ -5,20 +5,23 @@
              xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.PhotoCaptureWindow"
              x:DataType="vm:PhotoCaptureWindowViewModel"
+             Shell.NavBarIsVisible="False"
              Title="Face Verification">
 
-  <Grid RowDefinitions="Auto,*,Auto" Padding="20,12,20,8">
+  <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource TrayPagePadding}">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
-        <GradientStop Color="#EEF2FF" Offset="0.5" />
+        <GradientStop Color="#F2F6FF" Offset="0.5" />
         <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
       </LinearGradientBrush>
     </Grid.Background>
 
-    <Ellipse Grid.RowSpan="3" WidthRequest="520" HeightRequest="520"
-             HorizontalOptions="Center" VerticalOptions="Center" Opacity="0.85"
-             InputTransparent="True">
+    <!-- One restrained cyan glow behind the camera and a soft purple wash above. -->
+    <Ellipse Grid.RowSpan="3"
+             WidthRequest="560" HeightRequest="560"
+             HorizontalOptions="Center" VerticalOptions="Center"
+             Opacity="0.72" InputTransparent="True">
       <Ellipse.Fill>
         <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
           <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
@@ -26,9 +29,11 @@
         </RadialGradientBrush>
       </Ellipse.Fill>
     </Ellipse>
-    <Ellipse Grid.RowSpan="3" WidthRequest="380" HeightRequest="380"
-             HorizontalOptions="End" VerticalOptions="Start" Margin="0,-80,-80,0" Opacity="0.7"
-             InputTransparent="True">
+    <Ellipse Grid.RowSpan="3"
+             WidthRequest="420" HeightRequest="420"
+             HorizontalOptions="End" VerticalOptions="Start"
+             Margin="0,-130,-110,0"
+             Opacity="0.58" InputTransparent="True">
       <Ellipse.Fill>
         <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
           <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
@@ -37,102 +42,148 @@
       </Ellipse.Fill>
     </Ellipse>
 
-    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
+    <!-- This setup reference uses the WorkPulse product name. -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="10" Padding="0,0,0,2">
+      <Image Source="onexso_x_mark.png"
+             WidthRequest="36" HeightRequest="36"
+             Aspect="AspectFit"
+             VerticalOptions="Center" />
+      <Label Grid.Column="1"
+             Text="OneXso WorkPulse"
+             FontSize="14" FontAttributes="Bold"
+             TextColor="{StaticResource TextPrimary}"
+             VerticalOptions="Center" />
+    </Grid>
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto"
-          Padding="12,0" HorizontalOptions="Center" MaximumWidthRequest="540">
+    <Grid Grid.Row="1"
+          RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto"
+          HorizontalOptions="Fill"
+          VerticalOptions="Center"
+          MaximumWidthRequest="660"
+          Padding="12,0">
 
-        <HorizontalStackLayout Grid.Row="0" HorizontalOptions="Center" Spacing="6">
-          <Label Text="Face " Style="{StaticResource PageTitle}" FontSize="22" />
-          <Label Text="Verification" Style="{StaticResource PageTitleBrand}" FontSize="22" />
+      <Label Grid.Row="0"
+             FontSize="25"
+             FontAttributes="Bold"
+             HorizontalTextAlignment="Center"
+             HorizontalOptions="Center">
+        <Label.FormattedText>
+          <FormattedString>
+            <Span Text="Set Up " TextColor="{StaticResource TextPrimary}" />
+            <Span Text="Face Verification" TextColor="{StaticResource BrandTitle}" />
+          </FormattedString>
+        </Label.FormattedText>
+      </Label>
+
+      <Border Grid.Row="1"
+              StrokeShape="RoundRectangle 16"
+              Stroke="{StaticResource SoftOutline}"
+              StrokeThickness="1"
+              BackgroundColor="{StaticResource AccentSoft}"
+              Padding="10,4"
+              Margin="0,5,0,0"
+              HorizontalOptions="Center">
+        <HorizontalStackLayout Spacing="6">
+          <Label Text="{StaticResource IconShield}"
+                 FontFamily="Segoe MDL2 Assets"
+                 FontSize="12"
+                 TextColor="{StaticResource BrandTitle}"
+                 VerticalOptions="Center" />
+          <Label Text="Identity Enrolment"
+                 FontSize="12"
+                 TextColor="{StaticResource BrandTitle}"
+                 VerticalOptions="Center" />
         </HorizontalStackLayout>
-        <Label Grid.Row="1"
-               Text="Look at the camera and keep your face within the frame."
-               Style="{StaticResource PageSubtitle}" Margin="0,4,0,8" />
+      </Border>
 
-        <!-- Face frame + floating capture button -->
-        <Grid Grid.Row="2" WidthRequest="260" HeightRequest="260"
-              HorizontalOptions="Center" VerticalOptions="Center">
+      <Label Grid.Row="2"
+             Text="Look at the camera and keep your face within the frame."
+             Style="{StaticResource PageSubtitle}"
+             Margin="0,8,0,4" />
 
-          <!-- Soft outer glow -->
-          <Ellipse WidthRequest="260" HeightRequest="260" Opacity="0.55"
-                   HorizontalOptions="Center" VerticalOptions="Center">
-            <Ellipse.Fill>
-              <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-                <GradientStop Color="#9922C7F0" Offset="0.55" />
-                <GradientStop Color="#666D28D9" Offset="0.82" />
-                <GradientStop Color="#0022C7F0" Offset="1" />
-              </RadialGradientBrush>
-            </Ellipse.Fill>
-          </Ellipse>
+      <!-- Live preview and captured confirmation share the circular brand ring. -->
+      <Grid Grid.Row="3"
+            WidthRequest="{StaticResource TrayFaceFrameOuterSize}"
+            HeightRequest="{StaticResource TrayFaceFrameOuterSize}"
+            HorizontalOptions="Center"
+            VerticalOptions="Center">
 
-          <!-- Gradient ring -->
-          <Border WidthRequest="244" HeightRequest="244"
-                  StrokeShape="RoundRectangle 122"
+        <Ellipse WidthRequest="{StaticResource TrayFaceFrameOuterSize}"
+                 HeightRequest="{StaticResource TrayFaceFrameOuterSize}"
+                 Opacity="0.6"
+                 HorizontalOptions="Center"
+                 VerticalOptions="Center">
+          <Ellipse.Fill>
+            <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+              <GradientStop Color="#B322C7F0" Offset="0.56" />
+              <GradientStop Color="#806D28D9" Offset="0.82" />
+              <GradientStop Color="#0022C7F0" Offset="1" />
+            </RadialGradientBrush>
+          </Ellipse.Fill>
+        </Ellipse>
+
+        <Border WidthRequest="{StaticResource TrayFaceFrameRingSize}"
+                HeightRequest="{StaticResource TrayFaceFrameRingSize}"
+                StrokeShape="RoundRectangle 110"
+                StrokeThickness="0"
+                HorizontalOptions="Center"
+                VerticalOptions="Center">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
+              <GradientStop Color="{StaticResource PrimaryGradientMid}" Offset="0.52" />
+              <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Border.Shadow>
+            <Shadow Brush="#66175CFF" Offset="0,8" Radius="24" Opacity="0.45" />
+          </Border.Shadow>
+
+          <Border WidthRequest="{StaticResource TrayFaceFrameInnerSize}"
+                  HeightRequest="{StaticResource TrayFaceFrameInnerSize}"
+                  StrokeShape="RoundRectangle 102"
                   StrokeThickness="0"
+                  BackgroundColor="#EAF0FF"
                   HorizontalOptions="Center"
                   VerticalOptions="Center">
-            <Border.Background>
-              <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#22C7F0" Offset="0" />
-                <GradientStop Color="#175CFF" Offset="0.5" />
-                <GradientStop Color="#6D28D9" Offset="1" />
-              </LinearGradientBrush>
-            </Border.Background>
-            <Border.Shadow>
-              <Shadow Brush="#66175CFF" Offset="0,8" Radius="24" Opacity="0.45" />
-            </Border.Shadow>
+            <Grid WidthRequest="{StaticResource TrayFaceFrameInnerSize}"
+                  HeightRequest="{StaticResource TrayFaceFrameInnerSize}">
 
-            <!-- Inner clip ring -->
-            <Border WidthRequest="224" HeightRequest="224"
-                    StrokeShape="RoundRectangle 112"
-                    StrokeThickness="0"
-                    BackgroundColor="Transparent"
-                    HorizontalOptions="Center" VerticalOptions="Center">
+              <controls:CameraPreview
+                  FrameSource="{Binding PreviewFrameSource}"
+                  HorizontalOptions="Fill"
+                  VerticalOptions="Fill"
+                  IsVisible="{Binding IsCaptured, Converter={StaticResource InvertBoolConverter}}" />
 
-              <Grid WidthRequest="224" HeightRequest="224"
-                    HorizontalOptions="Center" VerticalOptions="Center">
+              <Image x:Name="CapturedPhotoPreview"
+                     Aspect="AspectFill"
+                     HorizontalOptions="Fill"
+                     VerticalOptions="Fill"
+                     IsVisible="{Binding IsCaptured}" />
 
-                <!-- Live camera — keep this; user said the middle camera photo is OK -->
-                <controls:CameraPreview
-                    FrameSource="{Binding PreviewFrameSource}"
-                    HorizontalOptions="Fill" VerticalOptions="Fill"
-                    IsVisible="{Binding IsCaptured, Converter={StaticResource InvertBoolConverter}}" />
+              <!-- Viewfinder marks and scan line only appear over the live preview. -->
+              <Grid IsVisible="{Binding IsCaptured, Converter={StaticResource InvertBoolConverter}}">
+                <BoxView WidthRequest="24" HeightRequest="3" Color="#EFFFFFFF"
+                         HorizontalOptions="Start" VerticalOptions="Start" Margin="20,20,0,0" />
+                <BoxView WidthRequest="3" HeightRequest="24" Color="#EFFFFFFF"
+                         HorizontalOptions="Start" VerticalOptions="Start" Margin="20,20,0,0" />
+                <BoxView WidthRequest="24" HeightRequest="3" Color="#EFFFFFFF"
+                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,20,20,0" />
+                <BoxView WidthRequest="3" HeightRequest="24" Color="#EFFFFFFF"
+                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,20,20,0" />
+                <BoxView WidthRequest="24" HeightRequest="3" Color="#EFFFFFFF"
+                         HorizontalOptions="Start" VerticalOptions="End" Margin="20,0,0,20" />
+                <BoxView WidthRequest="3" HeightRequest="24" Color="#EFFFFFFF"
+                         HorizontalOptions="Start" VerticalOptions="End" Margin="20,0,0,20" />
+                <BoxView WidthRequest="24" HeightRequest="3" Color="#EFFFFFFF"
+                         HorizontalOptions="End" VerticalOptions="End" Margin="0,0,20,20" />
+                <BoxView WidthRequest="3" HeightRequest="24" Color="#EFFFFFFF"
+                         HorizontalOptions="End" VerticalOptions="End" Margin="0,0,20,20" />
 
-                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                     IsVisible="{Binding IsCaptured}">
-                  <Border WidthRequest="80" HeightRequest="80"
-                          StrokeShape="RoundRectangle 40" StrokeThickness="0"
-                          BackgroundColor="{StaticResource StatusGreen}"
-                          HorizontalOptions="Center">
-                    <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
-                           FontSize="36" TextColor="White"
-                           HorizontalOptions="Center" VerticalOptions="Center" />
-                  </Border>
-                </VerticalStackLayout>
-
-                <!-- Viewfinder corners -->
-                <BoxView WidthRequest="28" HeightRequest="3" Color="#E6FFFFFF"
-                         HorizontalOptions="Start" VerticalOptions="Start" Margin="22,22,0,0" />
-                <BoxView WidthRequest="3" HeightRequest="28" Color="#E6FFFFFF"
-                         HorizontalOptions="Start" VerticalOptions="Start" Margin="22,22,0,0" />
-                <BoxView WidthRequest="28" HeightRequest="3" Color="#E6FFFFFF"
-                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,22,22,0" />
-                <BoxView WidthRequest="3" HeightRequest="28" Color="#E6FFFFFF"
-                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,22,22,0" />
-                <BoxView WidthRequest="28" HeightRequest="3" Color="#E6FFFFFF"
-                         HorizontalOptions="Start" VerticalOptions="End" Margin="22,0,0,22" />
-                <BoxView WidthRequest="3" HeightRequest="28" Color="#E6FFFFFF"
-                         HorizontalOptions="Start" VerticalOptions="End" Margin="22,0,0,22" />
-                <BoxView WidthRequest="28" HeightRequest="3" Color="#E6FFFFFF"
-                         HorizontalOptions="End" VerticalOptions="End" Margin="0,0,22,22" />
-                <BoxView WidthRequest="3" HeightRequest="28" Color="#E6FFFFFF"
-                         HorizontalOptions="End" VerticalOptions="End" Margin="0,0,22,22" />
-
-                <!-- Scan line -->
                 <BoxView x:Name="ScanLine"
-                         HeightRequest="4"
-                         HorizontalOptions="Fill" VerticalOptions="Start"
+                         HeightRequest="3"
+                         HorizontalOptions="Fill"
+                         VerticalOptions="Start"
                          IsVisible="{Binding IsScanAnimating}">
                   <BoxView.Background>
                     <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
@@ -145,76 +196,209 @@
                   </BoxView.Background>
                 </BoxView>
               </Grid>
-            </Border>
-          </Border>
-
-          <!-- Camera capture button — glass circle at the lower-right of the ring -->
-          <Border WidthRequest="48" HeightRequest="48"
-                  StrokeShape="RoundRectangle 24"
-                  Stroke="{StaticResource SoftOutline}" StrokeThickness="1.2"
-                  HorizontalOptions="End" VerticalOptions="End"
-                  Margin="0,0,4,10">
-            <Border.Background>
-              <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="{StaticResource GlassSurfaceTop}" Offset="0" />
-                <GradientStop Color="{StaticResource GlassSurfaceBottom}" Offset="1" />
-              </LinearGradientBrush>
-            </Border.Background>
-            <Border.Shadow>
-              <Shadow Brush="#22003366" Offset="0,6" Radius="14" Opacity="0.2" />
-            </Border.Shadow>
-            <Grid>
-              <Button Command="{Binding CapturePhotoCommand}"
-                      BackgroundColor="Transparent"
-                      Text=""
-                      IsEnabled="{Binding IsCapturing, Converter={StaticResource InvertBoolConverter}}"
-                      SemanticProperties.Description="Capture photo" />
-              <Label InputTransparent="True"
-                     Text="{StaticResource IconCamera}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="20" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
             </Grid>
           </Border>
-        </Grid>
+        </Border>
 
-        <VerticalStackLayout Grid.Row="3" Spacing="4" Margin="0,8,0,0">
-          <Label Text="{Binding CaptureStatusText}"
-                 Style="{StaticResource PageSubtitle}"
-                 IsVisible="{Binding ShowStatusBelow}" />
-          <ActivityIndicator IsRunning="{Binding IsCapturing}"
-                             IsVisible="{Binding IsCapturing}"
-                             Color="{StaticResource Primary}"
-                             WidthRequest="28" HeightRequest="28"
-                             HorizontalOptions="Center" />
-        </VerticalStackLayout>
+        <!-- Capture/retake control floats over the lower-right edge of the ring. -->
+        <Border WidthRequest="48" HeightRequest="48"
+                StrokeShape="RoundRectangle 24"
+                Stroke="{StaticResource SoftOutline}"
+                StrokeThickness="1.2"
+                HorizontalOptions="End"
+                VerticalOptions="End"
+                Margin="0,0,-2,3">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="{StaticResource GlassSurfaceTop}" Offset="0" />
+              <GradientStop Color="{StaticResource GlassSurfaceBottom}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Border.Shadow>
+            <Shadow Brush="#33003366" Offset="0,6" Radius="14" Opacity="0.24" />
+          </Border.Shadow>
+          <Grid>
+            <Button Command="{Binding CapturePhotoCommand}"
+                    BackgroundColor="Transparent"
+                    Text=""
+                    IsEnabled="{Binding IsCapturing, Converter={StaticResource InvertBoolConverter}}"
+                    SemanticProperties.Description="Capture or retake photo" />
+            <Label InputTransparent="True"
+                   Text="{StaticResource IconCamera}"
+                   FontFamily="Segoe MDL2 Assets"
+                   FontSize="20"
+                   TextColor="{StaticResource Primary}"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center" />
+          </Grid>
+        </Border>
+      </Grid>
 
-        <Border Grid.Row="4" Style="{StaticResource GlassCard}" Margin="0,8,0,8" Padding="12,10">
-          <HorizontalStackLayout Spacing="12">
-            <Border Style="{StaticResource IconTile}" WidthRequest="36" HeightRequest="36"
-                    StrokeShape="RoundRectangle 18">
-              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="15" TextColor="{StaticResource BrandTitle}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
+      <!-- Captured success, scanning, and error states share one compact status row. -->
+      <Grid Grid.Row="4" Margin="0,4,0,5" MinimumHeightRequest="38">
+        <Border IsVisible="{Binding IsCaptured}"
+                StrokeShape="RoundRectangle 13"
+                Stroke="{StaticResource GlassBorderStart}"
+                StrokeThickness="1"
+                BackgroundColor="{StaticResource GlassSurfaceTop}"
+                Padding="14,7"
+                HorizontalOptions="Center">
+          <HorizontalStackLayout Spacing="8">
+            <Border WidthRequest="20" HeightRequest="20"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0"
+                    BackgroundColor="{StaticResource BrandTitle}">
+              <Label Text="{StaticResource IconCheck}"
+                     FontFamily="Segoe MDL2 Assets"
+                     FontSize="11"
+                     TextColor="White"
+                     HorizontalOptions="Center"
+                     VerticalOptions="Center" />
             </Border>
-            <Label Text="This profile picture will be used for&#x0a;secure employee verification."
-                   FontSize="12" TextColor="{StaticResource TextSecondary}"
+            <Label Text="{Binding CaptureStatusText}"
+                   FontSize="12"
+                   FontAttributes="Bold"
+                   TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" />
           </HorizontalStackLayout>
         </Border>
 
-        <Border Grid.Row="5" Style="{StaticResource GradientButtonBorder}" MaximumWidthRequest="420"
+        <Border IsVisible="{Binding ShowStatusBelow}"
+                StrokeShape="RoundRectangle 13"
+                Stroke="{StaticResource GlassBorderStart}"
+                StrokeThickness="1"
+                BackgroundColor="{StaticResource GlassSurfaceTop}"
+                Padding="14,7"
                 HorizontalOptions="Center">
-          <Border.Background>
-            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
-              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
-              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
-            </LinearGradientBrush>
-          </Border.Background>
-          <Button Text="Continue"
-                  Command="{Binding ContinueCommand}"
-                  Style="{StaticResource GradientButtonOverlay}" />
+          <Border.Triggers>
+            <DataTrigger TargetType="Border" Binding="{Binding IsCaptured}" Value="True">
+              <Setter Property="IsVisible" Value="False" />
+            </DataTrigger>
+          </Border.Triggers>
+          <HorizontalStackLayout Spacing="8">
+            <ActivityIndicator IsRunning="{Binding IsCapturing}"
+                               IsVisible="{Binding IsCapturing}"
+                               Color="{StaticResource Primary}"
+                               WidthRequest="18" HeightRequest="18" />
+            <Label Text="{Binding CaptureStatusText}"
+                   FontSize="12"
+                   FontAttributes="Bold"
+                   TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" />
+          </HorizontalStackLayout>
         </Border>
+      </Grid>
+
+      <Border Grid.Row="5"
+              Style="{StaticResource TrayDenseGlassCard}"
+              Padding="12,8"
+              Margin="0,0,0,8"
+              IsVisible="{Binding IsCaptured}"
+              HorizontalOptions="Fill">
+        <Grid ColumnDefinitions="*,Auto,*,Auto,*" ColumnSpacing="10">
+          <HorizontalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center">
+            <Border WidthRequest="19" HeightRequest="19"
+                    StrokeShape="RoundRectangle 9.5"
+                    Stroke="{StaticResource StatusGreen}"
+                    StrokeThickness="1.5"
+                    BackgroundColor="#F2FFF7">
+              <Label Text="{StaticResource IconCheck}"
+                     FontFamily="Segoe MDL2 Assets"
+                     FontSize="10"
+                     TextColor="{StaticResource StatusGreen}"
+                     HorizontalOptions="Center"
+                     VerticalOptions="Center" />
+            </Border>
+            <Label Text="Good lighting"
+                   FontSize="11"
+                   TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" />
+          </HorizontalStackLayout>
+
+          <BoxView Grid.Column="1" WidthRequest="1" HeightRequest="22"
+                   Color="{StaticResource Separator}"
+                   VerticalOptions="Center" />
+
+          <HorizontalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center">
+            <Border WidthRequest="19" HeightRequest="19"
+                    StrokeShape="RoundRectangle 9.5"
+                    Stroke="{StaticResource StatusGreen}"
+                    StrokeThickness="1.5"
+                    BackgroundColor="#F2FFF7">
+              <Label Text="{StaticResource IconCheck}"
+                     FontFamily="Segoe MDL2 Assets"
+                     FontSize="10"
+                     TextColor="{StaticResource StatusGreen}"
+                     HorizontalOptions="Center"
+                     VerticalOptions="Center" />
+            </Border>
+            <Label Text="Face clearly visible"
+                   FontSize="11"
+                   TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" />
+          </HorizontalStackLayout>
+
+          <BoxView Grid.Column="3" WidthRequest="1" HeightRequest="22"
+                   Color="{StaticResource Separator}"
+                   VerticalOptions="Center" />
+
+          <HorizontalStackLayout Grid.Column="4" Spacing="7" HorizontalOptions="Center">
+            <Border WidthRequest="19" HeightRequest="19"
+                    StrokeShape="RoundRectangle 9.5"
+                    Stroke="{StaticResource StatusGreen}"
+                    StrokeThickness="1.5"
+                    BackgroundColor="#F2FFF7">
+              <Label Text="{StaticResource IconCheck}"
+                     FontFamily="Segoe MDL2 Assets"
+                     FontSize="10"
+                     TextColor="{StaticResource StatusGreen}"
+                     HorizontalOptions="Center"
+                     VerticalOptions="Center" />
+            </Border>
+            <Label Text="No sunglasses or mask"
+                   FontSize="11"
+                   TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" />
+          </HorizontalStackLayout>
+        </Grid>
+      </Border>
+
+      <Border Grid.Row="6"
+              Style="{StaticResource TrayPrimaryActionBorder}"
+              HorizontalOptions="Fill"
+              MaximumWidthRequest="600">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+            <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+            <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <Button Text="Enroll &amp; Continue"
+                Command="{Binding ContinueCommand}"
+                Style="{StaticResource TrayPrimaryActionOverlay}" />
+      </Border>
+
+      <HorizontalStackLayout Grid.Row="7"
+                             Spacing="8"
+                             HorizontalOptions="Center"
+                             Margin="0,8,0,0">
+        <Border WidthRequest="28" HeightRequest="28"
+                StrokeShape="RoundRectangle 9"
+                StrokeThickness="0"
+                BackgroundColor="{StaticResource AccentSoft}">
+          <Label Text="{StaticResource IconShield}"
+                 FontFamily="Segoe MDL2 Assets"
+                 FontSize="12"
+                 TextColor="{StaticResource BrandTitle}"
+                 HorizontalOptions="Center"
+                 VerticalOptions="Center" />
+        </Border>
+        <Label Text="This reference will be used whenever identity verification is required."
+               FontSize="11"
+               TextColor="{StaticResource TextSecondary}"
+               VerticalOptions="Center" />
+      </HorizontalStackLayout>
     </Grid>
 
     <controls:FooterStatusBar Grid.Row="2"

@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:Class="ONEVO.Agent.TrayApp.Views.IdentityVerificationPage"
+             x:DataType="vm:IdentityVerificationViewModel"
+             Title="{Binding Title}">
+
+  <Grid RowDefinitions="Auto,*,Auto" Padding="20,16,20,8">
+    <Grid.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="#EEF2FF" Offset="0.5" />
+        <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
+      </LinearGradientBrush>
+    </Grid.Background>
+
+    <!-- Ambient glow — same treatment as the Face Verification / capture screen -->
+    <Ellipse Grid.RowSpan="3" WidthRequest="520" HeightRequest="520"
+             HorizontalOptions="Center" VerticalOptions="Center" Opacity="0.85"
+             InputTransparent="True">
+      <Ellipse.Fill>
+        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+          <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
+          <GradientStop Color="#00175CFF" Offset="1" />
+        </RadialGradientBrush>
+      </Ellipse.Fill>
+    </Ellipse>
+    <Ellipse Grid.RowSpan="3" WidthRequest="380" HeightRequest="380"
+             HorizontalOptions="End" VerticalOptions="Start" Margin="0,-80,-80,0" Opacity="0.7"
+             InputTransparent="True">
+      <Ellipse.Fill>
+        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+          <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
+          <GradientStop Color="#006D28D9" Offset="1" />
+        </RadialGradientBrush>
+      </Ellipse.Fill>
+    </Ellipse>
+
+    <!-- ── "Clock-in verification" pill ─────────────────────────────────── -->
+    <Border Grid.Row="0" StrokeShape="RoundRectangle 20" StrokeThickness="1"
+            Stroke="{StaticResource SoftOutline}" BackgroundColor="{StaticResource PrimarySoft}"
+            Padding="14,6" HorizontalOptions="Center">
+      <HorizontalStackLayout Spacing="8">
+        <ActivityIndicator IsRunning="True" Color="{StaticResource Primary}"
+                            WidthRequest="14" HeightRequest="14" />
+        <Label Text="Clock-in verification" FontSize="12" FontAttributes="Bold"
+               TextColor="{StaticResource Primary}" />
+      </HorizontalStackLayout>
+    </Border>
+
+    <!-- ── Body ──────────────────────────────────────────────────────────── -->
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto"
+          Padding="12,0" HorizontalOptions="Center" MaximumWidthRequest="540">
+
+      <HorizontalStackLayout Grid.Row="0" HorizontalOptions="Center" Spacing="6" Margin="0,14,0,0">
+        <Label Text="Verify Your " Style="{StaticResource PageTitle}" FontSize="24" />
+        <Label Text="Identity" Style="{StaticResource PageTitleBrand}" FontSize="24" />
+      </HorizontalStackLayout>
+      <Label Grid.Row="1"
+             Text="This check is required by your organisation before clock-in."
+             Style="{StaticResource PageSubtitle}" Margin="0,4,0,8" />
+
+      <!-- Verification photo + gradient progress ring + match badge -->
+      <Grid Grid.Row="2" WidthRequest="{StaticResource TrayFaceFrameOuterSize}" HeightRequest="{StaticResource TrayFaceFrameOuterSize}"
+            HorizontalOptions="Center" VerticalOptions="Center">
+
+        <Ellipse WidthRequest="{StaticResource TrayFaceFrameOuterSize}" HeightRequest="{StaticResource TrayFaceFrameOuterSize}" Opacity="0.55"
+                 HorizontalOptions="Center" VerticalOptions="Center">
+          <Ellipse.Fill>
+            <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+              <GradientStop Color="#9922C7F0" Offset="0.55" />
+              <GradientStop Color="#666D28D9" Offset="0.82" />
+              <GradientStop Color="#0022C7F0" Offset="1" />
+            </RadialGradientBrush>
+          </Ellipse.Fill>
+        </Ellipse>
+
+        <Border WidthRequest="244" HeightRequest="244"
+                StrokeShape="RoundRectangle 122" StrokeThickness="0"
+                HorizontalOptions="Center" VerticalOptions="Center">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Color="#22C7F0" Offset="0" />
+              <GradientStop Color="#175CFF" Offset="0.5" />
+              <GradientStop Color="#6D28D9" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Border.Shadow>
+            <Shadow Brush="#66175CFF" Offset="0,8" Radius="24" Opacity="0.45" />
+          </Border.Shadow>
+
+          <Border WidthRequest="224" HeightRequest="224"
+                  StrokeShape="RoundRectangle 112" StrokeThickness="0"
+                  BackgroundColor="{StaticResource PrimarySoft}"
+                  HorizontalOptions="Center" VerticalOptions="Center">
+
+            <Grid WidthRequest="224" HeightRequest="224"
+                  HorizontalOptions="Center" VerticalOptions="Center">
+
+              <Image Source="{Binding VerificationPhotoSource}"
+                     Aspect="AspectFill"
+                     HorizontalOptions="Fill" VerticalOptions="Fill"
+                     IsVisible="{Binding HasVerificationPhoto}" />
+
+              <Label Text="{StaticResource IconPerson}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="72" TextColor="{StaticResource SoftOutline}"
+                     HorizontalOptions="Center" VerticalOptions="Center"
+                     IsVisible="{Binding HasVerificationPhoto, Converter={StaticResource InvertBoolConverter}}" />
+            </Grid>
+          </Border>
+        </Border>
+
+        <!-- Match percentage badge -->
+        <Border WidthRequest="56" HeightRequest="56"
+                StrokeShape="RoundRectangle 28"
+                Stroke="{StaticResource SoftOutline}" StrokeThickness="1.2"
+                HorizontalOptions="End" VerticalOptions="End"
+                Margin="0,0,4,10">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="{StaticResource GlassSurfaceTop}" Offset="0" />
+              <GradientStop Color="{StaticResource GlassSurfaceBottom}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Border.Shadow>
+            <Shadow Brush="#22003366" Offset="0,6" Radius="14" Opacity="0.2" />
+          </Border.Shadow>
+          <Label Text="{Binding MatchPercentageText}" FontSize="15" FontAttributes="Bold"
+                 TextColor="{StaticResource Primary}"
+                 HorizontalOptions="Center" VerticalOptions="Center" />
+        </Border>
+      </Grid>
+
+      <!-- Matching status + progress -->
+      <HorizontalStackLayout Grid.Row="3" HorizontalOptions="Center" Spacing="8" Margin="0,10,0,6">
+        <ActivityIndicator IsRunning="True" Color="{StaticResource Primary}"
+                            WidthRequest="16" HeightRequest="16" />
+        <Label Text="{Binding StatusText}" FontSize="14" FontAttributes="Bold"
+               TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+      </HorizontalStackLayout>
+      <ProgressBar Grid.Row="4" Progress="{Binding MatchProgress}"
+                   ProgressColor="{StaticResource Primary}"
+                   HeightRequest="6" MaximumWidthRequest="360"
+                   Margin="0,0,0,14" />
+
+      <!-- Checklist chips -->
+      <Grid Grid.Row="5" ColumnDefinitions="*,*,*" ColumnSpacing="8" Margin="0,0,0,10">
+        <Border Grid.Column="0" Style="{StaticResource TrayCompactGlassCard}" Padding="8,8">
+          <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+            <Border WidthRequest="18" HeightRequest="18" StrokeShape="RoundRectangle 9" StrokeThickness="0"
+                    BackgroundColor="{StaticResource StatusGreen}"
+                    IsVisible="{Binding IsGoodLighting}">
+              <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="10" TextColor="White"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Text="Good lighting" FontSize="11" TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" LineBreakMode="TailTruncation" />
+          </HorizontalStackLayout>
+        </Border>
+
+        <Border Grid.Column="1" Style="{StaticResource TrayCompactGlassCard}" Padding="8,8">
+          <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+            <Border WidthRequest="18" HeightRequest="18" StrokeShape="RoundRectangle 9" StrokeThickness="0"
+                    BackgroundColor="{StaticResource StatusGreen}"
+                    IsVisible="{Binding IsFaceVisible}">
+              <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="10" TextColor="White"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Text="Face clearly visible" FontSize="11" TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" LineBreakMode="TailTruncation" />
+          </HorizontalStackLayout>
+        </Border>
+
+        <Border Grid.Column="2" Style="{StaticResource TrayCompactGlassCard}" Padding="8,8">
+          <HorizontalStackLayout Spacing="6" HorizontalOptions="Center">
+            <Border WidthRequest="18" HeightRequest="18" StrokeShape="RoundRectangle 9" StrokeThickness="0"
+                    BackgroundColor="{StaticResource StatusGreen}"
+                    IsVisible="{Binding IsNoMaskOrGlasses}">
+              <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="10" TextColor="White"
+                     HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Text="No mask or sunglasses" FontSize="11" TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" LineBreakMode="TailTruncation" />
+          </HorizontalStackLayout>
+        </Border>
+      </Grid>
+
+      <!-- Info note -->
+      <Border Grid.Row="6" Style="{StaticResource GlassCard}" Margin="0,0,0,8" Padding="12,10">
+        <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+          <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets"
+                 FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+          <Label Text="We compare this image with your enrolled verification profile."
+                 FontSize="12" TextColor="{StaticResource TextSecondary}"
+                 VerticalOptions="Center" />
+        </HorizontalStackLayout>
+      </Border>
+
+      <!-- Verifying — disabled loading state, same pill shape as the primary CTA -->
+      <Border Grid.Row="7" StrokeShape="RoundRectangle 28" StrokeThickness="0"
+              HeightRequest="56" MaximumWidthRequest="420" HorizontalOptions="Center" Opacity="0.55">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0" />
+            <GradientStop Color="{StaticResource PrimaryGradientMid}" Offset="0.5" />
+            <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+          <HorizontalStackLayout InputTransparent="True" Spacing="10"
+                                 HorizontalOptions="Center" VerticalOptions="Center">
+            <ActivityIndicator IsRunning="True" Color="White" WidthRequest="16" HeightRequest="16" />
+            <Label Text="Verifying..." TextColor="White" FontSize="15" FontAttributes="Bold" />
+          </HorizontalStackLayout>
+          <Button BackgroundColor="Transparent" Text="" IsEnabled="False" />
+        </Grid>
+      </Border>
+    </Grid>
+
+    <controls:FooterStatusBar Grid.Row="2"
+                              VersionText="Version 1.0.0"
+                              ConnectionLabel="Connected"
+                              IsConnected="True" />
+  </Grid>
+</ContentPage>

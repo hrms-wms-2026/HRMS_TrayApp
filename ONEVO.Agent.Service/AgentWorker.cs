@@ -95,11 +95,12 @@ public sealed class AgentWorker : BackgroundService
         {
             _logger.LogWarning(
                 "Silent session resume failed ({ErrorCode}) — clearing stored credentials", result.ErrorCode);
-            ClearStoredCredentials();
+            ClearStoredAuth();
             return;
         }
 
         PersistAuth(identity, result.Auth);
+        await _apiClient.SendHeartbeatAsync(result.Auth.AccessToken, ct);
         ApplyEnrollmentGates();
         _stateMachine.TryTransition(MonitoringState.Stopped, out _);
         _logger.LogInformation("Session resumed silently on startup. State={State}", _stateMachine.CurrentState);
@@ -115,11 +116,14 @@ public sealed class AgentWorker : BackgroundService
         _deviceIdentityStore.Save(identity);
     }
 
-    private void ClearStoredCredentials()
+    /// <summary>
+    /// Clears authentication material without deleting the machine identity.
+    /// DeviceId is installation-scoped and must remain stable across sign-out.
+    /// </summary>
+    private void ClearStoredAuth()
     {
         _credentials.ClearDeviceJwt();
         _credentials.ClearRefreshToken();
-        _deviceIdentityStore.Clear();
     }
 
     private void ApplyEnrollmentGates()
@@ -588,8 +592,13 @@ public sealed class AgentWorker : BackgroundService
 
         var accepted = 0;
         var idleChanged = false;
-        foreach (var record in payload.Records)
+        var stableDeviceId = _deviceIdentityStore.Load()?.DeviceId ?? "unknown";
+        foreach (var incomingRecord in payload.Records)
         {
+            // The tray is not trusted to choose a device identifier (older builds
+            // used Environment.MachineName for face photos). Normalize all records
+            // at the service boundary to the installation-scoped identity.
+            var record = incomingRecord with { DeviceId = stableDeviceId };
             if (record.RecordType is not (CollectionRecordTypes.ActivitySnapshot
                 or CollectionRecordTypes.AppUsageSnapshot
                 or CollectionRecordTypes.DeviceStateSnapshot
@@ -650,14 +659,15 @@ public sealed class AgentWorker : BackgroundService
         var payload = envelope.Payload?.Deserialize<ActivationCodeSubmitPayload>();
         var code = payload?.Code?.Trim().ToUpperInvariant() ?? string.Empty;
 
-        if (code.Length < 6)
+        if (!IsValidActivationCode(code))
         {
             await ReplyEnrollmentAsync(envelope, reply, false, "INVALID_CODE", null);
             return;
         }
 
         var current = _stateMachine.CurrentState;
-        if (current is MonitoringState.Locked)
+        if (current is MonitoringState.Locked
+            && !string.IsNullOrWhiteSpace(_credentials.ReadRefreshToken()))
         {
             await ReplyEnrollmentAsync(envelope, reply, false, "LOCKED", null);
             return;
@@ -665,8 +675,7 @@ public sealed class AgentWorker : BackgroundService
 
         if (current is MonitoringState.Stopped or MonitoringState.Active or MonitoringState.Paused)
         {
-            // Already enrolled — treat as success so tray can continue.
-            await ReplyEnrollmentAsync(envelope, reply, true, null, null);
+            await ReplyEnrollmentAsync(envelope, reply, false, "ALREADY_ENROLLED", null);
             return;
         }
 
@@ -682,18 +691,27 @@ public sealed class AgentWorker : BackgroundService
             return;
         }
 
-        var (deviceId, tenantId) = JwtClaimsReader.ReadDeviceClaims(result.Auth.AccessToken);
+        var (backendDeviceId, tenantId) = JwtClaimsReader.ReadDeviceClaims(result.Auth.AccessToken);
+        var storedIdentity = _deviceIdentityStore.Load();
+        var stableDeviceId = storedIdentity?.DeviceId
+            ?? backendDeviceId
+            ?? Guid.NewGuid().ToString("N");
+        var stableAgentId = storedIdentity?.AgentId
+            ?? backendDeviceId
+            ?? stableDeviceId;
         var identity = new DeviceIdentity
         {
-            // Backend has no separate "AgentId" concept yet for a tray device — reuse
-            // DeviceId until/unless the backend response grows a distinct field.
-            DeviceId = deviceId ?? Guid.NewGuid().ToString("N"),
-            AgentId = deviceId ?? Guid.NewGuid().ToString("N"),
-            TenantId = tenantId ?? string.Empty,
+            // DeviceId/AgentId are installation-scoped. Reuse the persisted values
+            // after sign-out so a new employee activation does not create a new
+            // device on the same Windows machine.
+            DeviceId = stableDeviceId,
+            AgentId = stableAgentId,
+            TenantId = tenantId ?? storedIdentity?.TenantId ?? string.Empty,
             DeviceFingerprint = fingerprint
         };
 
         PersistAuth(identity, result.Auth);
+        await _apiClient.SendHeartbeatAsync(result.Auth.AccessToken, CancellationToken.None);
 
         if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
         {
@@ -751,7 +769,7 @@ public sealed class AgentWorker : BackgroundService
 
         // Best-effort: the employee is leaving either way, so clear local state
         // regardless of whether the revoke call reached the backend.
-        ClearStoredCredentials();
+        ClearStoredAuth();
         _lifecycleGate.SetDeviceEnrolled(false);
         _lifecycleGate.SetCredentialValid(false);
         _lifecycleGate.SetDeviceApproved(false);
@@ -768,6 +786,12 @@ public sealed class AgentWorker : BackgroundService
         });
 
         await reply(BuildStatusEnvelope(correlationId: null));
+    }
+
+    private static bool IsValidActivationCode(string code)
+    {
+        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        return code.Length == 8 && code.All(alphabet.Contains);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)

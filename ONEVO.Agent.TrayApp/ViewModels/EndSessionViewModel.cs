@@ -168,7 +168,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     private void RefreshTopAppsAndIdle()
     {
         TopApps.Clear();
-        var top = _dayMetrics.GetTopApps(5);
+        var top = _dayMetrics.GetTopApps(4);
         if (top.Count == 0)
         {
             TopApps.Add(new TopAppItem("No app activity yet", "00:00:00"));

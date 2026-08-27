@@ -60,9 +60,9 @@ public static class MauiProgram
             sp.GetRequiredService<WindowsInactivityPromptService>());
         builder.Services.AddSingleton<IPreferencesStore, PreferencesStore>();
         builder.Services.AddSingleton<ICameraService, CameraService>();
-        builder.Services.AddSingleton<ILocationService, GeolocationService>();
         builder.Services.AddSingleton<ISessionDayMetrics, SessionDayMetrics>();
         builder.Services.AddSingleton<IAppIconCache, AppIconCache>();
+        builder.Services.AddSingleton<CapturedPhotoBuffer>();
 
         // Collectors
         builder.Services.AddSingleton<ActivityCountCollector>();
@@ -89,7 +89,6 @@ public static class MauiProgram
         // ViewModels
         builder.Services.AddTransient<ConnectWorkspaceViewModel>();
         builder.Services.AddTransient<PrepareWorkspaceViewModel>();
-        builder.Services.AddTransient<WorkLocationViewModel>();
         builder.Services.AddTransient<ReviewSetupViewModel>();
         builder.Services.AddTransient<PrivacyConsentViewModel>();
         builder.Services.AddTransient<ClockInViewModel>();
@@ -98,11 +97,11 @@ public static class MauiProgram
         builder.Services.AddTransient<StatusPopupViewModel>();
         builder.Services.AddTransient<PhotoCaptureWindowViewModel>();
         builder.Services.AddTransient<BiometricEnrollmentViewModel>();
+        builder.Services.AddTransient<IdentityVerificationViewModel>();
 
         // Views
         builder.Services.AddTransient<ConnectWorkspacePage>();
         builder.Services.AddTransient<PrepareWorkspacePage>();
-        builder.Services.AddTransient<WorkLocationPage>();
         builder.Services.AddTransient<ReviewSetupPage>();
         builder.Services.AddTransient<PrivacyConsentPage>();
         builder.Services.AddTransient<ClockInPage>();
@@ -110,6 +109,7 @@ public static class MauiProgram
         builder.Services.AddTransient<EndSessionPage>();
         builder.Services.AddTransient<PhotoCaptureWindow>();
         builder.Services.AddTransient<BiometricEnrollmentPage>();
+        builder.Services.AddTransient<IdentityVerificationPage>();
 
         var app = builder.Build();
 

@@ -3,7 +3,9 @@ namespace ONEVO.Agent.Service.Api;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
@@ -37,7 +39,96 @@ public sealed class OnevoApiClient
             new RefreshRequestBody(refreshToken, deviceFingerprint),
             ct);
 
+        public async Task<DeviceAuthorizationStartResult> StartDeviceAuthorizationAsync(
+        string deviceName,
+        string deviceOs,
+        string clientVersion,
+        string deviceFingerprint,
+        CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.DeviceAuthorizationStart)
+        {
+            Content = JsonContent.Create(new StartAuthorizationRequestBody(
+                deviceName, deviceOs, deviceFingerprint, clientVersion))
+        };
+
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+                return new DeviceAuthorizationStartResult(false, await ReadProblemCodeAsync(response, ct), null, null, null, null, 0, 0);
+
+            var payload = await response.Content.ReadFromJsonAsync<DeviceAuthorizationStartPayload>(cancellationToken: ct);
+            return payload is null
+                ? new DeviceAuthorizationStartResult(false, "SERVICE_UNAVAILABLE", null, null, null, null, 0, 0)
+                : new DeviceAuthorizationStartResult(true, null, payload.DeviceCode, payload.UserCode,
+                    payload.VerificationUri, payload.VerificationUriComplete, payload.ExpiresInSeconds, payload.IntervalSeconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.DeviceAuthorizationStart);
+            return new DeviceAuthorizationStartResult(false, "SERVICE_UNAVAILABLE", null, null, null, null, 0, 0);
+        }
+    }
+
+    public async Task<DeviceAuthorizationPollResult> PollDeviceAuthorizationAsync(
+        string deviceCode, string deviceFingerprint, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.DeviceAuthorizationToken)
+        {
+            Content = JsonContent.Create(new PollAuthorizationRequestBody(deviceCode, deviceFingerprint))
+        };
+
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            if (response.IsSuccessStatusCode)
+            {
+                var payload = await response.Content.ReadFromJsonAsync<TrayAuthPayload>(cancellationToken: ct);
+                return payload is null
+                    ? new DeviceAuthorizationPollResult(DeviceAuthorizationPollState.ServiceUnavailable, null)
+                    : new DeviceAuthorizationPollResult(DeviceAuthorizationPollState.Authorized, payload);
+            }
+
+            var code = await ReadProblemCodeAsync(response, ct);
+            return code switch
+            {
+                "authorization_pending" => new(DeviceAuthorizationPollState.AuthorizationPending, null),
+                "slow_down" => new(DeviceAuthorizationPollState.SlowDown, null),
+                "expired_token" => new(DeviceAuthorizationPollState.ExpiredToken, null),
+                "access_denied" => new(DeviceAuthorizationPollState.AccessDenied, null),
+                _ => new(DeviceAuthorizationPollState.ServiceUnavailable, null),
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.DeviceAuthorizationToken);
+            return new DeviceAuthorizationPollResult(DeviceAuthorizationPollState.ServiceUnavailable, null);
+        }
+    }
+
+    public async Task<bool> SendHeartbeatAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.ActivationHeartbeat);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.ActivationHeartbeat);
+            return false;
+        }
+    }
+
     /// <summary>Revoke the current device session (logout). Best-effort — caller clears local state either way.</summary>
+
     public async Task<bool> RevokeDeviceAsync(string accessToken, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("OnevoApi");
@@ -285,7 +376,33 @@ public sealed class OnevoApiClient
             : new TrayAuthResult(true, null, payload);
     }
 
+        private static async Task<string?> ReadProblemCodeAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
+            return document.RootElement.TryGetProperty("code", out var code)
+                ? code.GetString()
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private sealed record StartAuthorizationRequestBody(
+        [property: JsonPropertyName("device_name")] string DeviceName,
+        [property: JsonPropertyName("device_os")] string DeviceOs,
+        [property: JsonPropertyName("device_fingerprint")] string DeviceFingerprint,
+        [property: JsonPropertyName("client_version")] string ClientVersion);
+
+    private sealed record PollAuthorizationRequestBody(
+        [property: JsonPropertyName("device_code")] string DeviceCode,
+        [property: JsonPropertyName("device_fingerprint")] string DeviceFingerprint);
+
     private sealed record ExchangeRequestBody(
+
         string Code, string DeviceName, string DeviceOs, string DeviceFingerprint);
 
     private sealed record RefreshRequestBody(string RefreshToken, string DeviceFingerprint);

@@ -1,12 +1,34 @@
+using ONEVO.Agent.Shared.Models;
+
 namespace ONEVO.Agent.TrayApp.Services;
 
-/// <summary>Device GPS / live location (Windows location services).</summary>
-public interface ILocationService
+/// <summary>Reasons an explicit location capture can fail to produce a fix, mapped from platform-specific exceptions.</summary>
+public enum LocationCaptureFailure
 {
-    /// <summary>
-    /// Returns current coordinates, or null if unavailable / denied / not supported.
-    /// </summary>
-    Task<GeoPoint?> GetCurrentAsync(CancellationToken ct = default);
+    PermissionDenied,
+    ServicesDisabled,
+    NotSupported,
+    TimedOut,
+    Unavailable
 }
 
-public sealed record GeoPoint(double Latitude, double Longitude, double? AccuracyMeters = null);
+/// <summary>
+/// Outcome of a single location capture attempt: either a successful <see cref="GeoLocationFix"/>
+/// or an explicit <see cref="LocationCaptureFailure"/> reason — never a bare null.
+/// </summary>
+public sealed record LocationCaptureResult(
+    GeoLocationFix? Fix,
+    LocationCaptureFailure? Failure)
+{
+    public bool IsSuccess => Fix is not null;
+
+    public static LocationCaptureResult Success(GeoLocationFix fix) => new(fix, null);
+
+    public static LocationCaptureResult Failed(LocationCaptureFailure failure) => new(null, failure);
+}
+
+/// <summary>Captures a single high-accuracy device location fix, distinguishing why a capture failed.</summary>
+public interface ILocationService
+{
+    Task<LocationCaptureResult> GetCurrentAsync(CancellationToken ct = default);
+}

@@ -18,11 +18,11 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     [ObservableProperty] private string _connectionLabel = "Not Connected";
     [ObservableProperty] private string _versionText = "Version 1.0.0";
     [ObservableProperty] private string _hintText =
-        "Paste the activation code copied from the OneXso Workspace web portal.";
+        "Paste the activation code copied from the ONEVO web portal.";
 
     public ConnectWorkspaceViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
-        Title = "Connect OneXso Workspace";
+        Title = "Connect ONEVO Workspace";
         _pipe = pipe;
         _preferences = preferences;
         _pipe.OnDisconnected += () =>
@@ -61,7 +61,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 
     private bool CanVerify =>
         !IsConnecting &&
-        ActivationCode.Trim().Length >= 6;
+        IsValidActivationCode(ActivationCode.Trim().ToUpperInvariant());
 
     [RelayCommand(CanExecute = nameof(CanVerify))]
     private async Task VerifyAndConnectAsync(CancellationToken ct)
@@ -85,9 +85,10 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
             {
                 ErrorMessage = result.ErrorCode switch
                 {
-                    "INVALID_CODE" => "Invalid or expired activation code. Get a new one from the employee portal.",
-                    "LOCKED" => "Device is locked. Contact your admin.",
-                    "SERVICE_UNAVAILABLE" => "Can't reach the OneXso backend right now. Check your connection and try again.",
+                    "INVALID_CODE" => "Invalid or expired code. Generate a new code in the web portal.",
+                    "LOCKED" => "The tray is locked. Restart the ONEVO service and try again.",
+                    "ALREADY_ENROLLED" => "This tray is already connected. Use the existing connected session.",
+                    "SERVICE_UNAVAILABLE" => "Can't reach the ONEVO backend right now. Check your connection and try again.",
                     _ => result.ErrorCode ?? "Activation failed."
                 };
                 IsConnected = false;
@@ -95,15 +96,19 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 return;
             }
 
+            // A new activation is a new employee/setup session. Clear any stale
+            // onboarding values before writing the new employee details so the
+            // subsequent steps cannot reuse the previous user's data.
+            SessionPreferenceKeys.ClearAll(_preferences);
             if (!string.IsNullOrWhiteSpace(result.EmployeeName))
-                _preferences.Set("onevo.employee_display_name", result.EmployeeName);
+                _preferences.Set(SessionPreferenceKeys.EmployeeDisplayName, result.EmployeeName);
             if (!string.IsNullOrWhiteSpace(result.EmployeeEmail))
-                _preferences.Set("onevo.employee_email", result.EmployeeEmail);
+                _preferences.Set(SessionPreferenceKeys.EmployeeEmail, result.EmployeeEmail);
             if (!string.IsNullOrWhiteSpace(result.EmployeeNumber))
-                _preferences.Set("onevo.employee_id", result.EmployeeNumber);
+                _preferences.Set(SessionPreferenceKeys.EmployeeId, result.EmployeeNumber);
 
             IsConnected = true;
-            ConnectionLabel = "Connected";
+            ConnectionLabel = BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
             try { await Shell.Current.GoToAsync("//prepare"); }
             catch { /* unit tests */ }
         }
@@ -128,7 +133,11 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
             {
                 var text = await Clipboard.Default.GetTextAsync();
                 if (!string.IsNullOrWhiteSpace(text))
+                {
+                    // Clipboard content often includes a trailing newline or spaces.
+                    // Normalize it once so CanVerify and the service receive the same code.
                     ActivationCode = text.Trim().ToUpperInvariant();
+                }
             }
         }
         catch
@@ -137,11 +146,16 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         }
     }
 
-    [RelayCommand]
-    private static void OpenEmployeePortal() =>
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName        = WorkspaceLinks.PortalUrl,
-            UseShellExecute = true
-        });
+    private static bool IsValidActivationCode(string code)
+    {
+        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        return code.Length == 8 && code.All(alphabet.Contains);
+    }
+
+    private static string BuildConnectedLabel(string? employeeNumber, string? employeeName)
+    {
+        var identity = string.Join(" · ", new[] { employeeNumber, employeeName }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        return string.IsNullOrWhiteSpace(identity) ? "Connected" : $"Connected — {identity}";
+    }
 }

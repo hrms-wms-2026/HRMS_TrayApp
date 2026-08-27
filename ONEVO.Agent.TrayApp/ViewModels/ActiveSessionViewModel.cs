@@ -231,24 +231,26 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         if (idleTotal < TimeSpan.Zero)
             idleTotal = TimeSpan.Zero;
 
-        TimeSpan work = TimeSpan.Zero;
+        TimeSpan wall = TimeSpan.Zero;
         if (_clockInAt is not null)
         {
-            var wall = now - _clockInAt.Value;
+            wall = now - _clockInAt.Value;
             if (wall < TimeSpan.Zero)
                 wall = TimeSpan.Zero;
-            work = wall - breakTotal - idleTotal;
-            if (work < TimeSpan.Zero)
-                work = TimeSpan.Zero;
         }
+
+        var work = wall - breakTotal - idleTotal;
+        if (work < TimeSpan.Zero)
+            work = TimeSpan.Zero;
 
         WorkDurationDisplay   = Format(work);
         BreakTimeDisplay      = Format(breakTotal);
         IdleTimeDisplay       = Format(idleTotal);
         ProductiveTimeDisplay = Format(work);
 
-        // Primary big timer: break segment while on break, else work (live shift).
-        PrimaryTimer = Format(IsOnBreak ? openBreak : work);
+        // Primary big timer: break segment while on break, else total elapsed shift time
+        // (wall clock since clock-in) so it equals Break + Productive + Idle.
+        PrimaryTimer = Format(IsOnBreak ? openBreak : wall);
     }
 
     private static string Format(TimeSpan t) =>

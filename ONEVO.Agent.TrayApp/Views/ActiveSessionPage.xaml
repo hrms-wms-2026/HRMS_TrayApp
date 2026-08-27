@@ -7,7 +7,7 @@
              BackgroundColor="{StaticResource Background}">
 
   <Grid>
-    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="20,12">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="{StaticResource TrayDensePagePadding}">
 
         <!-- Header -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
@@ -68,7 +68,7 @@
                    FontSize="13" TextColor="{StaticResource TextSecondary}" />
 
             <!-- Status + Primary timer -->
-            <Border Style="{StaticResource GlassCard}" Padding="16,14">
+            <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,14">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <VerticalStackLayout Grid.Column="0" Spacing="4" VerticalOptions="Center">
                   <Label Text="Status" FontSize="11" TextColor="{StaticResource TextSecondary}" />
@@ -131,7 +131,7 @@
 
             <!-- Start time + schedule -->
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-              <Border Grid.Column="0" Style="{StaticResource GlassCard}" Padding="14,12">
+              <Border Grid.Column="0" Style="{StaticResource TrayCompactGlassCard}" Padding="14,12">
                 <HorizontalStackLayout Spacing="10">
                   <Border WidthRequest="36" HeightRequest="36"
                           StrokeShape="RoundRectangle 10" StrokeThickness="0"
@@ -146,7 +146,7 @@
                   </VerticalStackLayout>
                 </HorizontalStackLayout>
               </Border>
-              <Border Grid.Column="1" Style="{StaticResource GlassCard}" Padding="14,12">
+              <Border Grid.Column="1" Style="{StaticResource TrayCompactGlassCard}" Padding="14,12">
                 <HorizontalStackLayout Spacing="10">
                   <Border WidthRequest="36" HeightRequest="36"
                           StrokeShape="RoundRectangle 10" StrokeThickness="0"
@@ -179,7 +179,7 @@
                       IsVisible="{Binding IsOnBreak}">
                 <Grid>
                   <Button Command="{Binding EndBreakCommand}"
-                          Style="{StaticResource GradientButtonOverlay}"
+                          Style="{StaticResource TrayPrimaryActionOverlay}"
                           HeightRequest="52"
                           Text=""
                           SemanticProperties.Description="End Break" />
@@ -229,7 +229,7 @@
         </Grid>
 
         <!-- Today's Summary strip -->
-        <Border Grid.Row="2" Style="{StaticResource GlassCard}" Margin="0,10,0,4" Padding="12,10">
+        <Border Grid.Row="2" Style="{StaticResource TrayCompactGlassCard}" Margin="0,10,0,4" Padding="12,10">
           <VerticalStackLayout Spacing="10">
             <HorizontalStackLayout Spacing="8">
               <Image Source="icon_break_chart.png" WidthRequest="22" HeightRequest="22"
@@ -288,7 +288,7 @@
     <!-- Break confirmation overlay -->
     <Grid IsVisible="{Binding IsBreakConfirmVisible}"
           BackgroundColor="#80000000">
-      <Border Style="{StaticResource GlassCard}"
+      <Border Style="{StaticResource TrayCompactGlassCard}"
               WidthRequest="360"
               HorizontalOptions="Center"
               VerticalOptions="Center"

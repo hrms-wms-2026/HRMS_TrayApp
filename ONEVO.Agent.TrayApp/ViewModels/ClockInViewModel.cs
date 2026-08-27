@@ -7,6 +7,7 @@ using ONEVO.Agent.TrayApp.Services;
 public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 {
     private readonly INamedPipeClient _pipe;
+    private readonly IPreferencesStore _preferences;
     private readonly System.Timers.Timer _clockTimer;
 
     [ObservableProperty] private string _greeting         = "Good morning";
@@ -29,17 +30,15 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 
     private AgentPolicy? _currentPolicy;
 
-    public ClockInViewModel(INamedPipeClient pipe)
+    public ClockInViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
-        Title    = "Ready to Start Work";
-        _pipe    = pipe;
-        Greeting = GetGreeting();
+        Title       = "Ready to Start Work";
+        _pipe       = pipe;
+        _preferences = preferences;
+        Greeting    = GetGreeting();
         _currentPolicy = pipe.LastKnownPolicy;
         _pipe.OnPolicyReceived += HandlePolicyReceived;
-        // Enrollment saves the real name; fall back to Windows username.
-        var fallbackName = string.IsNullOrWhiteSpace(Environment.UserName) ? "Employee" : Environment.UserName;
-        try { EmployeeName = Preferences.Get("onevo.employee_display_name", fallbackName); }
-        catch { EmployeeName = fallbackName; }
+        LoadEmployeeName();
 
         _clockTimer = new System.Timers.Timer(1_000) { AutoReset = true };
         _clockTimer.Elapsed += (_, _) => TickClock();
@@ -74,6 +73,18 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         TickClock();
         if (!_clockTimer.Enabled)
             _clockTimer.Start();
+        // ClockInPage is a cached Shell tab reused across sign-out/re-activation
+        // cycles, so the employee name must be re-read here, not only at
+        // construction, or the previous employee's name survives sign-out.
+        LoadEmployeeName();
+    }
+
+    private void LoadEmployeeName()
+    {
+        // Enrollment saves the real name; fall back to Windows username.
+        var fallbackName = string.IsNullOrWhiteSpace(Environment.UserName) ? "Employee" : Environment.UserName;
+        try { EmployeeName = _preferences.Get(SessionPreferenceKeys.EmployeeDisplayName, fallbackName); }
+        catch { EmployeeName = fallbackName; }
     }
 
     private void OnDisconnected()
@@ -206,13 +217,10 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
                 return;
             }
 
-            try
-            {
-                Preferences.Remove("onevo.employee_display_name");
-                Preferences.Remove("onevo.employee_email");
-                Preferences.Remove("onevo.employee_id");
-            }
-            catch { /* unit tests */ }
+            // Remove all employee/setup/session values, not only the three
+            // greeting fields. This prevents the next activation from inheriting
+            // location, coordinates, or face-verification state.
+            SessionPreferenceKeys.ClearAll(_preferences);
 
             try { await Shell.Current.GoToAsync("//connect"); }
             catch { /* unit tests */ }

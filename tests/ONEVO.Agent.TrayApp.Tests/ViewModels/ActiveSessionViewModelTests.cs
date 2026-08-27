@@ -189,6 +189,34 @@ public sealed class ActiveSessionViewModelTests
     }
 
     [Fact]
+    public void ApplySession_IdleOpen_PrimaryTimerEqualsWorkPlusBreakPlusIdle()
+    {
+        // Live Shift Timer must equal total elapsed wall-clock time since clock-in
+        // (Work Duration + Break Time + Idle Time), not just the productive portion.
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());
+        var clockIn = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var idleStart = DateTimeOffset.UtcNow.AddMinutes(-2);
+        vm.ApplySession(new SessionSnapshot(
+            ClockInAt: clockIn,
+            ClockOutAt: null,
+            IsOnBreak: false,
+            CurrentBreakStartedAt: null,
+            AccumulatedBreak: TimeSpan.Zero,
+            AccumulatedWork: TimeSpan.FromMinutes(8),
+            ScheduleDisplay: "09:00 AM – 06:00 PM",
+            BreakSessionCount: 0,
+            AccumulatedIdle: TimeSpan.Zero,
+            IsIdle: true,
+            CurrentIdleStartedAt: idleStart));
+
+        var primaryParts = vm.PrimaryTimer.Split(':');
+        var primarySecs = int.Parse(primaryParts[0]) * 3600 + int.Parse(primaryParts[1]) * 60 + int.Parse(primaryParts[2]);
+
+        // ~10 minutes elapsed since clock-in — must include the open idle segment.
+        Assert.InRange(primarySecs, 10 * 60 - 5, 10 * 60 + 5);
+    }
+
+    [Fact]
     public async Task LifecycleFailure_SetsErrorMessage()
     {
         var pipe = new FakeNamedPipeClient

@@ -6,7 +6,7 @@ namespace ONEVO.Agent.TrayApp.Controls;
 /// </summary>
 public static class ResponsiveTwoPane
 {
-    public const double WideBreakpoint = 860;
+    public const double WideBreakpoint = TrayLayoutMetrics.WideBreakpoint;
 
     public static void Attach(VisualElement host, Grid paneGrid, View? leftPane = null, View? rightPane = null, double narrowLeftMaxHeight = 180)
     {

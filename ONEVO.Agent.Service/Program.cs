@@ -101,6 +101,16 @@ var host = Host.CreateDefaultBuilder(args)
             builder.AddTimeout(attemptTimeout);
         });
 
+        services.AddSingleton<ONEVO.Agent.Service.Enrollment.PortalOriginValidator>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
+            return new ONEVO.Agent.Service.Enrollment.PortalOriginValidator(
+                options.PortalRootDomain,
+                options.PortalProductionPort,
+                options.PortalDevelopmentPorts,
+                options.PortalDevelopmentOrigins,
+                context.HostingEnvironment.IsDevelopment());
+        });
         services.AddSingleton<OnevoApiClient>();
         services.AddSingleton<EnrollmentCoordinator>();
 

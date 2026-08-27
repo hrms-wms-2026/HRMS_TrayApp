@@ -5,7 +5,7 @@ using ONEVO.Agent.TrayApp.Services;
 
 /// <summary>
 /// Replaces the old always-on <c>ScreenshotCollector</c>. Watches continuous keyboard/mouse
-/// inactivity; at each five-minute idle boundary, prompts the employee via
+/// inactivity; at each configured idle boundary, prompts the employee via
 /// <see cref="IInactivityPromptService"/>, captures via <see cref="IScreenshotCaptureService"/> only
 /// on Allow, and submits exactly one <see cref="InactivityCaptureAttemptPayload"/> (metadata-only,
 /// or with JPEG bytes for a <c>captured</c> outcome) over IPC for every continuous-idle bucket
@@ -17,11 +17,11 @@ using ONEVO.Agent.TrayApp.Services;
 /// PromptPending(attemptId, bucket) → Capturing/Declined/TimedOut/Cancelled → Observing. The
 /// five-second poll loop (<see cref="PollLoopAsync"/>, the untestable shell) samples
 /// <see cref="IIdleTimeProvider"/> and drives the testable core, <see cref="EvaluateAsync"/>, which
-/// computes <c>bucket = floor(idleSeconds / 300)</c> and prompts at most once per continuous idle
-/// period. A <see cref="SemaphoreSlim"/> (<see cref="_lock"/>) serializes bucket-transition
-/// decisions against the currently pending prompt/capture workflow so a timer tick and a
-/// notification-driven activity-resumed cancellation can never both start/finish a second
-/// concurrent attempt for the same period.
+/// computes a bucket from the policy threshold and prompts at most once per continuous idle period.
+/// A <see cref="SemaphoreSlim"/> (<see cref="_lock"/>) serializes bucket-transition decisions
+/// against the currently pending prompt/capture workflow so a timer tick and a notification-driven
+/// activity-resumed cancellation can never both start/finish a second concurrent attempt for the
+/// same period.
 /// </para>
 /// <para>
 /// Policy staleness: <see cref="AgentPolicy.ValidUntil"/> is re-checked against the current wall
@@ -205,11 +205,12 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     }
 
     /// <summary>
-    /// Testable core of the bucket state machine. Computes <c>bucket = floor(idleSeconds / 300)</c>
-    /// and, when a new bucket boundary is crossed for the first time this continuous idle period,
-    /// runs exactly one prompt/capture/submit workflow to completion before returning. A tick that
-    /// arrives while a workflow is already pending only checks whether idle time has dropped (new
-    /// input observed) and, if so, cancels that pending workflow — it never starts a second one.
+    /// Testable core of the bucket state machine. Computes the current bucket from the configured
+    /// threshold and, when a new bucket boundary is crossed for the first time this continuous idle
+    /// period, runs exactly one prompt/capture/submit workflow to completion before returning. A
+    /// tick that arrives while a workflow is already pending only checks whether idle time has
+    /// dropped (new input observed) and, if so, cancels that pending workflow — it never starts a
+    /// second one.
     /// </summary>
     public async Task EvaluateAsync(int idleSeconds, DateTimeOffset now, CancellationToken ct)
     {

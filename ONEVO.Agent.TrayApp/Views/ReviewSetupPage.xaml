@@ -7,7 +7,7 @@
              x:DataType="vm:ReviewSetupViewModel"
              Title="Confirm Your Details">
 
-  <Grid RowDefinitions="Auto,*,Auto" Padding="20,16">
+  <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource TrayPagePadding}">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
@@ -63,10 +63,10 @@
                HorizontalTextAlignment="Start"
                Margin="0,6,0,16" />
 
-        <Border Grid.Row="2" Style="{StaticResource GlassCard}" Padding="16,6" Margin="0,0,0,10">
+        <Border Grid.Row="2" Style="{StaticResource TrayCompactGlassCard}" Padding="16,6" Margin="0,0,0,10">
           <VerticalStackLayout Spacing="0">
 
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,8" ColumnSpacing="12">
+            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
               <Border Grid.Column="0" Style="{StaticResource IconTile}"
                       StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
                 <Label Text="{StaticResource IconPerson}" FontFamily="Segoe MDL2 Assets"
@@ -78,7 +78,7 @@
             </Grid>
             <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
 
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,8" ColumnSpacing="12">
+            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
               <Border Grid.Column="0" Style="{StaticResource IconTile}"
                       StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
                 <Label Text="{StaticResource IconMail}" FontFamily="Segoe MDL2 Assets"
@@ -90,7 +90,7 @@
             </Grid>
             <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
 
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,8" ColumnSpacing="12">
+            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
               <Border Grid.Column="0" Style="{StaticResource IconTile}"
                       StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
                 <Label Text="{StaticResource IconBadge}" FontFamily="Segoe MDL2 Assets"
@@ -102,19 +102,7 @@
             </Grid>
             <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
 
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,8" ColumnSpacing="12">
-              <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                      StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
-                <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
-                       FontSize="14" TextColor="{StaticResource BrandTitle}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-              </Border>
-              <Label Grid.Column="1" Text="Location" Style="{StaticResource FieldLabel}" />
-              <Label Grid.Column="2" Text="{Binding WorkLocation}" Style="{StaticResource FieldValue}" />
-            </Grid>
-            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,8" ColumnSpacing="12">
+            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
               <Border Grid.Column="0" Style="{StaticResource IconTile}"
                       StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
                 <Label Text="{StaticResource IconCamera}" FontFamily="Segoe MDL2 Assets"
@@ -142,7 +130,7 @@
           </VerticalStackLayout>
         </Border>
 
-        <Border Grid.Row="3" Style="{StaticResource GradientButtonBorder}" Margin="0,0,0,10">
+        <Border Grid.Row="3" Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,10">
           <Border.Background>
             <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
               <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
@@ -152,7 +140,7 @@
           </Border.Background>
           <Grid>
             <Button Command="{Binding ConfirmAndContinueCommand}"
-                    Style="{StaticResource GradientButtonOverlay}"
+                    Style="{StaticResource TrayPrimaryActionOverlay}"
                     Text=""
                     SemanticProperties.Description="Confirm and Continue" />
             <HorizontalStackLayout InputTransparent="True"

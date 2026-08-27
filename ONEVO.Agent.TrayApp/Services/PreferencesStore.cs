@@ -18,4 +18,10 @@ public sealed class PreferencesStore : IPreferencesStore
         try { Preferences.Set(key, value); }
         catch { /* no MAUI platform context (e.g. unit tests) */ }
     }
+
+    public void Remove(string key)
+    {
+        try { Preferences.Remove(key); }
+        catch { /* no MAUI platform context (e.g. unit tests) */ }
+    }
 }
