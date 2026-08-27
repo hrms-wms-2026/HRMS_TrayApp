@@ -146,11 +146,12 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         }
     }
 
-    private static bool IsValidActivationCode(string code)
-    {
-        const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        return code.Length == 8 && code.All(alphabet.Contains);
-    }
+    // Client-side gate only decides whether there's enough input to bother
+    // submitting — the server (AgentWorker.IsValidActivationCode) enforces the
+    // real 8-char restricted-alphabet format and returns INVALID_CODE for a
+    // bad value, so a longer pasted code (e.g. with formatting dashes) isn't
+    // blocked here before the user even gets that feedback.
+    private static bool IsValidActivationCode(string code) => code.Length >= 6;
 
     private static string BuildConnectedLabel(string? employeeNumber, string? employeeName)
     {
