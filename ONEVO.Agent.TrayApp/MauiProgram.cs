@@ -19,6 +19,33 @@ public static class MauiProgram
         {
             h.AddHandler<Controls.CameraPreview, Platforms.Windows.CameraPreviewHandler>();
             h.AddHandler<Controls.BiometricWebView, Platforms.Windows.BiometricWebViewHandler>();
+
+            // Shell wraps every page's content in a native ScrollViewer on Windows. Our pages
+            // lay themselves out to fit the window, so that wrapper only causes unwanted
+            // mouse-wheel scrolling of the whole page (including rows meant to stay fixed) —
+            // find it in the visual tree and turn its scrolling off.
+            Microsoft.Maui.Handlers.PageHandler.Mapper.AppendToMapping("DisableShellRootScroll", (handler, _) =>
+            {
+                if (handler.PlatformView is not Microsoft.UI.Xaml.FrameworkElement platformView)
+                    return;
+
+                platformView.Loaded += (_, _) =>
+                {
+                    var node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(platformView);
+                    while (node is not null)
+                    {
+                        if (node is Microsoft.UI.Xaml.Controls.ScrollViewer scrollViewer)
+                        {
+                            scrollViewer.VerticalScrollMode = Microsoft.UI.Xaml.Controls.ScrollMode.Disabled;
+                            scrollViewer.HorizontalScrollMode = Microsoft.UI.Xaml.Controls.ScrollMode.Disabled;
+                            scrollViewer.VerticalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Hidden;
+                            scrollViewer.HorizontalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Hidden;
+                            break;
+                        }
+                        node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node);
+                    }
+                };
+            });
         });
 
         // Infrastructure

@@ -117,19 +117,33 @@ public sealed class EvidenceSpoolStore
                 ? new DirectoryInfo(path).GetAccessControl()
                 : new FileInfo(path).GetAccessControl();
 
+            var inheritance = isDir ? InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit : InheritanceFlags.None;
+
             security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
             security.AddAccessRule(new FileSystemAccessRule(
                 new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
                 FileSystemRights.FullControl,
-                isDir ? InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit : InheritanceFlags.None,
+                inheritance,
                 PropagationFlags.None,
                 AccessControlType.Allow));
             security.AddAccessRule(new FileSystemAccessRule(
                 new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
                 FileSystemRights.FullControl,
-                isDir ? InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit : InheritanceFlags.None,
+                inheritance,
                 PropagationFlags.None,
                 AccessControlType.Allow));
+
+            var currentUser = WindowsIdentity.GetCurrent().User;
+            if (currentUser is not null
+                && currentUser.Value != new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null).Value)
+            {
+                security.AddAccessRule(new FileSystemAccessRule(
+                    currentUser,
+                    FileSystemRights.FullControl,
+                    inheritance,
+                    PropagationFlags.None,
+                    AccessControlType.Allow));
+            }
 
             if (isDir)
                 new DirectoryInfo(path).SetAccessControl((DirectorySecurity)security);

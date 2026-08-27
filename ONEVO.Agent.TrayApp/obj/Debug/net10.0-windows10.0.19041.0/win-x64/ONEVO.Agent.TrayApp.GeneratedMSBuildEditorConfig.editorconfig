@@ -22,7 +22,7 @@ build_property.EnforceExtendedAnalyzerRules =
 build_property.EntryPointFilePath = 
 build_property._SupportedPlatformList = Linux,macOS,Windows
 build_property.RootNamespace = ONEVO.Agent.TrayApp
-build_property.ProjectDir = C:\HR\tray_app_maui\ONEVO.Agent.TrayApp\
+build_property.ProjectDir = C:\onevoNew\HRMS_TrayApp\ONEVO.Agent.TrayApp\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 
 build_property.CsWinRTAotExportsEnabled = 
@@ -34,7 +34,7 @@ build_property.CsWinRTUseWindowsUIXamlProjections = false
 build_property.EffectiveAnalysisLevelStyle = 10.0
 build_property.EnableCodeStyleSeverity = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/App.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/App.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.App.xaml
 build_metadata.AdditionalFiles.TargetPath = App.xaml
@@ -44,7 +44,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Controls/AppHeaderBar.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Controls/AppHeaderBar.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Controls.AppHeaderBar.xaml
 build_metadata.AdditionalFiles.TargetPath = Controls\AppHeaderBar.xaml
@@ -54,7 +54,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Controls/FooterStatusBar.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Controls/FooterStatusBar.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Controls.FooterStatusBar.xaml
 build_metadata.AdditionalFiles.TargetPath = Controls\FooterStatusBar.xaml
@@ -64,7 +64,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Resources/Styles/Colors.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Resources/Styles/Colors.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Resources.Styles.Colors.xaml
 build_metadata.AdditionalFiles.TargetPath = Resources\Styles\Colors.xaml
@@ -74,7 +74,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Resources/Styles/Icons.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Resources/Styles/Icons.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Resources.Styles.Icons.xaml
 build_metadata.AdditionalFiles.TargetPath = Resources\Styles\Icons.xaml
@@ -84,7 +84,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Resources/Styles/Styles.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Resources/Styles/Styles.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Resources.Styles.Styles.xaml
 build_metadata.AdditionalFiles.TargetPath = Resources\Styles\Styles.xaml
@@ -94,7 +94,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.ActiveSessionPage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\ActiveSessionPage.xaml
@@ -104,7 +104,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/AppShell.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/AppShell.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.AppShell.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\AppShell.xaml
@@ -114,7 +114,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/BiometricEnrollmentPage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/BiometricEnrollmentPage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.BiometricEnrollmentPage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\BiometricEnrollmentPage.xaml
@@ -124,7 +124,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/ClockInPage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/ClockInPage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.ClockInPage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\ClockInPage.xaml
@@ -134,7 +134,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/ConnectWorkspacePage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/ConnectWorkspacePage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.ConnectWorkspacePage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\ConnectWorkspacePage.xaml
@@ -144,7 +144,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.EndSessionPage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\EndSessionPage.xaml
@@ -154,7 +154,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/PhotoCaptureWindow.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/PhotoCaptureWindow.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.PhotoCaptureWindow.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\PhotoCaptureWindow.xaml
@@ -164,7 +164,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/PrepareWorkspacePage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/PrepareWorkspacePage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.PrepareWorkspacePage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\PrepareWorkspacePage.xaml
@@ -174,7 +174,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/PrivacyConsentPage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/PrivacyConsentPage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.PrivacyConsentPage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\PrivacyConsentPage.xaml
@@ -184,7 +184,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/ReviewSetupPage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/ReviewSetupPage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.ReviewSetupPage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\ReviewSetupPage.xaml
@@ -194,7 +194,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/StatusPopup.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/StatusPopup.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.StatusPopup.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\StatusPopup.xaml
@@ -204,7 +204,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/Views/WorkLocationPage.xaml]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/Views/WorkLocationPage.xaml]
 build_metadata.AdditionalFiles.GenKind = Xaml
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.Views.WorkLocationPage.xaml
 build_metadata.AdditionalFiles.TargetPath = Views\WorkLocationPage.xaml
@@ -214,7 +214,7 @@ build_metadata.AdditionalFiles.NoWarn =
 build_metadata.AdditionalFiles.EnableDiagnostics = 
 build_metadata.AdditionalFiles.LineInfo = 
 
-[C:/HR/tray_app_maui/ONEVO.Agent.TrayApp/wwwroot/biometric/assets/index-BJSb8a8z.css]
+[C:/onevoNew/HRMS_TrayApp/ONEVO.Agent.TrayApp/wwwroot/biometric/assets/index-BJSb8a8z.css]
 build_metadata.AdditionalFiles.GenKind = Css
 build_metadata.AdditionalFiles.ManifestResourceName = ONEVO.Agent.TrayApp.wwwroot.biometric.assets.index-BJSb8a8z.css
 build_metadata.AdditionalFiles.TargetPath = wwwroot\biometric\assets\index-BJSb8a8z.css
