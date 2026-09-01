@@ -7,6 +7,7 @@
 
   <ShellContent Route="connect"  ContentTemplate="{DataTemplate views:ConnectWorkspacePage}" />
   <ShellContent Route="prepare"  ContentTemplate="{DataTemplate views:PrepareWorkspacePage}" />
+  <ShellContent Route="location" ContentTemplate="{DataTemplate views:WorkLocationPage}" />
   <ShellContent Route="photo"    ContentTemplate="{DataTemplate views:PhotoCaptureWindow}" />
   <ShellContent Route="enrollment-biometric" ContentTemplate="{DataTemplate views:BiometricEnrollmentPage}" />
   <ShellContent Route="identity-verification" ContentTemplate="{DataTemplate views:IdentityVerificationPage}" />

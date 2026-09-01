@@ -16,6 +16,7 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly NamedPipeClient _pipeClient;
     private readonly CollectorCoordinator _collectors;
     private readonly ISessionDayMetrics _dayMetrics;
+    private readonly IPreferencesStore _preferences;
     private readonly ILogger<App> _logger;
     private bool _allowExit;
 
@@ -24,14 +25,16 @@ public partial class App : Microsoft.Maui.Controls.Application
         NamedPipeClient pipeClient,
         CollectorCoordinator collectors,
         ISessionDayMetrics dayMetrics,
+        IPreferencesStore preferences,
         ILogger<App> logger)
     {
         InitializeComponent();
-        _trayIcon   = trayIcon;
-        _pipeClient = pipeClient;
-        _collectors = collectors;
-        _dayMetrics = dayMetrics;
-        _logger     = logger;
+        _trayIcon     = trayIcon;
+        _pipeClient   = pipeClient;
+        _collectors   = collectors;
+        _dayMetrics   = dayMetrics;
+        _preferences  = preferences;
+        _logger       = logger;
         BootLog("App ctor completed");
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -94,12 +97,13 @@ public partial class App : Microsoft.Maui.Controls.Application
                     MonitoringState.Active     => "//active",
                     MonitoringState.Paused     => "//active", // On-break mode of ActiveSessionPage
                     MonitoringState.Stopped when showEndAfterClockOut => "//end",
-                    MonitoringState.Stopped    => "//clockin",
+                    MonitoringState.Stopped    => WorkLocationFlow.RouteWhenStopped(_preferences),
                     MonitoringState.Unenrolled => "//connect",
                     MonitoringState.Locked     => "//connect",
-                    _                          => "//clockin"
+                    _                          => WorkLocationFlow.RouteWhenStopped(_preferences)
                 };
-                Shell.Current?.GoToAsync(route);
+                if (!string.IsNullOrEmpty(route))
+                    Shell.Current?.GoToAsync(route);
             });
         };
 
@@ -109,7 +113,11 @@ public partial class App : Microsoft.Maui.Controls.Application
             _logger.LogWarning("IPC disconnected");
             _trayIcon.UpdateState(MonitoringState.Stopped);
             MainThread.BeginInvokeOnMainThread(() =>
-                Shell.Current?.GoToAsync("//clockin"));
+            {
+                var route = WorkLocationFlow.RouteWhenStopped(_preferences);
+                if (!string.IsNullOrEmpty(route))
+                    Shell.Current?.GoToAsync(route);
+            });
         };
 
         _ = _pipeClient.StartAsync(CancellationToken.None);

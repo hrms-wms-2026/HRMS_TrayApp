@@ -14,6 +14,9 @@ public partial class PrepareWorkspacePage : ContentPage
     {
         base.OnAppearing();
         if (BindingContext is PrepareWorkspaceViewModel vm)
+        {
+            vm.RefreshLocationStatus();
             await vm.LoadAsync();
+        }
     }
 }

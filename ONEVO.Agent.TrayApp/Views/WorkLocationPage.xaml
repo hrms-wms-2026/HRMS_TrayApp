@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:Class="ONEVO.Agent.TrayApp.Views.WorkLocationPage"
+             x:DataType="vm:WorkLocationViewModel"
+             x:Name="RootPage"
+             Title="Confirm Today's Work Location">
+
+  <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource TrayPagePadding}">
+    <Grid.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
+      </LinearGradientBrush>
+    </Grid.Background>
+
+    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
+
+    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="22">
+
+      <Ellipse Grid.ColumnSpan="2" WidthRequest="460" HeightRequest="460"
+               HorizontalOptions="Start" VerticalOptions="Start" Margin="-140,-100,0,0"
+               Opacity="0.85" InputTransparent="True">
+        <Ellipse.Fill>
+          <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+            <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
+            <GradientStop Color="#00175CFF" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+      <Ellipse Grid.Column="1" WidthRequest="360" HeightRequest="360"
+               HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-100,-80"
+               Opacity="0.85" InputTransparent="True">
+        <Ellipse.Fill>
+          <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+            <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
+            <GradientStop Color="#006D28D9" Offset="1" />
+          </RadialGradientBrush>
+        </Ellipse.Fill>
+      </Ellipse>
+
+      <Grid x:Name="LeftPane" Grid.Column="0" MinimumWidthRequest="0">
+        <Image Source="location_hero.png"
+               Aspect="AspectFit"
+               HorizontalOptions="Fill"
+               VerticalOptions="Fill"
+               Margin="4" />
+      </Grid>
+
+      <Grid x:Name="RightPane" Grid.Column="1"
+            RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto">
+
+        <HorizontalStackLayout Grid.Row="0" Spacing="6">
+          <Label Text="Confirm Today's " Style="{StaticResource PageTitle}" FontSize="22" />
+          <Label Text="Work Location" Style="{StaticResource PageTitleBrand}" FontSize="22" />
+        </HorizontalStackLayout>
+        <Label Grid.Row="1"
+               Text="Choose where you will be working from today."
+               Style="{StaticResource PageSubtitle}"
+               HorizontalTextAlignment="Start"
+               Margin="0,4,0,12" />
+
+        <!-- Detected location is a status card, not a selectable option -->
+        <Border Grid.Row="2" Style="{StaticResource TrayCompactGlassCard}" Padding="12,10" Margin="0,0,0,10">
+          <Border.Triggers>
+            <DataTrigger TargetType="Border" Binding="{Binding IsLocationVerified}" Value="True">
+              <Setter Property="Stroke" Value="{StaticResource StatusGreenBorder}" />
+              <Setter Property="StrokeThickness" Value="1.4" />
+            </DataTrigger>
+          </Border.Triggers>
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <Border Grid.Column="0" WidthRequest="36" HeightRequest="36"
+                    StrokeShape="RoundRectangle 18" StrokeThickness="0"
+                    BackgroundColor="{StaticResource StatusGreenSoft}"
+                    VerticalOptions="Center">
+              <Grid>
+                <ActivityIndicator IsRunning="{Binding IsDetecting}" IsVisible="{Binding IsDetecting}"
+                                   Color="{StaticResource StatusGreen}" WidthRequest="16" HeightRequest="16"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="14" TextColor="{StaticResource StatusGreen}"
+                       IsVisible="{Binding IsDetecting, Converter={StaticResource InvertBoolConverter}}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Grid>
+            </Border>
+
+            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
+              <Label Text="{Binding DetectionTitle}" FontSize="13" FontAttributes="Bold"
+                     TextColor="{StaticResource TextPrimary}" />
+              <Label Text="{Binding DetectionDetail}" FontSize="11"
+                     TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap">
+                <Label.Triggers>
+                  <DataTrigger TargetType="Label" Binding="{Binding HasDetectionError}" Value="True">
+                    <Setter Property="TextColor" Value="{StaticResource StatusOrange}" />
+                  </DataTrigger>
+                </Label.Triggers>
+              </Label>
+            </VerticalStackLayout>
+
+            <Border Grid.Column="2" StrokeShape="RoundRectangle 12" StrokeThickness="1"
+                    Stroke="{StaticResource StatusGreenBorder}"
+                    BackgroundColor="{StaticResource StatusGreenSoft}"
+                    Padding="8,4" VerticalOptions="Center"
+                    IsVisible="{Binding IsLocationVerified}">
+              <HorizontalStackLayout Spacing="4">
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="11" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+                <Label Text="Location verified" FontSize="11" FontAttributes="Bold"
+                       TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+            </Border>
+          </Grid>
+        </Border>
+
+        <VerticalStackLayout Grid.Row="3" Spacing="8" VerticalOptions="Start"
+                              BindableLayout.ItemsSource="{Binding Options}">
+          <BindableLayout.ItemTemplate>
+            <DataTemplate x:DataType="vm:WorkLocationOption">
+              <Border Style="{StaticResource TrayCompactGlassCard}" Padding="12,10">
+                <Border.Triggers>
+                  <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                    <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                    <Setter Property="StrokeThickness" Value="2" />
+                  </DataTrigger>
+                </Border.Triggers>
+                <Border.GestureRecognizers>
+                  <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.SelectOptionCommand}"
+                                         CommandParameter="{Binding .}" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="22,40,*" ColumnSpacing="10">
+                  <Grid Grid.Column="0" VerticalOptions="Center" WidthRequest="18" HeightRequest="18">
+                    <Ellipse WidthRequest="18" HeightRequest="18"
+                             Stroke="{StaticResource Primary}" StrokeThickness="2"
+                             Fill="Transparent" />
+                    <Ellipse WidthRequest="10" HeightRequest="10"
+                             Fill="{StaticResource Primary}"
+                             HorizontalOptions="Center" VerticalOptions="Center"
+                             IsVisible="{Binding IsSelected}" />
+                  </Grid>
+                  <Border Grid.Column="1" Style="{StaticResource IconTile}"
+                          WidthRequest="36" HeightRequest="36" StrokeShape="RoundRectangle 10">
+                    <Image Source="{Binding IconSource}" Aspect="AspectFit"
+                           WidthRequest="28" HeightRequest="28"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                  </Border>
+                  <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="0">
+                    <Label Text="{Binding DisplayName}" FontAttributes="Bold"
+                           TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                    <Label Text="{Binding Subtitle}"
+                           TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                  </VerticalStackLayout>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <HorizontalStackLayout Grid.Row="4" Spacing="6" Margin="2,10,2,10">
+          <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets"
+                 FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Start" />
+          <Label Text="Your selection helps apply the correct attendance and compliance rules."
+                 FontSize="11" TextColor="{StaticResource TextSecondary}"
+                 LineBreakMode="WordWrap" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+
+        <Border Grid.Row="5" Style="{StaticResource TrayPrimaryActionBorder}" HeightRequest="48">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Grid>
+            <Button Command="{Binding ConfirmLocationCommand}"
+                    Style="{StaticResource TrayPrimaryActionOverlay}"
+                    Text=""
+                    HeightRequest="48"
+                    SemanticProperties.Description="Confirm Location" />
+            <HorizontalStackLayout InputTransparent="True"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   Spacing="8">
+              <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="16" TextColor="White" VerticalOptions="Center" />
+              <Label Text="Confirm Location" FontSize="14" FontAttributes="Bold"
+                     TextColor="White" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+          </Grid>
+        </Border>
+
+        <Button Grid.Row="6" Text="Refresh detection"
+                Command="{Binding DetectLocationCommand}"
+                IsEnabled="{Binding IsDetecting, Converter={StaticResource InvertBoolConverter}}"
+                BackgroundColor="Transparent"
+                TextColor="{StaticResource Primary}"
+                FontSize="13"
+                HorizontalOptions="Center"
+                Margin="0,4,0,0" />
+      </Grid>
+    </Grid>
+
+    <controls:FooterStatusBar Grid.Row="2"
+                              VersionText="Version 1.0.0"
+                              ConnectionLabel="Connected"
+                              IsConnected="True" />
+  </Grid>
+</ContentPage>

@@ -5,6 +5,7 @@ using ONEVO.Agent.TrayApp.Services;
 public sealed partial class PrivacyConsentViewModel : BaseViewModel
 {
     private readonly INamedPipeClient _pipe;
+    private readonly IPreferencesStore _preferences;
 
     // Always on — required by policy, toggle locked in UI
     [ObservableProperty] private bool _screenMonitoringEnabled = true;
@@ -15,10 +16,11 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     [ObservableProperty] private bool _notificationsEnabled  = true;
     [ObservableProperty] private bool _keyboardMouseEnabled  = true;
 
-    public PrivacyConsentViewModel(INamedPipeClient pipe)
+    public PrivacyConsentViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
         Title = "Allow Required Policies";
         _pipe = pipe;
+        _preferences = preferences;
     }
 
     public void OnAppearing()
@@ -36,7 +38,8 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     [RelayCommand]
     private async Task AllowAndContinue()
     {
-        try { await Shell.Current.GoToAsync("//clockin"); }
+        WorkLocationFlow.MarkSetupComplete(_preferences);
+        try { await Shell.Current.GoToAsync(WorkLocationFlow.RouteToStartWork(_preferences)); }
         catch { /* unit tests */ }
     }
 }

@@ -40,7 +40,7 @@
     <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
 
     <Grid Grid.Row="1" VerticalOptions="Fill"
-          RowDefinitions="Auto,Auto,Auto,*,Auto,Auto"
+          RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto"
           Padding="8,0"
           MaximumWidthRequest="600"
           HorizontalOptions="Center">
@@ -207,7 +207,35 @@
           </VerticalStackLayout>
         </Border>
 
-        <Grid Grid.Row="4" Margin="0,0,0,10">
+        <Grid Grid.Row="4" Margin="0,0,0,8">
+          <Border Style="{StaticResource TrayCompactGlassCard}" Padding="12,10">
+            <Border.GestureRecognizers>
+              <TapGestureRecognizer Command="{Binding NavigateToLocationCommand}" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="32,*,Auto" ColumnSpacing="8">
+              <Border Grid.Column="0" Style="{StaticResource IconTile}"
+                      StrokeShape="RoundRectangle 14" WidthRequest="28" HeightRequest="28">
+                <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
+                       FontSize="12" TextColor="{StaticResource Primary}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
+                <Label Text="Work Location" FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                <Label Text="{Binding LocationStatusText}"
+                       TextColor="{StaticResource TextSecondary}" FontSize="11" />
+              </VerticalStackLayout>
+              <Label Grid.Column="2" Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="14" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center"
+                     IsVisible="{Binding IsLocationConfirmed}" />
+              <Label Grid.Column="2" Text="{StaticResource IconChevron}" FontFamily="Segoe MDL2 Assets"
+                     FontSize="14" TextColor="{StaticResource TextMuted}" VerticalOptions="Center"
+                     IsVisible="{Binding IsLocationConfirmed, Converter={StaticResource InvertBoolConverter}}" />
+            </Grid>
+          </Border>
+        </Grid>
+
+        <Grid Grid.Row="5" Margin="0,0,0,10">
           <Border Style="{StaticResource TrayCompactGlassCard}" Padding="12,10">
             <Border.GestureRecognizers>
               <TapGestureRecognizer Command="{Binding NavigateToPhotoCommand}" />
@@ -231,7 +259,7 @@
           </Border>
         </Grid>
 
-        <Border Grid.Row="5" Style="{StaticResource TrayPrimaryActionBorder}" HeightRequest="48">
+        <Border Grid.Row="6" Style="{StaticResource TrayPrimaryActionBorder}" HeightRequest="48">
           <Border.Background>
             <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
               <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />

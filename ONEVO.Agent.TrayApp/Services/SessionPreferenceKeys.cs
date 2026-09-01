@@ -15,6 +15,8 @@ public static class SessionPreferenceKeys
     public const string WorkLocationCode = "onevo.work_location_code";
     public const string WorkLocationDisplay = "onevo.work_location_display";
     public const string WorkLocationReference = "onevo.work_location_reference";
+    public const string WorkLocationConfirmedOn = "onevo.work_location_confirmed_on";
+    public const string SetupCompleted = "onevo.setup_completed";
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -26,7 +28,9 @@ public static class SessionPreferenceKeys
         LiveLongitude,
         WorkLocationCode,
         WorkLocationDisplay,
-        WorkLocationReference
+        WorkLocationReference,
+        WorkLocationConfirmedOn,
+        SetupCompleted
     ];
 
     public static void ClearAll(IPreferencesStore preferences)

@@ -10,6 +10,7 @@ public sealed class TrayScreenLayoutContractTests
     {
         yield return ["ONEVO.Agent.TrayApp/Views/ConnectWorkspacePage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/PrepareWorkspacePage.xaml"];
+        yield return ["ONEVO.Agent.TrayApp/Views/WorkLocationPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/PhotoCaptureWindow.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/BiometricEnrollmentPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ReviewSetupPage.xaml"];

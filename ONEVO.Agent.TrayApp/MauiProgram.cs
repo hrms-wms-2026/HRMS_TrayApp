@@ -59,6 +59,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<IInactivityPromptService>(sp =>
             sp.GetRequiredService<WindowsInactivityPromptService>());
         builder.Services.AddSingleton<IPreferencesStore, PreferencesStore>();
+        builder.Services.AddSingleton<ILocationService, GeolocationService>();
+        builder.Services.AddSingleton<IGeofenceEvaluator, GeofenceEvaluator>();
+        builder.Services.AddSingleton<IWorkLocationStore, PreferencesWorkLocationStore>();
         builder.Services.AddSingleton<ICameraService, CameraService>();
         builder.Services.AddSingleton<ISessionDayMetrics, SessionDayMetrics>();
         builder.Services.AddSingleton<IAppIconCache, AppIconCache>();
@@ -89,6 +92,7 @@ public static class MauiProgram
         // ViewModels
         builder.Services.AddTransient<ConnectWorkspaceViewModel>();
         builder.Services.AddTransient<PrepareWorkspaceViewModel>();
+        builder.Services.AddTransient<WorkLocationViewModel>();
         builder.Services.AddTransient<ReviewSetupViewModel>();
         builder.Services.AddTransient<PrivacyConsentViewModel>();
         builder.Services.AddTransient<ClockInViewModel>();
@@ -102,6 +106,7 @@ public static class MauiProgram
         // Views
         builder.Services.AddTransient<ConnectWorkspacePage>();
         builder.Services.AddTransient<PrepareWorkspacePage>();
+        builder.Services.AddTransient<WorkLocationPage>();
         builder.Services.AddTransient<ReviewSetupPage>();
         builder.Services.AddTransient<PrivacyConsentPage>();
         builder.Services.AddTransient<ClockInPage>();
