@@ -49,7 +49,7 @@ state before building the two clients against it.
 
 **Files:** none (verification only).
 
-- [ ] **Step 1: Confirm the branch and a clean working tree**
+- [x] **Step 1: Confirm the branch and a clean working tree**
 
 Run:
 ```bash
@@ -61,7 +61,7 @@ Expected: `feature/tray-browser-auto-connect`, and no output from `git status` (
 any unrelated WIP from the prior branch was already stashed with message "WIP before
 switching to feature/tray-browser-auto-connect...").
 
-- [ ] **Step 2: Build the API project**
+- [x] **Step 2: Build the API project**
 
 If a `dotnet run`/`dotnet watch` process is already running against this repo, stop it
 first — a live process locks the output DLLs and the build below will fail with
@@ -73,7 +73,7 @@ dotnet build src/ONEVO.Api/ONEVO.Api.csproj -c Debug
 ```
 Expected: `Build succeeded.`
 
-- [ ] **Step 3: Run the device-authorization unit tests**
+- [x] **Step 3: Run the device-authorization unit tests**
 
 Run:
 ```bash
@@ -81,7 +81,7 @@ dotnet test tests/ONEVO.Tests.Unit/ONEVO.Tests.Unit.csproj --filter "FullyQualif
 ```
 Expected: all tests pass (0 failed).
 
-- [ ] **Step 4: No commit needed**
+- [x] **Step 4: No commit needed**
 
 This task made no code changes — nothing to commit.
 
@@ -106,7 +106,7 @@ authenticated visit.
 - Produces: `authGuard: CanActivateFn` now reads `route`/`state` and appends
   `returnUrl` as a query param when redirecting — consumed by Task 2's `LoginComponent`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Replace the second test in `src/app/core/guards/auth.guard.spec.ts` (the redirect case) —
 keep the first test (`allows navigation when checkSession resolves true`) unchanged:
@@ -151,13 +151,13 @@ describe('authGuard', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- auth.guard.spec.ts`
 Expected: FAIL — `navigateSpy` was called with `(['/auth/login'])`, not the two-argument
 form the new assertion expects.
 
-- [ ] **Step 3: Update `authGuard` to append `returnUrl`**
+- [x] **Step 3: Update `authGuard` to append `returnUrl`**
 
 Edit `src/app/core/guards/auth.guard.ts`:
 
@@ -180,12 +180,12 @@ export const authGuard: CanActivateFn = async (route, state) => {
 };
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm test -- auth.guard.spec.ts`
 Expected: PASS (both tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/app/core/guards/auth.guard.ts src/app/core/guards/auth.guard.spec.ts
