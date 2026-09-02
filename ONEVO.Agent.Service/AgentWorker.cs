@@ -9,6 +9,7 @@ using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
+using ONEVO.Agent.Service.Sync;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
@@ -126,7 +127,12 @@ public sealed class AgentWorker : BackgroundService
         _credentials.ClearRefreshToken();
     }
 
-    private void ApplyEnrollmentGates()
+    /// <summary>
+    /// Internal (not private) so tests can exercise the fixed set of gates a successful
+    /// enrollment/session-resume applies without going through the full activation-code/HTTP
+    /// flow — mirrors the reasoning documented on <see cref="HandleCollectionSubmitAsync"/>.
+    /// </summary>
+    internal void ApplyEnrollmentGates()
     {
         _lifecycleGate.SetDeviceEnrolled(true);
         _lifecycleGate.SetCredentialValid(true);
@@ -305,7 +311,12 @@ public sealed class AgentWorker : BackgroundService
         });
     }
 
-    private async Task HandleLifecycleCommandAsync(
+    /// <summary>
+    /// Internal (not private) so tests can submit ClockIn/StartBreak/EndBreak/ClockOut lifecycle
+    /// commands directly — mirrors the reasoning documented on
+    /// <see cref="HandleCollectionSubmitAsync"/>.
+    /// </summary>
+    internal async Task HandleLifecycleCommandAsync(
         IpcEnvelope envelope,
         Func<IpcEnvelope, Task> reply)
     {
@@ -536,7 +547,12 @@ public sealed class AgentWorker : BackgroundService
                     _presenceSession.Snapshot(DateTimeOffset.UtcNow)))
         };
 
-    private async Task HandleCollectionSubmitAsync(
+    /// <summary>
+    /// Internal (not private) so AgentWorkerCollectionSubmitTests can assert the per-record-type
+    /// policy gate directly — mirrors the convention used by
+    /// <see cref="Sync.PolicySyncService.RefreshInterval"/> for the same reason.
+    /// </summary>
+    internal async Task HandleCollectionSubmitAsync(
         IpcEnvelope envelope,
         Func<IpcEnvelope, Task> reply)
     {
@@ -574,22 +590,7 @@ public sealed class AgentWorker : BackgroundService
             return;
         }
 
-        if (!_policyCache.Current.ActivitySignalEnabled)
-        {
-            await reply(new IpcEnvelope
-            {
-                Type = IpcMessageTypes.CollectionRecordAck,
-                CorrelationId = envelope.CorrelationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new CollectionRecordAckPayload
-                    {
-                        AcceptedCount = 0,
-                        ErrorCode = "activity_signal_disabled"
-                    })
-            });
-            return;
-        }
-
+        var currentPolicy = _policyCache.Current;
         var accepted = 0;
         var idleChanged = false;
         var stableDeviceId = _deviceIdentityStore.Load()?.DeviceId ?? "unknown";
@@ -605,6 +606,18 @@ public sealed class AgentWorker : BackgroundService
                 or CollectionRecordTypes.Screenshot
                 or CollectionRecordTypes.FacePhoto))
                 continue;
+
+            // Per-record-type policy gate at ingest — mirrors ActivitySyncService.IsAllowedByPolicy
+            // exactly (Screenshot->ScreenshotEnabled, AppUsage->AppUsageEnabled,
+            // FacePhoto->CameraVerificationEnabled, Activity/DeviceState->ActivitySignalEnabled) so a
+            // capability disabled server-side is rejected here rather than buffered and only
+            // dropped later at ActivitySyncService flush time.
+            if (!ActivitySyncService.IsAllowedByPolicy(record.RecordType, currentPolicy))
+            {
+                _logger.LogInformation(
+                    "Rejected {RecordType} at ingest — capability disabled by policy", record.RecordType);
+                continue;
+            }
 
             if (record.RecordType == CollectionRecordTypes.DeviceStateSnapshot)
             {
@@ -726,6 +739,7 @@ public sealed class AgentWorker : BackgroundService
         await ReplyEnrollmentAsync(
             envelope, reply, true, null,
             result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber,
+            result.Auth.EmployeeProfileStatus);
             result.Auth.DepartmentName, result.Auth.WorkModeLabel, result.Auth.OfficeName,
             result.Auth.OrganizationName);
 
@@ -741,6 +755,7 @@ public sealed class AgentWorker : BackgroundService
         string? employeeName,
         string? employeeEmail = null,
         string? employeeNumber = null,
+        string? employeeProfileStatus = null)
         string? departmentName = null,
         string? workModeLabel = null,
         string? officeName = null,
@@ -757,6 +772,7 @@ public sealed class AgentWorker : BackgroundService
                 EmployeeName = employeeName,
                 EmployeeEmail = employeeEmail,
                 EmployeeNumber = employeeNumber,
+                EmployeeProfileStatus = employeeProfileStatus
                 DepartmentName = departmentName,
                 WorkModeLabel = workModeLabel,
                 OfficeName = officeName,

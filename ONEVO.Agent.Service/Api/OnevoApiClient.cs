@@ -194,12 +194,14 @@ public sealed class OnevoApiClient
         var policy = new AgentPolicy
         {
             Version = payload.Version,
+            LocationTrackingEnabled = payload.LocationTrackingEnabled,
             ActivitySignalEnabled = payload.ActivitySignalEnabled,
             AppUsageEnabled = payload.AppUsageEnabled,
             ScreenshotEnabled = payload.ScreenshotEnabled,
             InactivityScreenshotEnabled = payload.InactivityScreenshotEnabled,
             CameraVerificationEnabled = payload.CameraVerificationEnabled,
             IdleThresholdMinutes = payload.IdleThresholdMinutes,
+            EffectiveScope = payload.EffectiveScope ?? "employee",
             ValidUntil = payload.ValidUntil
         };
 
@@ -426,6 +428,7 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("employee_name")] string? EmployeeName,
     [property: JsonPropertyName("employee_email")] string? EmployeeEmail,
     [property: JsonPropertyName("employee_number")] string? EmployeeNumber,
+    [property: JsonPropertyName("employee_profile_status")] string? EmployeeProfileStatus = null);
     [property: JsonPropertyName("department_name")] string? DepartmentName = null,
     [property: JsonPropertyName("work_mode_label")] string? WorkModeLabel = null,
     [property: JsonPropertyName("office_name")] string? OfficeName = null,
@@ -440,13 +443,16 @@ public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPay
 /// </summary>
 public sealed record TrayAgentPolicyPayload(
     [property: JsonPropertyName("version")] string Version,
+
     [property: JsonPropertyName("activity_signal_enabled")] bool ActivitySignalEnabled,
     [property: JsonPropertyName("app_usage_enabled")] bool AppUsageEnabled,
     [property: JsonPropertyName("screenshot_enabled")] bool ScreenshotEnabled,
     [property: JsonPropertyName("inactivity_screenshot_enabled")] bool InactivityScreenshotEnabled,
     [property: JsonPropertyName("camera_verification_enabled")] bool CameraVerificationEnabled,
     [property: JsonPropertyName("idle_threshold_minutes")] int IdleThresholdMinutes,
-    [property: JsonPropertyName("valid_until")] DateTimeOffset ValidUntil);
+    [property: JsonPropertyName("valid_until")] DateTimeOffset ValidUntil,
+    [property: JsonPropertyName("effective_scope")] string EffectiveScope = "employee",
+    [property: JsonPropertyName("location_tracking_enabled")] bool LocationTrackingEnabled = false);
 
 public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);
 

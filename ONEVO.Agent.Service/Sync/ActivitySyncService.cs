@@ -8,7 +8,9 @@ using Microsoft.Extensions.Options;
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
+using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
+
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
@@ -29,6 +31,7 @@ public sealed class ActivitySyncService : BackgroundService
     private readonly IEvidenceProtector _protector;
     private readonly EvidenceSpoolStore _spoolStore;
     private readonly AgentOptions _options;
+    private readonly PolicyCache? _policyCache;
 
     public ActivitySyncService(
         ILogger<ActivitySyncService> logger,
@@ -36,8 +39,10 @@ public sealed class ActivitySyncService : BackgroundService
         CredentialStore credentials,
         IHttpClientFactory httpClientFactory,
         IEvidenceProtector protector,
-        EvidenceSpoolStore spoolStore,
-        IOptions<AgentOptions> options)
+                EvidenceSpoolStore spoolStore,
+        IOptions<AgentOptions> options,
+        PolicyCache? policyCache = null)
+
     {
         _logger = logger;
         _buffer = buffer;
@@ -45,7 +50,9 @@ public sealed class ActivitySyncService : BackgroundService
         _httpClientFactory = httpClientFactory;
         _protector = protector;
         _spoolStore = spoolStore;
-        _options = options.Value;
+                _options = options.Value;
+        _policyCache = policyCache;
+
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -100,6 +107,19 @@ public sealed class ActivitySyncService : BackgroundService
         {
             _logger.LogWarning("ApiBaseUrl not configured — leaving records pending");
             return;
+        }
+
+        if (_policyCache is not null)
+        {
+            var policy = _policyCache.Current;
+            var blocked = peeked.Where(item => !IsAllowedByPolicy(item.Record.RecordType, policy)).ToList();
+            if (blocked.Count > 0)
+            {
+                _logger.LogInformation("Dropping {Count} buffered records disallowed by server policy", blocked.Count);
+                _buffer.MarkAcknowledged(blocked.Select(item => item.RowId));
+                peeked = peeked.Where(item => IsAllowedByPolicy(item.Record.RecordType, policy)).ToList();
+                if (peeked.Count == 0) return;
+            }
         }
 
         var acknowledged = new List<long>();
@@ -212,7 +232,27 @@ public sealed class ActivitySyncService : BackgroundService
             DeleteSpoolForEvent(eventId);
     }
 
+        /// <summary>
+        /// Per-record-type capability gate. Internal (not private) so <see cref="AgentWorker"/>'s
+        /// HandleCollectionSubmitAsync can reuse this exact mapping to reject a record whose
+        /// specific capability is disabled at ingest, instead of only filtering it out here at
+        /// flush time — keeping both enforcement points in lockstep by construction.
+        /// </summary>
+        internal static bool IsAllowedByPolicy(string recordType, AgentPolicy policy) => recordType switch
+    {
+        CollectionRecordTypes.ActivitySnapshot => policy.ActivitySignalEnabled,
+        CollectionRecordTypes.AppUsageSnapshot => policy.AppUsageEnabled,
+        CollectionRecordTypes.DeviceStateSnapshot => policy.ActivitySignalEnabled,
+        CollectionRecordTypes.MeetingSignal => policy.ActivitySignalEnabled,
+        CollectionRecordTypes.Screenshot => policy.ScreenshotEnabled,
+        CollectionRecordTypes.InactivityCaptureAttempt => policy.InactivityScreenshotEnabled,
+        CollectionRecordTypes.FacePhoto => policy.CameraVerificationEnabled,
+        CollectionRecordTypes.WorkSession => true,
+        _ => false
+    };
+
     private static bool IsBatchableType(string recordType) =>
+
         recordType is CollectionRecordTypes.ActivitySnapshot
             or CollectionRecordTypes.AppUsageSnapshot
             or CollectionRecordTypes.DeviceStateSnapshot

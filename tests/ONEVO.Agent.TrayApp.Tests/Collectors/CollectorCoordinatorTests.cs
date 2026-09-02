@@ -46,6 +46,46 @@ public sealed class CollectorCoordinatorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task ClockedOut_EnabledPolicyAlreadyReceived_NeverStartsCollector()
+    {
+        // Policy arrives (or was already cached) while still Stopped (clocked out) - collectors
+        // must not run just because the policy allows it; the state must also be Active.
+        _pipe.SimulatePolicy(EnabledPolicy());
+        _pipe.SimulateState(MonitoringState.Stopped);
+
+        await Task.Delay(100);
+
+        Assert.False(_collector.IsRunning);
+        Assert.Equal(0, _collector.StartCount);
+    }
+
+    [Fact]
+    public async Task Active_PolicyFetchFailureDefault_DoesNotStartCollector()
+    {
+        // Shape of PolicyCache.CreateDefault() on the Service side (server policy fetch failed or
+        // is unavailable): every capability flag false. Proves the tray-side coordinator honors
+        // that fail-closed broadcast the same as any other policy push with Activity disabled.
+        var failClosedDefault = new AgentPolicy
+        {
+            Version = "server-policy-unavailable",
+            ActivitySignalEnabled = false,
+            AppUsageEnabled = false,
+            ScreenshotEnabled = false,
+            CameraVerificationEnabled = false,
+            InactivityScreenshotEnabled = false,
+            ValidUntil = DateTimeOffset.MinValue
+        };
+
+        _pipe.SimulatePolicy(failClosedDefault);
+        _pipe.SimulateState(MonitoringState.Active);
+
+        await Task.Delay(100);
+
+        Assert.False(_collector.IsRunning);
+        Assert.Equal(0, _collector.StartCount);
+    }
+
+    [Fact]
     public async Task Active_PolicyDisablesActivity_DoesNotStartCollector()
     {
         _pipe.SimulatePolicy(EnabledPolicy(activityEnabled: false));

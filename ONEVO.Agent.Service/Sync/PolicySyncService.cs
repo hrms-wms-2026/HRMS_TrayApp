@@ -4,6 +4,7 @@ using System.Text.Json;
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Policy;
+
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared.IPC;
 
@@ -93,16 +94,16 @@ public sealed class PolicySyncService : BackgroundService
     {
         if (string.IsNullOrWhiteSpace(deviceJwt))
         {
-            _logger.LogDebug("Policy refresh skipped — no Device JWT");
+            _logger.LogDebug("Policy refresh skipped — no Device JWT; clearing policy");
+            await ClearAndBroadcastAsync(ct);
             return;
         }
 
         var result = await _apiClient.GetEffectivePolicyAsync(deviceJwt, ct);
         if (!result.Success || result.Policy is null)
         {
-            // Leave the cache exactly as-is (§PolicyCache.Current already degrades the
-            // capture flags once its own ValidUntil passes) — no fast-retry loop here.
-            _logger.LogDebug("Policy refresh failed ({ErrorCode}) — keeping last valid policy", result.ErrorCode);
+            _logger.LogDebug("Policy refresh failed ({ErrorCode}) — clearing policy and disabling monitoring", result.ErrorCode);
+            await ClearAndBroadcastAsync(ct);
             return;
         }
 
@@ -110,8 +111,9 @@ public sealed class PolicySyncService : BackgroundService
         if (policy.ValidUntil <= DateTimeOffset.UtcNow)
         {
             _logger.LogWarning(
-                "Backend returned an already-expired policy (version={Version}, validUntil={ValidUntil}) — rejecting",
+                "Backend returned an already-expired policy (version={Version}, validUntil={ValidUntil}) — clearing",
                 policy.Version, policy.ValidUntil);
+            await ClearAndBroadcastAsync(ct);
             return;
         }
 
@@ -131,5 +133,19 @@ public sealed class PolicySyncService : BackgroundService
         }, ct);
 
         _logger.LogInformation("Policy refreshed and broadcast (version={Version})", policy.Version);
+    }
+
+    private async Task ClearAndBroadcastAsync(CancellationToken ct)
+    {
+        var previousVersion = _policyCache.Current.Version;
+        _policyCache.Clear();
+        var disabled = _policyCache.Current;
+        if (string.Equals(previousVersion, disabled.Version, StringComparison.Ordinal)) return;
+
+        await _broadcaster.BroadcastAsync(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.PolicyPush,
+            Payload = JsonSerializer.SerializeToElement(new PolicyPushPayload { Policy = disabled })
+        }, ct);
     }
 }
