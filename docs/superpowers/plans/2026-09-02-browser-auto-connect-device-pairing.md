@@ -916,7 +916,7 @@ path and the new polling-loop success path use one implementation.
   so tests can invoke them directly, matching `HandleLifecycleCommandAsync`'s existing
   convention.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/ONEVO.Agent.Service.Tests/AgentWorkerDevicePairingTests.cs`. This follows
 `AgentWorkerLifecycleGateTests`'s construct-a-real-`AgentWorker`-directly pattern, but
@@ -1142,13 +1142,13 @@ public class AgentWorkerDevicePairingTests
 This test references `worker.CurrentStateForTest` and a `pushResult` parameter on
 `PollDevicePairingLoopAsync` that don't exist yet — both are added in Step 3 below.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj --filter "FullyQualifiedName~AgentWorkerDevicePairingTests"`
 Expected: FAIL — compile error (`HandleDevicePairingStartAsync`, `PollDevicePairingLoopAsync`,
 `CurrentStateForTest` don't exist).
 
-- [ ] **Step 3: Extract the shared enrollment-completion tail**
+- [x] **Step 3: Extract the shared enrollment-completion tail**
 
 Edit `ONEVO.Agent.Service/AgentWorker.cs`. Refactor the identity-derivation +
 `PersistAuth` + heartbeat + state-transition + gates block that currently lives inline in
@@ -1215,13 +1215,13 @@ Add a small internal test-only accessor right after `CompleteEnrollmentAsync` (m
     internal MonitoringState CurrentStateForTest => _stateMachine.CurrentState;
 ```
 
-- [ ] **Step 4: Run the existing activation tests to confirm the refactor didn't break anything**
+- [x] **Step 4: Run the existing activation tests to confirm the refactor didn't break anything**
 
 Run: `dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj --filter "FullyQualifiedName~Activation"`
 Expected: PASS — `HandleActivationCodeSubmitAsync`'s observable behavior (replies,
 `EnrollmentResultPayload` fields, state transitions) is unchanged by the extraction.
 
-- [ ] **Step 5: Add the device-pairing handlers**
+- [x] **Step 5: Add the device-pairing handlers**
 
 In `ONEVO.Agent.Service/AgentWorker.cs`, add two new fields near the top of the class
 (after `_evidenceSpool`, line 32) to track the in-flight pairing's cancellation:
@@ -1392,18 +1392,18 @@ brace (after the current line 748, before `ReplyEnrollmentAsync`):
     }
 ```
 
-- [ ] **Step 6: Run the new tests to verify they pass**
+- [x] **Step 6: Run the new tests to verify they pass**
 
 Run: `dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj --filter "FullyQualifiedName~AgentWorkerDevicePairingTests"`
 Expected: PASS (all four tests).
 
-- [ ] **Step 7: Run the full service test project to confirm no regression**
+- [x] **Step 7: Run the full service test project to confirm no regression**
 
 Run: `dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj`
 Expected: PASS (all tests, including `AgentWorkerLifecycleGateTests` and
 `AgentWorkerCollectionSubmitTests`).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add ONEVO.Agent.Service/AgentWorker.cs tests/ONEVO.Agent.Service.Tests/AgentWorkerDevicePairingTests.cs
