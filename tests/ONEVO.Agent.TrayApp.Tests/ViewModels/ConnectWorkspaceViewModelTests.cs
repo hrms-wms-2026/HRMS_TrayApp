@@ -227,4 +227,30 @@ public sealed class ConnectWorkspaceViewModelTests
         Assert.False(vm.IsWaitingForBrowserApproval);
         Assert.Single(pipe.SentEnvelopes, e => e.Type == ONEVO.Agent.Shared.IPC.IpcMessageTypes.DevicePairingCancel);
     }
+
+    [Fact]
+    public void ResolveTenantVerificationUrl_RewritesOriginToTenantPortal_PreservingPathAndQuery()
+    {
+        var url = ConnectWorkspaceViewModel.ResolveTenantVerificationUrl(
+            "https://localhost:4200/device/activate?request_id=abc&user_code=XYZ12345");
+
+        var expected = new Uri(ONEVO.Agent.TrayApp.Services.WorkspaceLinks.PortalUrl);
+        var actual = new Uri(url);
+        Assert.Equal(expected.Scheme, actual.Scheme);
+        Assert.Equal(expected.Host, actual.Host);
+        Assert.Equal(expected.Port, actual.Port);
+        Assert.Equal("/device/activate", actual.AbsolutePath);
+        Assert.Equal("?request_id=abc&user_code=XYZ12345", actual.Query);
+    }
+
+    [Fact]
+    public void ResolveTenantVerificationUrl_NullOrEmptyInput_FallsBackToPortalUrl()
+    {
+        Assert.Equal(
+            ONEVO.Agent.TrayApp.Services.WorkspaceLinks.PortalUrl,
+            ConnectWorkspaceViewModel.ResolveTenantVerificationUrl(null));
+        Assert.Equal(
+            ONEVO.Agent.TrayApp.Services.WorkspaceLinks.PortalUrl,
+            ConnectWorkspaceViewModel.ResolveTenantVerificationUrl(""));
+    }
 }
