@@ -120,8 +120,6 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
             ConnectionLabel = result.EmployeeProfileStatus == "company_context_required"
                 ? "Connected — select a company in ONEVO to load your employee profile"
                 : BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
-            try { await Shell.Current.GoToAsync("//prepare"); }
-            ConnectionLabel = BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
             try { await Shell.Current.GoToAsync(SetupFlow.AfterActivation); }
             catch { /* unit tests */ }
         }
