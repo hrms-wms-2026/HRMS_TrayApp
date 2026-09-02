@@ -494,13 +494,13 @@ exchange over the named pipe for the browser-pairing flow. `DevicePairingResult`
   Tray), `DevicePairingResultPayload` (unsolicited push, Service → Tray) — consumed by
   Task 5 (`NamedPipeClient`) and Task 6 (`AgentWorker`).
 
-- [ ] **Step 1: Read the existing shared IPC test file for its style**
+- [x] **Step 1: Read the existing shared IPC test file for its style**
 
 Run: `cat tests/ONEVO.Agent.Shared.Tests/IpcEnvelopeTests.cs` (or open it) — match its
 existing assertion style (likely serialize-then-deserialize round trips per payload type)
 for the new test in Step 2.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Add to `tests/ONEVO.Agent.Shared.Tests/IpcEnvelopeTests.cs` (inside the existing test
 class, following its established pattern):
@@ -540,13 +540,13 @@ public void DevicePairingResultPayload_RoundTripsThroughJson()
 }
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj --filter "FullyQualifiedName~DevicePairing"`
 Expected: FAIL — `DevicePairingStartedPayload`/`DevicePairingResultPayload` do not exist yet
 (compile error).
 
-- [ ] **Step 4: Add the message types and payloads**
+- [x] **Step 4: Add the message types and payloads**
 
 Edit `ONEVO.Agent.Shared/IPC/IpcMessages.cs`. Add four new constants to
 `IpcMessageTypes`, immediately after the `BiometricEnrollmentResult` line (line 64):
@@ -599,12 +599,12 @@ Note: the Step 2 test above used a positional-style constructor for
 `DevicePairingStartedPayload` — this record's declared shape (positional record with
 defaults) supports that call exactly as written.
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj --filter "FullyQualifiedName~DevicePairing"`
 Expected: PASS (both tests).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add ONEVO.Agent.Shared/IPC/IpcMessages.cs tests/ONEVO.Agent.Shared.Tests/IpcEnvelopeTests.cs
@@ -636,7 +636,7 @@ existing unsolicited-push branch (same pattern as `OnPolicyReceived`/`OnNotifica
   `event Action<DevicePairingResultPayload>? OnDevicePairingResult` — consumed by Task 8
   (`ConnectWorkspaceViewModel`).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Since `NamedPipeClient` talks over a real named pipe (no interface seam for a unit test
 without standing up an actual pipe server), this task's automated test targets
@@ -698,13 +698,13 @@ public class NamedPipeClientDevicePairingTests
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --filter "FullyQualifiedName~NamedPipeClientDevicePairingTests"`
 Expected: FAIL — compile error, `SendDevicePairingStartAsync`/`OnDevicePairingResult`/
 `SimulateDevicePairingResult`/`NextDevicePairingStartedResult` don't exist yet.
 
-- [ ] **Step 3: Add the new members to `INamedPipeClient`**
+- [x] **Step 3: Add the new members to `INamedPipeClient`**
 
 Edit `ONEVO.Agent.TrayApp/Services/INamedPipeClient.cs`. Add the event next to the
 existing ones (after `OnNotificationReceived`):
@@ -728,7 +728,7 @@ Add the two new methods after `SendActivationAsync`:
     Task SendDevicePairingCancelAsync(CancellationToken ct);
 ```
 
-- [ ] **Step 4: Implement the new members in `NamedPipeClient`**
+- [x] **Step 4: Implement the new members in `NamedPipeClient`**
 
 Edit `ONEVO.Agent.TrayApp/Services/NamedPipeClient.cs`. Add the event next to the existing
 ones (after `OnNotificationReceived`, line 27):
@@ -821,7 +821,7 @@ line 511, before `CollectionRecordAck`):
                     }
 ```
 
-- [ ] **Step 5: Extend `FakeNamedPipeClient`**
+- [x] **Step 5: Extend `FakeNamedPipeClient`**
 
 Edit `tests/ONEVO.Agent.TrayApp.Tests/Fakes/FakeNamedPipeClient.cs`. Add the event next to
 the existing ones:
@@ -868,18 +868,18 @@ Add the canned-result field and the two methods, following the exact
         OnDevicePairingResult?.Invoke(payload);
 ```
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --filter "FullyQualifiedName~NamedPipeClientDevicePairingTests"`
 Expected: PASS (all three tests).
 
-- [ ] **Step 7: Run the full TrayApp test project to confirm no regression**
+- [x] **Step 7: Run the full TrayApp test project to confirm no regression**
 
 Run: `dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj`
 Expected: PASS (all tests, including the pre-existing suite — the `FakeNamedPipeClient`
 change is purely additive).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add ONEVO.Agent.TrayApp/Services/INamedPipeClient.cs ONEVO.Agent.TrayApp/Services/NamedPipeClient.cs tests/ONEVO.Agent.TrayApp.Tests/Fakes/FakeNamedPipeClient.cs tests/ONEVO.Agent.TrayApp.Tests/Services/NamedPipeClientDevicePairingTests.cs
