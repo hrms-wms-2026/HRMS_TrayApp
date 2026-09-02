@@ -168,7 +168,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = ResolveTenantVerificationUrl(started.VerificationUriComplete),
+                FileName = started.VerificationUriComplete,
                 UseShellExecute = true
             });
         }
@@ -179,40 +179,6 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         }
 
         IsWaitingForBrowserApproval = true;
-    }
-
-    /// <summary>
-    /// The backend builds verification_uri_complete against its generic base host
-    /// (Urls:AppBaseUrl), which never carries a session — this app's cookies only ever
-    /// exist on a tenant subdomain (see SessionExchangeComponent's own doc comment: "the
-    /// base host never sets those cookies itself"). Opening the base-host URL therefore
-    /// always hits the login screen even when the user is already signed in to their
-    /// tenant portal. Rewriting the origin to WorkspaceLinks.PortalUrl — the same
-    /// tenant-scoped host the manual-code flow already opens — lets authGuard's existing
-    /// checkSession() pass straight through for an already-authenticated user, which is
-    /// the actual "auto-continue if signed in" behavior. Path and query (request_id,
-    /// user_code) are preserved unchanged; only scheme/host/port are swapped.
-    /// </summary>
-    internal static string ResolveTenantVerificationUrl(string? verificationUriComplete)
-    {
-        if (string.IsNullOrWhiteSpace(verificationUriComplete))
-            return WorkspaceLinks.PortalUrl;
-
-        try
-        {
-            var tenantOrigin = new Uri(WorkspaceLinks.PortalUrl);
-            var builder = new UriBuilder(verificationUriComplete)
-            {
-                Scheme = tenantOrigin.Scheme,
-                Host = tenantOrigin.Host,
-                Port = tenantOrigin.Port
-            };
-            return builder.Uri.ToString();
-        }
-        catch (UriFormatException)
-        {
-            return verificationUriComplete;
-        }
     }
 
     [RelayCommand]
