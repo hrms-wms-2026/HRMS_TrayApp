@@ -3,16 +3,21 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:views="clr-namespace:ONEVO.Agent.TrayApp.Views"
        x:Class="ONEVO.Agent.TrayApp.Views.AppShell"
-       FlyoutBehavior="Disabled">
+       FlyoutBehavior="Disabled"
+       Shell.NavBarIsVisible="False">
 
   <ShellContent Route="connect"  ContentTemplate="{DataTemplate views:ConnectWorkspacePage}" />
   <ShellContent Route="prepare"  ContentTemplate="{DataTemplate views:PrepareWorkspacePage}" />
+  <ShellContent Route="location" ContentTemplate="{DataTemplate views:WorkLocationPage}" />
   <ShellContent Route="photo"    ContentTemplate="{DataTemplate views:PhotoCaptureWindow}" />
   <ShellContent Route="enrollment-biometric" ContentTemplate="{DataTemplate views:BiometricEnrollmentPage}" />
   <ShellContent Route="identity-verification" ContentTemplate="{DataTemplate views:IdentityVerificationPage}" />
   <ShellContent Route="review"   ContentTemplate="{DataTemplate views:ReviewSetupPage}" />
   <ShellContent Route="policy"   ContentTemplate="{DataTemplate views:PrivacyConsentPage}" />
+  <ShellContent Route="privacy"  ContentTemplate="{DataTemplate views:PrivacyTransparencyPage}" />
+  <ShellContent Route="device"   ContentTemplate="{DataTemplate views:ConfirmDevicePage}" />
   <ShellContent Route="clockin"  ContentTemplate="{DataTemplate views:ClockInPage}" />
   <ShellContent Route="active"   ContentTemplate="{DataTemplate views:ActiveSessionPage}" />
   <ShellContent Route="end"      ContentTemplate="{DataTemplate views:EndSessionPage}" />
+  <ShellContent Route="summary"  ContentTemplate="{DataTemplate views:DailySummaryPage}" />
 </Shell>

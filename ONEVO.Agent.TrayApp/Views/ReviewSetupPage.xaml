@@ -5,9 +5,10 @@
              xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.ReviewSetupPage"
              x:DataType="vm:ReviewSetupViewModel"
-             Title="Confirm Your Details">
+             Shell.NavBarIsVisible="False"
+             Title="OneXso WorkPulse">
 
-  <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource TrayPagePadding}">
+  <Grid RowDefinitions="*,Auto" Padding="40,20,40,12">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
@@ -16,155 +17,106 @@
       </LinearGradientBrush>
     </Grid.Background>
 
-    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
+    <VerticalStackLayout Grid.Row="0" Spacing="0" VerticalOptions="Center"
+                         MaximumWidthRequest="640" HorizontalOptions="Center">
+      <Label HorizontalOptions="Center" Margin="0,0,0,6">
+        <Label.FormattedText>
+          <FormattedString>
+            <Span Text="Confirm Your " FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Span Text="Details" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+          </FormattedString>
+        </Label.FormattedText>
+      </Label>
+      <Label Text="Please review your information before continuing."
+             Style="{StaticResource PageSubtitle}" Margin="0,0,0,18" />
 
-    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="22">
-
-      <Ellipse Grid.ColumnSpan="2" WidthRequest="460" HeightRequest="460"
-               HorizontalOptions="Start" VerticalOptions="Start" Margin="-140,-100,0,0"
-               Opacity="0.85" InputTransparent="True">
-        <Ellipse.Fill>
-          <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-            <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
-            <GradientStop Color="#00175CFF" Offset="1" />
-          </RadialGradientBrush>
-        </Ellipse.Fill>
-      </Ellipse>
-      <Ellipse Grid.Column="1" WidthRequest="360" HeightRequest="360"
-               HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-100,-80"
-               Opacity="0.85" InputTransparent="True">
-        <Ellipse.Fill>
-          <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-            <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
-            <GradientStop Color="#006D28D9" Offset="1" />
-          </RadialGradientBrush>
-        </Ellipse.Fill>
-      </Ellipse>
-
-      <!-- Left: person + shield illustration -->
-      <Grid x:Name="LeftPane" Grid.Column="0" MinimumWidthRequest="0">
-        <Image Source="review_hero.png"
-               Aspect="AspectFit"
-               HorizontalOptions="Fill"
-               VerticalOptions="Fill"
-               Margin="4" />
-      </Grid>
-
-      <!-- Right: details + confirm -->
-      <Grid x:Name="RightPane" Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto,Auto">
-
-        <HorizontalStackLayout Grid.Row="0" Spacing="6">
-          <Label Text="Confirm Your " Style="{StaticResource PageTitle}" />
-          <Label Text="Details" Style="{StaticResource PageTitleBrand}" />
-        </HorizontalStackLayout>
-        <Label Grid.Row="1"
-               Text="Please review your information before continuing."
-               Style="{StaticResource PageSubtitle}"
-               HorizontalTextAlignment="Start"
-               Margin="0,6,0,16" />
-
-        <Border Grid.Row="2" Style="{StaticResource TrayCompactGlassCard}" Padding="16,6" Margin="0,0,0,10">
-          <VerticalStackLayout Spacing="0">
-
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
-              <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                      StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
-                <Label Text="{StaticResource IconPerson}" FontFamily="Segoe MDL2 Assets"
-                       FontSize="14" TextColor="{StaticResource BrandTitle}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-              </Border>
-              <Label Grid.Column="1" Text="Full Name" Style="{StaticResource FieldLabel}" />
-              <Label Grid.Column="2" Text="{Binding FullName}" Style="{StaticResource FieldValue}" />
-            </Grid>
-            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
-              <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                      StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
-                <Label Text="{StaticResource IconMail}" FontFamily="Segoe MDL2 Assets"
-                       FontSize="14" TextColor="{StaticResource BrandTitle}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-              </Border>
-              <Label Grid.Column="1" Text="Email" Style="{StaticResource FieldLabel}" />
-              <Label Grid.Column="2" Text="{Binding WorkEmail}" Style="{StaticResource FieldValue}" />
-            </Grid>
-            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
-              <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                      StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
-                <Label Text="{StaticResource IconBadge}" FontFamily="Segoe MDL2 Assets"
-                       FontSize="14" TextColor="{StaticResource BrandTitle}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-              </Border>
-              <Label Grid.Column="1" Text="Employee ID" Style="{StaticResource FieldLabel}" />
-              <Label Grid.Column="2" Text="{Binding EmployeeId}" Style="{StaticResource FieldValue}" />
-            </Grid>
-            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-            <Grid ColumnDefinitions="40,*,Auto" Padding="0,6" ColumnSpacing="12">
-              <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                      StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
-                <Label Text="{StaticResource IconCamera}" FontFamily="Segoe MDL2 Assets"
-                       FontSize="14" TextColor="{StaticResource BrandTitle}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-              </Border>
-              <Label Grid.Column="1" Text="Face Verification" Style="{StaticResource FieldLabel}" />
-              <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
-                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
-                       FontSize="14" TextColor="{StaticResource StatusGreen}"
-                       VerticalOptions="Center"
-                       IsVisible="{Binding FaceVerificationCompleted}" />
-                <Label Text="{Binding FaceVerificationStatusText}"
-                       FontSize="13" FontAttributes="Bold"
-                       TextColor="{StaticResource StatusGreen}"
-                       VerticalOptions="Center">
-                  <Label.Triggers>
-                    <DataTrigger TargetType="Label" Binding="{Binding FaceVerificationCompleted}" Value="False">
-                      <Setter Property="TextColor" Value="{StaticResource StatusOrange}" />
-                    </DataTrigger>
-                  </Label.Triggers>
-                </Label>
-              </HorizontalStackLayout>
-            </Grid>
-          </VerticalStackLayout>
-        </Border>
-
-        <Border Grid.Row="3" Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,10">
-          <Border.Background>
-            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
-              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
-              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
-            </LinearGradientBrush>
-          </Border.Background>
-          <Grid>
-            <Button Command="{Binding ConfirmAndContinueCommand}"
-                    Style="{StaticResource TrayPrimaryActionOverlay}"
-                    Text=""
-                    SemanticProperties.Description="Confirm and Continue" />
-            <HorizontalStackLayout InputTransparent="True"
-                                   HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="16" TextColor="White" VerticalOptions="Center" />
-              <Label Text="Confirm &amp; Continue" FontSize="15" FontAttributes="Bold"
-                     TextColor="White" VerticalOptions="Center" />
-            </HorizontalStackLayout>
+      <Border Style="{StaticResource TrayCompactGlassCard}" Padding="18,8" Margin="0,0,0,18">
+        <VerticalStackLayout Spacing="0">
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconPerson}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="Full Name" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding FullName}" Style="{StaticResource FieldValue}" />
           </Grid>
-        </Border>
+          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconMail}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="Email" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding WorkEmail}" Style="{StaticResource FieldValue}" />
+          </Grid>
+          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconBadge}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="Employee ID" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding EmployeeId}" Style="{StaticResource FieldValue}" />
+          </Grid>
+          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconWork}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="Department" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding Department}" Style="{StaticResource FieldValue}" />
+          </Grid>
+          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="Registered Office" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding RegisteredOffice}" Style="{StaticResource FieldValue}" />
+          </Grid>
+          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconMonitor}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="Work Mode" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding WorkMode}" Style="{StaticResource FieldValue}" />
+          </Grid>
+          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconCamera}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="Face Verification" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding FaceVerificationStatusText}" Style="{StaticResource FieldValue}" />
+          </Grid>
+          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+          <Grid ColumnDefinitions="40,*,Auto" Padding="0,10" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource IconTile}" StrokeShape="RoundRectangle 18" WidthRequest="32" HeightRequest="32">
+              <Label Text="{StaticResource IconApps}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Grid.Column="1" Text="This Device" Style="{StaticResource FieldLabel}" />
+            <Label Grid.Column="2" Text="{Binding ThisDevice}" Style="{StaticResource FieldValue}" />
+          </Grid>
+        </VerticalStackLayout>
+      </Border>
 
-        <Button Grid.Row="4" Text="Back"
-                Command="{Binding BackCommand}"
-                BackgroundColor="Transparent"
-                TextColor="{StaticResource Primary}"
-                FontSize="14"
-                HorizontalOptions="Center" />
-      </Grid>
-    </Grid>
+      <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,8">
+        <Border.Background>
+          <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+            <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+            <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+            <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+          </LinearGradientBrush>
+        </Border.Background>
+        <Grid>
+          <Button Command="{Binding ConfirmAndContinueCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Confirm and Continue" />
+          <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+            <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="White" VerticalOptions="Center" />
+            <Label Text="Confirm &amp; Continue" FontSize="15" FontAttributes="Bold" TextColor="White" VerticalOptions="Center" />
+          </HorizontalStackLayout>
+        </Grid>
+      </Border>
+      <Button Text="←  Back" Command="{Binding BackCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="14" HorizontalOptions="Center" />
+    </VerticalStackLayout>
 
-    <controls:FooterStatusBar Grid.Row="2"
-                              VersionText="Version 1.0.0"
-                              ConnectionLabel="Connected"
-                              IsConnected="True" />
+    <controls:FooterStatusBar Grid.Row="1" VersionText="Version 1.0.0" ConnectionLabel="Connected" IsConnected="True" />
   </Grid>
 </ContentPage>

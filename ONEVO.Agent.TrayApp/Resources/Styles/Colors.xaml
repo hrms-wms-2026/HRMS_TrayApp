@@ -40,9 +40,12 @@
     <Color x:Key="ConnectButtonMid">#6366F1</Color>
     <Color x:Key="ConnectButtonEnd">#8B5CF6</Color>
     <Color x:Key="SoftOutline">#C7D2FE</Color>
+    <Color x:Key="InputStroke">#C5D0E3</Color>
 
     <!-- Status -->
     <Color x:Key="StatusGreen">#22C55E</Color>
+    <Color x:Key="StatusGreenSoft">#ECFDF3</Color>
+    <Color x:Key="StatusGreenBorder">#BBF7D0</Color>
     <Color x:Key="StatusRed">#EF4444</Color>
     <Color x:Key="StatusOrange">#F97316</Color>
     <Color x:Key="StatusBlue">#2563EB</Color>

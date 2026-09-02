@@ -20,6 +20,15 @@ public static class MauiProgram
             h.AddHandler<Controls.CameraPreview, Platforms.Windows.CameraPreviewHandler>();
             h.AddHandler<Controls.BiometricWebView, Platforms.Windows.BiometricWebViewHandler>();
 
+            // WinUI TextBox draws a bottom accent underline. Connect (and other) fields sit
+            // inside our own bordered rows, so strip the native chrome or it shows through.
+            Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("BorderlessEntry", (handler, _) =>
+            {
+                handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
+                handler.PlatformView.Background =
+                    new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            });
+
             // Shell wraps every page's content in a native ScrollViewer on Windows. Our pages
             // lay themselves out to fit the window, so that wrapper only causes unwanted
             // mouse-wheel scrolling of the whole page (including rows meant to stay fixed) —
@@ -59,6 +68,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<IInactivityPromptService>(sp =>
             sp.GetRequiredService<WindowsInactivityPromptService>());
         builder.Services.AddSingleton<IPreferencesStore, PreferencesStore>();
+        builder.Services.AddSingleton<ILocationService, GeolocationService>();
+        builder.Services.AddSingleton<IGeofenceEvaluator, GeofenceEvaluator>();
+        builder.Services.AddSingleton<IWorkLocationStore, PreferencesWorkLocationStore>();
         builder.Services.AddSingleton<ICameraService, CameraService>();
         builder.Services.AddSingleton<ISessionDayMetrics, SessionDayMetrics>();
         builder.Services.AddSingleton<IAppIconCache, AppIconCache>();
@@ -89,11 +101,15 @@ public static class MauiProgram
         // ViewModels
         builder.Services.AddTransient<ConnectWorkspaceViewModel>();
         builder.Services.AddTransient<PrepareWorkspaceViewModel>();
+        builder.Services.AddTransient<WorkLocationViewModel>();
         builder.Services.AddTransient<ReviewSetupViewModel>();
         builder.Services.AddTransient<PrivacyConsentViewModel>();
+        builder.Services.AddTransient<PrivacyTransparencyViewModel>();
+        builder.Services.AddTransient<ConfirmDeviceViewModel>();
         builder.Services.AddTransient<ClockInViewModel>();
         builder.Services.AddTransient<ActiveSessionViewModel>();
         builder.Services.AddTransient<EndSessionViewModel>();
+        builder.Services.AddTransient<DailySummaryViewModel>();
         builder.Services.AddTransient<StatusPopupViewModel>();
         builder.Services.AddTransient<PhotoCaptureWindowViewModel>();
         builder.Services.AddTransient<BiometricEnrollmentViewModel>();
@@ -102,11 +118,15 @@ public static class MauiProgram
         // Views
         builder.Services.AddTransient<ConnectWorkspacePage>();
         builder.Services.AddTransient<PrepareWorkspacePage>();
+        builder.Services.AddTransient<WorkLocationPage>();
         builder.Services.AddTransient<ReviewSetupPage>();
         builder.Services.AddTransient<PrivacyConsentPage>();
+        builder.Services.AddTransient<PrivacyTransparencyPage>();
+        builder.Services.AddTransient<ConfirmDevicePage>();
         builder.Services.AddTransient<ClockInPage>();
         builder.Services.AddTransient<ActiveSessionPage>();
         builder.Services.AddTransient<EndSessionPage>();
+        builder.Services.AddTransient<DailySummaryPage>();
         builder.Services.AddTransient<PhotoCaptureWindow>();
         builder.Services.AddTransient<BiometricEnrollmentPage>();
         builder.Services.AddTransient<IdentityVerificationPage>();

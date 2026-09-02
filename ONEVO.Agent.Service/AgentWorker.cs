@@ -740,6 +740,8 @@ public sealed class AgentWorker : BackgroundService
             envelope, reply, true, null,
             result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber,
             result.Auth.EmployeeProfileStatus);
+            result.Auth.DepartmentName, result.Auth.WorkModeLabel, result.Auth.OfficeName,
+            result.Auth.OrganizationName);
 
         // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
         await reply(BuildStatusEnvelope(correlationId: null));
@@ -754,6 +756,10 @@ public sealed class AgentWorker : BackgroundService
         string? employeeEmail = null,
         string? employeeNumber = null,
         string? employeeProfileStatus = null)
+        string? departmentName = null,
+        string? workModeLabel = null,
+        string? officeName = null,
+        string? organizationName = null)
     {
         await reply(new IpcEnvelope
         {
@@ -767,6 +773,10 @@ public sealed class AgentWorker : BackgroundService
                 EmployeeEmail = employeeEmail,
                 EmployeeNumber = employeeNumber,
                 EmployeeProfileStatus = employeeProfileStatus
+                DepartmentName = departmentName,
+                WorkModeLabel = workModeLabel,
+                OfficeName = officeName,
+                OrganizationName = organizationName
             })
         });
     }

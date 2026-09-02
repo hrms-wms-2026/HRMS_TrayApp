@@ -5,7 +5,8 @@
              xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.IdentityVerificationPage"
              x:DataType="vm:IdentityVerificationViewModel"
-             Title="{Binding Title}">
+             Shell.NavBarIsVisible="False"
+             Title="OneXso WorkPulse">
 
   <Grid RowDefinitions="Auto,*,Auto" Padding="20,16,20,8">
     <Grid.Background>
@@ -58,9 +59,14 @@
         <Label Text="Verify Your " Style="{StaticResource PageTitle}" FontSize="24" />
         <Label Text="Identity" Style="{StaticResource PageTitleBrand}" FontSize="24" />
       </HorizontalStackLayout>
-      <Label Grid.Row="1"
-             Text="This check is required by your organisation before clock-in."
-             Style="{StaticResource PageSubtitle}" Margin="0,4,0,8" />
+      <VerticalStackLayout Grid.Row="1" HorizontalOptions="Center" Margin="0,4,0,8">
+        <Label Text="This check is required by your organisation before clock-in."
+               Style="{StaticResource PageSubtitle}" />
+        <Label Text="{Binding EmployeeName}" FontSize="13" FontAttributes="Bold"
+               TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
+        <Label Text="{Binding EmployeeId}" FontSize="12" TextColor="{StaticResource TextSecondary}"
+               HorizontalOptions="Center" />
+      </VerticalStackLayout>
 
       <!-- Verification photo + gradient progress ring + match badge -->
       <Grid Grid.Row="2" WidthRequest="{StaticResource TrayFaceFrameOuterSize}" HeightRequest="{StaticResource TrayFaceFrameOuterSize}"

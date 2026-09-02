@@ -58,12 +58,25 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         _prefs       = prefs;
         _photoBuffer = photoBuffer;
         _logger      = logger ?? NullLoggerFactory.Instance.CreateLogger<PhotoCaptureWindowViewModel>();
+        LoadEmployee();
+    }
+
+    private void LoadEmployee()
+    {
+        EmployeeName = SetupFlow.DisplayOrDash(EmployeeSession.Name(_prefs));
+        EmployeeId = SetupFlow.DisplayOrDash(EmployeeSession.Id(_prefs));
     }
 
     /// <summary>
     /// Called by the page when a Shell query parameter is received.
     /// Pass "clockin" to complete clock-in after face capture.
     /// </summary>
+    [ObservableProperty] private string _headline = "Set Up Face Verification";
+    [ObservableProperty] private string _contextPill = "Identity Enrolment";
+    [ObservableProperty] private string _continueLabel = "Enroll & Continue";
+    [ObservableProperty] private string _employeeName = "—";
+    [ObservableProperty] private string _employeeId = "—";
+
     public void SetContext(string? context)
     {
         _captureContext   = context;
@@ -71,6 +84,25 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         CapturedPhotoBytes = null;
         IsCaptured        = false;
         CaptureStatusText = DefaultPrompt;
+        LoadEmployee();
+        if (string.Equals(context, "clockin", StringComparison.OrdinalIgnoreCase))
+        {
+            Headline = "Verify Your Identity";
+            ContextPill = "Clock-in verification";
+            ContinueLabel = "Verify & Clock In";
+        }
+        else if (string.Equals(context, "clockout", StringComparison.OrdinalIgnoreCase))
+        {
+            Headline = "Verify to Clock Out";
+            ContextPill = "Secure Identity Verification";
+            ContinueLabel = "Verify & Clock Out";
+        }
+        else
+        {
+            Headline = "Set Up Face Verification";
+            ContextPill = "Identity Enrolment";
+            ContinueLabel = "Enroll & Continue";
+        }
     }
 
     public async Task StartPreviewAsync()
@@ -119,6 +151,23 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private async Task Continue()
     {
+        if (_captureContext == "clockout")
+        {
+            CaptureStatusText = "Completing clock-out...";
+            var clockOut = await _pipe.SendLifecycleAsync(LifecycleAction.ClockOut, CancellationToken.None);
+            if (clockOut is null || !clockOut.Success)
+            {
+                CaptureStatusText = clockOut?.Message ?? clockOut?.ErrorCode ?? "Clock-out failed. Please try again.";
+                IsCaptured = false;
+                return;
+            }
+
+            await SubmitFacePhotoRecordAsync();
+            try { await Shell.Current.GoToAsync("//end"); }
+            catch { /* unit tests */ }
+            return;
+        }
+
         if (_captureContext == "clockin")
         {
             // Show the "Verify Your Identity" match screen with the just-captured selfie
@@ -156,7 +205,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
         try { Preferences.Set("onevo.face_verified", true); }
         catch { /* no MAUI Preferences host in unit tests */ }
-        try { await Shell.Current.GoToAsync("//review"); }
+        _prefs.Set(SessionPreferenceKeys.FaceVerified, "true");
+        try { await Shell.Current.GoToAsync(SetupFlow.AfterFaceEnrollment); }
         catch { /* unit tests */ }
     }
 

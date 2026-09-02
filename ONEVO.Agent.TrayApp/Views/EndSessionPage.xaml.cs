@@ -19,7 +19,6 @@ public partial class EndSessionPage : ContentPage
             vm.OnAppearing();
 
         _ = PageAnimations.EntranceAsync(LeftPane, RightPane);
-        _ = PageAnimations.PopAsync(CompletedBadge);
     }
 
     protected override void OnDisappearing()

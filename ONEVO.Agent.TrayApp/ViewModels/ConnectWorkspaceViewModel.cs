@@ -18,11 +18,11 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     [ObservableProperty] private string _connectionLabel = "Not Connected";
     [ObservableProperty] private string _versionText = "Version 1.0.0";
     [ObservableProperty] private string _hintText =
-        "Paste the activation code copied from the ONEVO web portal.";
+        "Paste the code copied from the OneXso Workspace web portal.";
 
     public ConnectWorkspaceViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
-        Title = "Connect ONEVO Workspace";
+        Title = "OneXso WorkPulse";
         _pipe = pipe;
         _preferences = preferences;
         _pipe.OnDisconnected += () =>
@@ -106,12 +106,23 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 _preferences.Set(SessionPreferenceKeys.EmployeeEmail, result.EmployeeEmail);
             if (!string.IsNullOrWhiteSpace(result.EmployeeNumber))
                 _preferences.Set(SessionPreferenceKeys.EmployeeId, result.EmployeeNumber);
+            if (!string.IsNullOrWhiteSpace(result.DepartmentName))
+                _preferences.Set(SessionPreferenceKeys.Department, result.DepartmentName);
+            if (!string.IsNullOrWhiteSpace(result.WorkModeLabel))
+                _preferences.Set(SessionPreferenceKeys.WorkMode, result.WorkModeLabel);
+            if (!string.IsNullOrWhiteSpace(result.OfficeName))
+                _preferences.Set(SessionPreferenceKeys.OfficeName, result.OfficeName);
+            if (!string.IsNullOrWhiteSpace(result.OrganizationName))
+                _preferences.Set(SessionPreferenceKeys.Organization, result.OrganizationName);
+            _preferences.Set(SessionPreferenceKeys.DeviceName, Environment.MachineName);
 
             IsConnected = true;
             ConnectionLabel = result.EmployeeProfileStatus == "company_context_required"
                 ? "Connected — select a company in ONEVO to load your employee profile"
                 : BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
             try { await Shell.Current.GoToAsync("//prepare"); }
+            ConnectionLabel = BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
+            try { await Shell.Current.GoToAsync(SetupFlow.AfterActivation); }
             catch { /* unit tests */ }
         }
         catch (Exception ex)
@@ -123,6 +134,23 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         finally
         {
             IsConnecting = false;
+        }
+    }
+
+    [RelayCommand]
+    private static void OpenActivationWebsite()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = WorkspaceLinks.PortalUrl,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Ignore if the browser cannot open (unit tests / restricted hosts).
         }
     }
 

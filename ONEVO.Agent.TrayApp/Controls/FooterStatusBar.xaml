@@ -10,6 +10,16 @@
       <Label Text="{Binding Source={x:Reference Root}, Path=VersionText}"
              Style="{StaticResource FooterLabel}"
              LineBreakMode="TailTruncation" MaxLines="1" />
+      <Label Text="Sign out"
+             FontSize="11"
+             TextDecorations="Underline"
+             TextColor="{StaticResource Primary}"
+             VerticalOptions="Center"
+             IsVisible="{Binding Source={x:Reference Root}, Path=ShowSignOut}">
+        <Label.GestureRecognizers>
+          <TapGestureRecognizer Command="{Binding Source={x:Reference Root}, Path=SignOutCommand}" />
+        </Label.GestureRecognizers>
+      </Label>
     </HorizontalStackLayout>
 
     <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
@@ -21,7 +31,7 @@
           <DataTrigger TargetType="Ellipse"
                        Binding="{Binding Source={x:Reference Root}, Path=IsConnected}"
                        Value="False">
-            <Setter Property="Fill" Value="{StaticResource TextMuted}" />
+            <Setter Property="Fill" Value="{StaticResource StatusRed}" />
           </DataTrigger>
         </Ellipse.Triggers>
       </Ellipse>

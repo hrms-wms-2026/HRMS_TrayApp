@@ -20,17 +20,25 @@ public sealed class ClockInViewModelTests
     }
 
     [Fact]
-    public void ConnectionStatus_DefaultsOnline()
+    public void ConnectionStatus_DefaultsConnected()
     {
         var vm = Make();
-        Assert.Equal("Online", vm.ConnectionStatus);
+        Assert.Equal("Connected", vm.ConnectionStatus);
+    }
+
+    [Fact]
+    public void WorkspaceStatus_DefaultsSecure()
+    {
+        var vm = Make();
+        Assert.Equal("Secure", vm.WorkspaceStatus);
+        Assert.Equal("All policies active", vm.PoliciesStatus);
     }
 
     [Fact]
     public void InternetStatus_DefaultsExcellentConnection()
     {
         var vm = Make();
-        Assert.Equal("Excellent Connection", vm.InternetStatus);
+        Assert.Equal("Excellent", vm.InternetStatus);
     }
 
     [Fact]

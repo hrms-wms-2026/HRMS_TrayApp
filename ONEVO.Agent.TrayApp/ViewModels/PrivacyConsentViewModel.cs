@@ -17,7 +17,7 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
 
     public PrivacyConsentViewModel(INamedPipeClient pipe)
     {
-        Title = "Allow Required Policies";
+        Title = "Allow Required Permissions";
         _pipe = pipe;
     }
 
@@ -34,9 +34,23 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     }
 
     [RelayCommand]
+    private static void WhyNeeded()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = WorkspaceLinks.PortalUrl,
+                UseShellExecute = true
+            });
+        }
+        catch { /* browser unavailable */ }
+    }
+
+    [RelayCommand]
     private async Task AllowAndContinue()
     {
-        try { await Shell.Current.GoToAsync("//clockin"); }
+        try { await Shell.Current.GoToAsync(SetupFlow.AfterPermissions); }
         catch { /* unit tests */ }
     }
 }

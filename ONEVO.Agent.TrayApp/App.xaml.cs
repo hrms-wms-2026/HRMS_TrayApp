@@ -16,6 +16,7 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly NamedPipeClient _pipeClient;
     private readonly CollectorCoordinator _collectors;
     private readonly ISessionDayMetrics _dayMetrics;
+    private readonly IPreferencesStore _preferences;
     private readonly ILogger<App> _logger;
     private bool _allowExit;
 
@@ -24,14 +25,16 @@ public partial class App : Microsoft.Maui.Controls.Application
         NamedPipeClient pipeClient,
         CollectorCoordinator collectors,
         ISessionDayMetrics dayMetrics,
+        IPreferencesStore preferences,
         ILogger<App> logger)
     {
         InitializeComponent();
-        _trayIcon   = trayIcon;
-        _pipeClient = pipeClient;
-        _collectors = collectors;
-        _dayMetrics = dayMetrics;
-        _logger     = logger;
+        _trayIcon     = trayIcon;
+        _pipeClient   = pipeClient;
+        _collectors   = collectors;
+        _dayMetrics   = dayMetrics;
+        _preferences  = preferences;
+        _logger       = logger;
         BootLog("App ctor completed");
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -94,12 +97,13 @@ public partial class App : Microsoft.Maui.Controls.Application
                     MonitoringState.Active     => "//active",
                     MonitoringState.Paused     => "//active", // On-break mode of ActiveSessionPage
                     MonitoringState.Stopped when showEndAfterClockOut => "//end",
-                    MonitoringState.Stopped    => "//clockin",
+                    MonitoringState.Stopped    => WorkLocationFlow.RouteWhenStopped(_preferences),
                     MonitoringState.Unenrolled => "//connect",
                     MonitoringState.Locked     => "//connect",
-                    _                          => "//clockin"
+                    _                          => WorkLocationFlow.RouteWhenStopped(_preferences)
                 };
-                Shell.Current?.GoToAsync(route);
+                if (!string.IsNullOrEmpty(route))
+                    Shell.Current?.GoToAsync(route);
             });
         };
 
@@ -109,7 +113,11 @@ public partial class App : Microsoft.Maui.Controls.Application
             _logger.LogWarning("IPC disconnected");
             _trayIcon.UpdateState(MonitoringState.Stopped);
             MainThread.BeginInvokeOnMainThread(() =>
-                Shell.Current?.GoToAsync("//clockin"));
+            {
+                var route = WorkLocationFlow.RouteWhenStopped(_preferences);
+                if (!string.IsNullOrEmpty(route))
+                    Shell.Current?.GoToAsync(route);
+            });
         };
 
         _ = _pipeClient.StartAsync(CancellationToken.None);
@@ -121,12 +129,20 @@ public partial class App : Microsoft.Maui.Controls.Application
             Width         = TrayLayoutMetrics.DefaultWindowWidth,
             Height        = TrayLayoutMetrics.DefaultWindowHeight,
             MinimumWidth  = TrayLayoutMetrics.MinimumWindowWidth,
-            MinimumHeight = TrayLayoutMetrics.MinimumWindowHeight
+            MinimumHeight = TrayLayoutMetrics.MinimumWindowHeight,
+            TitleBar      = new TitleBar
+            {
+                Title           = "OneXso WorkPulse",
+                Icon            = "onexso_x_mark.png",
+                BackgroundColor = Colors.White,
+                ForegroundColor = Color.FromArgb("#0F1B2D")
+            }
         };
 
         window.Created    += (_, _) =>
         {
             BootLog("Window.Created");
+            ApplyLightCaption(window);
             HookCloseToHide(window);
             try
             {
@@ -167,6 +183,42 @@ public partial class App : Microsoft.Maui.Controls.Application
             else MainThread.BeginInvokeOnMainThread(action);
         }
         catch { }
+    }
+
+    private static void ApplyLightCaption(Window window)
+    {
+#if WINDOWS
+        try
+        {
+            if (window.Handler?.PlatformView is not Microsoft.UI.Xaml.Window native
+                || native.AppWindow?.TitleBar is null)
+                return;
+
+            var white    = global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
+            var text     = global::Windows.UI.Color.FromArgb(255, 15, 27, 45);
+            var hover    = global::Windows.UI.Color.FromArgb(255, 241, 245, 249);
+            var pressed  = global::Windows.UI.Color.FromArgb(255, 226, 232, 240);
+            var inactive = global::Windows.UI.Color.FromArgb(255, 107, 122, 142);
+
+            var titleBar = native.AppWindow.TitleBar;
+            titleBar.BackgroundColor                 = white;
+            titleBar.ForegroundColor                 = text;
+            titleBar.InactiveBackgroundColor         = white;
+            titleBar.InactiveForegroundColor         = inactive;
+            titleBar.ButtonBackgroundColor           = white;
+            titleBar.ButtonForegroundColor           = text;
+            titleBar.ButtonHoverBackgroundColor      = hover;
+            titleBar.ButtonHoverForegroundColor      = text;
+            titleBar.ButtonPressedBackgroundColor    = pressed;
+            titleBar.ButtonPressedForegroundColor    = text;
+            titleBar.ButtonInactiveBackgroundColor   = white;
+            titleBar.ButtonInactiveForegroundColor   = inactive;
+        }
+        catch (Exception ex)
+        {
+            BootLog($"ApplyLightCaption failed: {ex.Message}");
+        }
+#endif
     }
 
     private void HookCloseToHide(Window window)
