@@ -143,7 +143,8 @@ public sealed class AgentWorker : BackgroundService
             DeviceId = stableDeviceId,
             AgentId = stableAgentId,
             TenantId = tenantId ?? storedIdentity?.TenantId ?? string.Empty,
-            DeviceFingerprint = fingerprint
+            DeviceFingerprint = fingerprint,
+            TenantSlug = auth.TenantSlug ?? storedIdentity?.TenantSlug
         };
 
         PersistAuth(identity, auth);
@@ -793,18 +794,43 @@ public sealed class AgentWorker : BackgroundService
             return;
         }
 
+        var knownTenantSlug = _deviceIdentityStore.Load()?.TenantSlug;
+
         await reply(new IpcEnvelope
         {
             Type = IpcMessageTypes.DevicePairingStarted,
             CorrelationId = envelope.CorrelationId,
             Payload = JsonSerializer.SerializeToElement(new DevicePairingStartedPayload(
-                true, null, start.VerificationUri, start.VerificationUriComplete,
+                true, null,
+                ApplyKnownTenantSubdomain(start.VerificationUri, knownTenantSlug),
+                ApplyKnownTenantSubdomain(start.VerificationUriComplete, knownTenantSlug),
                 start.ExpiresInSeconds, start.IntervalSeconds))
         });
 
         _pairingCts?.Cancel();
         _pairingCts = new CancellationTokenSource();
         _ = PollDevicePairingLoopAsync(start, fingerprint, _pairingCts.Token);
+    }
+
+    /// <summary>
+    /// The backend always builds verification URLs against its generic base host, which never
+    /// carries a session (only a tenant subdomain does). If this device has previously connected
+    /// and remembers which tenant it belongs to (persisted from a prior TrayAuthPayload.TenantSlug),
+    /// prepending that slug as a subdomain lets the browser land somewhere the user may already be
+    /// signed in, skipping the base-host login detour. A device that has never connected has no
+    /// remembered slug, so this is a no-op and the base-host flow (log in once, backend resolves
+    /// the real tenant) runs as normal — that first-time login is unavoidable, not a bug.
+    /// </summary>
+    private static string? ApplyKnownTenantSubdomain(string? url, string? tenantSlug)
+    {
+        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(tenantSlug))
+            return url;
+
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            return url;
+
+        var builder = new UriBuilder(uri) { Host = $"{tenantSlug}.{uri.Host}" };
+        return builder.Uri.ToString();
     }
 
     private static IpcEnvelope BuildDevicePairingStartedEnvelope(string correlationId, bool success, string? errorCode) =>

@@ -11,13 +11,17 @@ using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
 
+// This class constructs real CredentialStore/DeviceIdentityStore instances that read/write
+// shared %ProgramData%\ONEVO\Agent\ files — see CredentialStoreFileCollection's own doc comment.
+[Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerDevicePairingTests
 {
-    private static AgentWorker BuildWorker(HttpMessageHandler handler)
+    private static AgentWorker BuildWorker(HttpMessageHandler handler, DeviceIdentityStore? deviceIdentityStore = null)
     {
         var stateMachine = new AgentStateMachine();
         stateMachine.TryTransition(MonitoringState.Unenrolled, out _);
@@ -35,7 +39,7 @@ public class AgentWorkerDevicePairingTests
             Options.Create(new AgentOptions()),
             apiClient,
             new CredentialStore(),
-            new DeviceIdentityStore(),
+            deviceIdentityStore ?? new DeviceIdentityStore(),
             null!, // EnrollmentCoordinator — not touched by device pairing
             null!, // InactivityEvidenceHandler — not touched by device pairing
             null!  // EvidenceSpoolStore — not touched by device pairing
@@ -87,6 +91,60 @@ public class AgentWorkerDevicePairingTests
         Assert.NotNull(result);
         Assert.True(result!.Success);
         Assert.Equal("https://localhost:4200/device/activate?request_id=id&user_code=ABCD2345", result.VerificationUriComplete);
+    }
+
+    [Fact]
+    public async Task HandleDevicePairingStartAsync_RemembersTenantFromPriorConnect_PrependsSubdomain()
+    {
+        var handler = new StubHandler(request => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                device_code = "device-secret",
+                user_code = "ABCD2345",
+                verification_uri = "https://localhost:4200/device/activate",
+                verification_uri_complete = "https://localhost:4200/device/activate?request_id=id&user_code=ABCD2345",
+                expires_in_seconds = 600,
+                interval_seconds = 5,
+            })
+        });
+        var identityStore = new DeviceIdentityStore();
+        identityStore.Save(new DeviceIdentity
+        {
+            DeviceId = "device-1",
+            AgentId = "agent-1",
+            TenantId = Guid.NewGuid().ToString(),
+            DeviceFingerprint = "fingerprint-1",
+            TenantSlug = "acme"
+        });
+        var worker = BuildWorker(handler, identityStore);
+
+        try
+        {
+            DevicePairingStartedPayload? result = null;
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.DevicePairingStart,
+                Payload = JsonSerializer.SerializeToElement(new DevicePairingStartPayload("Laptop", "Windows", "1.0.0"))
+            };
+            await worker.HandleDevicePairingStartAsync(envelope, reply =>
+            {
+                if (reply.Type == IpcMessageTypes.DevicePairingStarted)
+                    result = reply.Payload!.Value.Deserialize<DevicePairingStartedPayload>();
+                return Task.CompletedTask;
+            });
+
+            Assert.NotNull(result);
+            Assert.True(result!.Success);
+            Assert.Equal("https://acme.localhost:4200/device/activate", result.VerificationUri);
+            Assert.Equal(
+                "https://acme.localhost:4200/device/activate?request_id=id&user_code=ABCD2345",
+                result.VerificationUriComplete);
+        }
+        finally
+        {
+            identityStore.Clear();
+        }
     }
 
     [Fact]
