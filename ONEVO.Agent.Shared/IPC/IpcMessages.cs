@@ -62,6 +62,18 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: final enrollment outcome after the backend's CompleteEnrollmentAttempt call.</summary>
     public const string BiometricEnrollmentResult = "BiometricEnrollmentResult";
+
+    /// <summary>Tray → Service: start a browser-based device pairing (RFC 8628 device authorization grant).</summary>
+    public const string DevicePairingStart = "DevicePairingStart";
+
+    /// <summary>Service → Tray: correlated reply to DevicePairingStart with the browser URL to open.</summary>
+    public const string DevicePairingStarted = "DevicePairingStarted";
+
+    /// <summary>Tray → Service: cancel an in-progress device pairing poll loop.</summary>
+    public const string DevicePairingCancel = "DevicePairingCancel";
+
+    /// <summary>Service → Tray: unsolicited push with the terminal outcome of a device pairing (approved, denied, or expired).</summary>
+    public const string DevicePairingResult = "DevicePairingResult";
 }
 
 public enum LifecycleAction
@@ -167,3 +179,29 @@ public sealed record BiometricEnrollmentSessionReadyPayload(
 public sealed record BiometricEnrollmentCaptureFinishedPayload(Guid AttemptId, bool CaptureSucceeded, string? ClientErrorCode);
 
 public sealed record BiometricEnrollmentResultPayload(bool Success, string? ErrorCode, string? ProfileStatus);
+
+public sealed record DevicePairingStartPayload(string DeviceName, string DeviceOs, string ClientVersion);
+
+public sealed record DevicePairingStartedPayload(
+    bool Success,
+    string? ErrorCode,
+    string? VerificationUri = null,
+    string? VerificationUriComplete = null,
+    int ExpiresInSeconds = 0,
+    int IntervalSeconds = 0);
+
+/// <summary>Unsolicited push (not a correlated reply) — same shape as EnrollmentResultPayload
+/// so the ViewModel drives one shared success/failure path for both connect flows.</summary>
+public sealed record DevicePairingResultPayload
+{
+    public required bool Success { get; init; }
+    public string? ErrorCode { get; init; }   // "ACCESS_DENIED" | "EXPIRED" | "SERVICE_UNAVAILABLE" | "INVALID_STATE"
+    public string? EmployeeName { get; init; }
+    public string? EmployeeEmail { get; init; }
+    public string? EmployeeNumber { get; init; }
+    public string? EmployeeProfileStatus { get; init; }
+    public string? DepartmentName { get; init; }
+    public string? WorkModeLabel { get; init; }
+    public string? OfficeName { get; init; }
+    public string? OrganizationName { get; init; }
+}

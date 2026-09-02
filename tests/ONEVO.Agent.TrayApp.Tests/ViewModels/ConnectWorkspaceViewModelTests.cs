@@ -21,9 +21,9 @@ public sealed class ConnectWorkspaceViewModelTests
     }
 
     [Fact]
-    public void OpenActivationWebsiteCommand_CanExecute()
+    public void ConnectViaBrowserCommand_CanExecute()
     {
-        Assert.True(Make().OpenActivationWebsiteCommand.CanExecute(null));
+        Assert.True(Make().ConnectViaBrowserCommand.CanExecute(null));
     }
 
     [Fact]
@@ -148,5 +148,83 @@ public sealed class ConnectWorkspaceViewModelTests
         Assert.Equal(
             "Connected — select a company in ONEVO to load your employee profile",
             vm.ConnectionLabel);
+    }
+
+    [Fact]
+    public async Task ConnectViaBrowserCommand_Success_SetsWaitingState()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsWaitingForBrowserApproval);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task ConnectViaBrowserCommand_StartFailure_SetsErrorAndDoesNotWait()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextDevicePairingStartedResult = new ONEVO.Agent.Shared.IPC.DevicePairingStartedPayload(false, "SERVICE_UNAVAILABLE")
+        };
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsWaitingForBrowserApproval);
+        Assert.Equal("Can't reach the ONEVO backend right now. Check your connection and try again.", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnDevicePairingResult_Success_UpdatesConnectionStateLikeManualConnect()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        pipe.SimulateDevicePairingResult(new ONEVO.Agent.Shared.IPC.DevicePairingResultPayload
+        {
+            Success = true,
+            EmployeeName = "Priya Employee",
+            EmployeeNumber = "EMP-0001"
+        });
+
+        Assert.False(vm.IsWaitingForBrowserApproval);
+        Assert.True(vm.IsConnected);
+        Assert.Contains("EMP-0001", vm.ConnectionLabel);
+    }
+
+    [Fact]
+    public async Task OnDevicePairingResult_AccessDenied_SetsErrorAndStopsWaiting()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        pipe.SimulateDevicePairingResult(new ONEVO.Agent.Shared.IPC.DevicePairingResultPayload { Success = false, ErrorCode = "ACCESS_DENIED" });
+
+        Assert.False(vm.IsWaitingForBrowserApproval);
+        Assert.False(vm.IsConnected);
+        Assert.Equal("Request denied in the browser.", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CancelBrowserApprovalCommand_SendsCancelAndResetsWaitingState()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        await vm.CancelBrowserApprovalCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsWaitingForBrowserApproval);
+        Assert.Single(pipe.SentEnvelopes, e => e.Type == ONEVO.Agent.Shared.IPC.IpcMessageTypes.DevicePairingCancel);
     }
 }

@@ -106,4 +106,37 @@ public class IpcEnvelopeTests
         Assert.NotNull(statusRestored);
         Assert.NotNull(statusRestored.Session);
     }
+
+    [Fact]
+    public void DevicePairingStartedPayload_RoundTripsThroughJson()
+    {
+        var payload = new DevicePairingStartedPayload(
+            true, null,
+            "https://localhost:4200/device/activate",
+            "https://localhost:4200/device/activate?request_id=abc&user_code=XYZ12345",
+            600, 5);
+
+        var json = JsonSerializer.Serialize(payload);
+        var restored = JsonSerializer.Deserialize<DevicePairingStartedPayload>(json);
+
+        Assert.Equal(payload, restored);
+    }
+
+    [Fact]
+    public void DevicePairingResultPayload_RoundTripsThroughJson()
+    {
+        var payload = new DevicePairingResultPayload
+        {
+            Success = true,
+            ErrorCode = null,
+            EmployeeName = "Test Employee",
+            EmployeeEmail = "test.employee@test.dev",
+            EmployeeNumber = "EMP-TEST-01"
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        var restored = JsonSerializer.Deserialize<DevicePairingResultPayload>(json);
+
+        Assert.Equal(payload, restored);
+    }
 }

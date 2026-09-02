@@ -19,6 +19,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     [ObservableProperty] private string _versionText = "Version 1.0.0";
     [ObservableProperty] private string _hintText =
         "Paste the code copied from the OneXso Workspace web portal.";
+    [ObservableProperty] private bool _isWaitingForBrowserApproval;
 
     public ConnectWorkspaceViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
     {
@@ -56,6 +57,11 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 IsConnected = true;
                 ConnectionLabel = "Connected";
             }
+        };
+        _pipe.OnDevicePairingResult += payload =>
+        {
+            try { MainThread.BeginInvokeOnMainThread(() => HandleDevicePairingResult(payload)); }
+            catch { HandleDevicePairingResult(payload); }
         };
     }
 
@@ -120,8 +126,6 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
             ConnectionLabel = result.EmployeeProfileStatus == "company_context_required"
                 ? "Connected — select a company in ONEVO to load your employee profile"
                 : BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
-            try { await Shell.Current.GoToAsync("//prepare"); }
-            ConnectionLabel = BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
             try { await Shell.Current.GoToAsync(SetupFlow.AfterActivation); }
             catch { /* unit tests */ }
         }
@@ -138,20 +142,93 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    private static void OpenActivationWebsite()
+    private async Task ConnectViaBrowserAsync(CancellationToken ct)
     {
+        ErrorMessage = null;
+        var started = await _pipe.SendDevicePairingStartAsync(
+            Environment.MachineName, "Windows", VersionText, ct);
+
+        if (started is null)
+        {
+            ErrorMessage = "No response from OneXso Agent Service. Is the service running?";
+            return;
+        }
+
+        if (!started.Success)
+        {
+            ErrorMessage = started.ErrorCode switch
+            {
+                "SERVICE_UNAVAILABLE" => "Can't reach the ONEVO backend right now. Check your connection and try again.",
+                _ => started.ErrorCode ?? "Could not start browser connect."
+            };
+            return;
+        }
+
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = WorkspaceLinks.PortalUrl,
+                FileName = started.VerificationUriComplete,
                 UseShellExecute = true
             });
         }
         catch
         {
-            // Ignore if the browser cannot open (unit tests / restricted hosts).
+            // Ignore if the browser cannot open (unit tests / restricted hosts) — the
+            // waiting panel + Cancel button still let the user retry or back out.
         }
+
+        IsWaitingForBrowserApproval = true;
+    }
+
+    [RelayCommand]
+    private async Task CancelBrowserApprovalAsync(CancellationToken ct)
+    {
+        await _pipe.SendDevicePairingCancelAsync(ct);
+        IsWaitingForBrowserApproval = false;
+    }
+
+    private void HandleDevicePairingResult(DevicePairingResultPayload result)
+    {
+        IsWaitingForBrowserApproval = false;
+
+        if (!result.Success)
+        {
+            ErrorMessage = result.ErrorCode switch
+            {
+                "ACCESS_DENIED" => "Request denied in the browser.",
+                "EXPIRED" => "The browser request expired — try again.",
+                "SERVICE_UNAVAILABLE" => "Can't reach the ONEVO backend right now. Check your connection and try again.",
+                _ => result.ErrorCode ?? "Browser connect failed."
+            };
+            IsConnected = false;
+            ConnectionLabel = "Not Connected";
+            return;
+        }
+
+        SessionPreferenceKeys.ClearAll(_preferences);
+        if (!string.IsNullOrWhiteSpace(result.EmployeeName))
+            _preferences.Set(SessionPreferenceKeys.EmployeeDisplayName, result.EmployeeName);
+        if (!string.IsNullOrWhiteSpace(result.EmployeeEmail))
+            _preferences.Set(SessionPreferenceKeys.EmployeeEmail, result.EmployeeEmail);
+        if (!string.IsNullOrWhiteSpace(result.EmployeeNumber))
+            _preferences.Set(SessionPreferenceKeys.EmployeeId, result.EmployeeNumber);
+        if (!string.IsNullOrWhiteSpace(result.DepartmentName))
+            _preferences.Set(SessionPreferenceKeys.Department, result.DepartmentName);
+        if (!string.IsNullOrWhiteSpace(result.WorkModeLabel))
+            _preferences.Set(SessionPreferenceKeys.WorkMode, result.WorkModeLabel);
+        if (!string.IsNullOrWhiteSpace(result.OfficeName))
+            _preferences.Set(SessionPreferenceKeys.OfficeName, result.OfficeName);
+        if (!string.IsNullOrWhiteSpace(result.OrganizationName))
+            _preferences.Set(SessionPreferenceKeys.Organization, result.OrganizationName);
+        _preferences.Set(SessionPreferenceKeys.DeviceName, Environment.MachineName);
+
+        IsConnected = true;
+        ConnectionLabel = result.EmployeeProfileStatus == "company_context_required"
+            ? "Connected — select a company in ONEVO to load your employee profile"
+            : BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
+        try { Shell.Current.GoToAsync(SetupFlow.AfterActivation); }
+        catch { /* unit tests */ }
     }
 
     [RelayCommand]
