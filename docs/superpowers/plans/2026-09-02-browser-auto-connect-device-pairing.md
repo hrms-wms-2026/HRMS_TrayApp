@@ -211,13 +211,13 @@ from the query string and navigate there instead when present, without disturbin
 - Produces: nothing new consumed by later tasks — this is the terminal end of the
   return-URL round trip started in Task 1.
 
-- [ ] **Step 1: Check for an existing spec file**
+- [x] **Step 1: Check for an existing spec file**
 
 Run: `ls src/app/core/auth/feature/login/`
 If `login.component.spec.ts` exists, read it first and add the new test case in its
 existing style instead of Step 2's fresh file. If it does not exist, use Step 2 as-is.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create/extend `src/app/core/auth/feature/login/login.component.spec.ts`:
 
@@ -281,13 +281,13 @@ describe('LoginComponent', () => {
 });
 ```
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `npm test -- login.component.spec.ts`
 Expected: FAIL on the first test — the component currently always navigates to
 `/people/employees`, ignoring `returnUrl`.
 
-- [ ] **Step 4: Update `LoginComponent`**
+- [x] **Step 4: Update `LoginComponent`**
 
 Edit `src/app/core/auth/feature/login/login.component.ts`. Add the `ActivatedRoute`
 injection and change the final `else` branch of `submit()`:
@@ -365,12 +365,12 @@ export class LoginComponent implements OnInit {
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `npm test -- login.component.spec.ts`
 Expected: PASS (both tests).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/app/core/auth/feature/login/login.component.ts src/app/core/auth/feature/login/login.component.spec.ts
@@ -396,7 +396,7 @@ correctly (added in commit `2179d23`, never wired into any route). This task reg
 - Produces: the route `device/activate`, which is what `WorkspaceLinks`/AgentWorker's
   `verification_uri_complete` in TrayApp (Task 8) will point the browser at.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/app/modules/device-activation/device-activation.routes.spec.ts`:
 
@@ -423,12 +423,12 @@ describe('device/activate route', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- device-activation.routes.spec.ts`
 Expected: FAIL — `deviceActivate` is `undefined`, no such route exists yet.
 
-- [ ] **Step 3: Register the route**
+- [x] **Step 3: Register the route**
 
 Edit `src/app/app.routes.ts`. Add a new top-level route entry as a sibling of the `auth`
 block (not nested inside the `MainLayoutComponent`-wrapped dashboard children — this is a
@@ -453,18 +453,18 @@ route block and before the final `**` wildcard:
 (This replaces just the trailing `{ path: '**', redirectTo: 'auth/login' }` block with the
 new route followed by that same wildcard block — the wildcard must remain last.)
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm test -- device-activation.routes.spec.ts`
 Expected: PASS (both tests).
 
-- [ ] **Step 5: Run the full existing route test suite to confirm no regression**
+- [x] **Step 5: Run the full existing route test suite to confirm no regression**
 
 Run: `npm test -- app.routes.spec.ts`
 Expected: PASS (unchanged — the new route doesn't touch the `settings`/`attendance`
 children this spec asserts on).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/app/app.routes.ts src/app/modules/device-activation/device-activation.routes.spec.ts
