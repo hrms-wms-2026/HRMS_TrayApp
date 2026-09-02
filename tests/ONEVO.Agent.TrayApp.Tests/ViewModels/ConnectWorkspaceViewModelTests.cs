@@ -109,4 +109,26 @@ public sealed class ConnectWorkspaceViewModelTests
         Assert.Equal("priya@test.dev", preferences.Get("onevo.employee_email", string.Empty));
         Assert.Equal("EMP-0001", preferences.Get("onevo.employee_id", string.Empty));
     }
+
+    [Fact]
+    public async Task VerifyAndConnectCommand_WhenCompanyContextIsRequired_ShowsSafeMessage()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextEnrollmentResult = new ONEVO.Agent.Shared.IPC.EnrollmentResultPayload
+            {
+                Success = true,
+                EmployeeProfileStatus = "company_context_required"
+            }
+        };
+        var vm = new ConnectWorkspaceViewModel(pipe, new FakePreferencesStore());
+        vm.ActivationCode = "ABC123";
+
+        await vm.VerifyAndConnectCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsConnected);
+        Assert.Equal(
+            "Connected — select a company in ONEVO to load your employee profile",
+            vm.ConnectionLabel);
+    }
 }

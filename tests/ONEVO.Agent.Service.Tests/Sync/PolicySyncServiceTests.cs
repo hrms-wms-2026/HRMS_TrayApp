@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Policy;
+
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Service.Sync;
 using ONEVO.Agent.Service.Tests.Security;
@@ -101,7 +102,8 @@ public class PolicySyncServiceTests
     }
 
     [Fact]
-    public async Task RefreshOnceAsync_Unauthorized_LeavesLastValidPolicyUntouched()
+        public async Task RefreshOnceAsync_Unauthorized_ClearsLastValidPolicy()
+
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
         var cache = new PolicyCache();
@@ -121,9 +123,12 @@ public class PolicySyncServiceTests
 
         await svc.RefreshOnceAsync("device-jwt", CancellationToken.None);
 
-        Assert.Equal("still-valid", cache.Current.Version);
-        Assert.True(cache.Current.ScreenshotEnabled);
-        Assert.Empty(broadcaster.Broadcasts);
+        Assert.Equal("server-policy-unavailable", cache.Current.Version);
+        Assert.False(cache.Current.ActivitySignalEnabled);
+        Assert.False(cache.Current.AppUsageEnabled);
+        Assert.False(cache.Current.ScreenshotEnabled);
+        Assert.Equal("none", cache.Current.EffectiveScope);
+        Assert.Single(broadcaster.Broadcasts);
     }
 
     [Fact]
@@ -150,6 +155,7 @@ public class PolicySyncServiceTests
         Assert.False(cache.Current.ScreenshotEnabled);
         Assert.False(cache.Current.InactivityScreenshotEnabled);
         Assert.False(cache.Current.CameraVerificationEnabled);
+        Assert.Equal("server-policy-unavailable", cache.Current.Version);
     }
 
     [Fact]
@@ -194,7 +200,8 @@ public class PolicySyncServiceTests
         await svc.RefreshOnceAsync("device-jwt", CancellationToken.None);
 
         Assert.NotEqual("dead-on-arrival", cache.Current.Version);
-        Assert.Empty(broadcaster.Broadcasts);
+        Assert.Equal("server-policy-unavailable", cache.Current.Version);
+                Assert.Empty(broadcaster.Broadcasts);
     }
 
     private sealed class StubHttpClientFactory : IHttpClientFactory

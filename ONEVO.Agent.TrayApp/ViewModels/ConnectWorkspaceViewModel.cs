@@ -108,7 +108,9 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 _preferences.Set(SessionPreferenceKeys.EmployeeId, result.EmployeeNumber);
 
             IsConnected = true;
-            ConnectionLabel = BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
+            ConnectionLabel = result.EmployeeProfileStatus == "company_context_required"
+                ? "Connected — select a company in ONEVO to load your employee profile"
+                : BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
             try { await Shell.Current.GoToAsync("//prepare"); }
             catch { /* unit tests */ }
         }

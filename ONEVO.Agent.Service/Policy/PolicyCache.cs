@@ -3,22 +3,14 @@ namespace ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
-/// Holds last effective policy for offline operation and PolicyPush to Tray.
-/// Phase 1 default enables activity signals when monitoring is Active.
+/// Holds the last server-authoritative monitoring policy. Missing or expired authority always
+/// resolves to a fully disabled policy; production monitoring is never enabled locally.
 /// </summary>
 public sealed class PolicyCache
 {
     private readonly Lock _lock = new();
     private AgentPolicy _policy = CreateDefault();
 
-    /// <summary>
-    /// The effective policy, computed against wall-clock time on every read. Once
-    /// <see cref="AgentPolicy.ValidUntil"/> has passed — e.g. the backend is unreachable and
-    /// PolicySyncService cannot refresh in time — the capture-affecting flags degrade to false
-    /// so an offline agent never keeps taking screenshots/camera captures on stale authority.
-    /// ActivitySignalEnabled/AppUsageEnabled are left alone: presence/app-usage tracking is not
-    /// the privacy-sensitive surface this guards.
-    /// </summary>
     public AgentPolicy Current
     {
         get
@@ -26,14 +18,7 @@ public sealed class PolicyCache
             lock (_lock)
             {
                 if (_policy.ValidUntil <= DateTimeOffset.UtcNow)
-                {
-                    return _policy with
-                    {
-                        ScreenshotEnabled = false,
-                        InactivityScreenshotEnabled = false,
-                        CameraVerificationEnabled = false
-                    };
-                }
+                    return CreateDefault();
                 return _policy;
             }
         }
@@ -44,13 +29,26 @@ public sealed class PolicyCache
         lock (_lock) _policy = policy;
     }
 
+    public void Clear()
+    {
+        lock (_lock) _policy = CreateDefault();
+    }
+
+    /// <summary>Unavailable authority is represented by an all-disabled policy.</summary>
     public static AgentPolicy CreateDefault() => new()
     {
-        Version = "local-default-1",
-        ActivitySignalEnabled = true,
-        AppUsageEnabled = true,
-        ScreenshotEnabled = true,
+        Version = "server-policy-unavailable",
+        LocationTrackingEnabled = false,
+        ActivitySignalEnabled = false,
+        AppUsageEnabled = false,
+        ScreenshotEnabled = false,
+        InactivityScreenshotEnabled = false,
         CameraVerificationEnabled = false,
-        ValidUntil = DateTimeOffset.UtcNow.AddHours(24)
+        IdleThresholdMinutes = 2,
+        // "none" (not "employee") — no server policy is in effect, so there is no active
+        // scope to report. Defaulting to "employee" here would misleadingly imply a live,
+        // server-authorized policy exists when monitoring is actually fail-closed/disabled.
+        EffectiveScope = "none",
+        ValidUntil = DateTimeOffset.MinValue
     };
 }

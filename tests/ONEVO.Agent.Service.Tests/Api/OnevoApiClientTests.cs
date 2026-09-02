@@ -126,7 +126,8 @@ public class OnevoApiClientTests
                 refresh_expires_in_seconds = 7_776_000,
                 employee_name = "Priya Employee",
                 employee_email = "priya@test.dev",
-                employee_number = "EMP-0001"
+                employee_number = "EMP-0001",
+                employee_profile_status = "resolved"
             })
         });
         var client = Build(handler);
@@ -141,6 +142,7 @@ public class OnevoApiClientTests
         Assert.Equal("Priya Employee", result.Auth.EmployeeName);
         Assert.Equal("priya@test.dev", result.Auth.EmployeeEmail);
         Assert.Equal("EMP-0001", result.Auth.EmployeeNumber);
+        Assert.Equal("resolved", result.Auth.EmployeeProfileStatus);
     }
 
     [Fact]
