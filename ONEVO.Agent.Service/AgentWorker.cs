@@ -30,6 +30,7 @@ public sealed class AgentWorker : BackgroundService
     private readonly EnrollmentCoordinator _enrollmentCoordinator;
     private readonly InactivityEvidenceHandler _inactivityEvidence;
     private readonly EvidenceSpoolStore _evidenceSpool;
+    private CancellationTokenSource? _pairingCts;
 
     public AgentWorker(
         ILogger<AgentWorker> logger,
@@ -116,6 +117,46 @@ public sealed class AgentWorker : BackgroundService
         _credentials.StoreDeviceJwt(auth.AccessToken);
         _deviceIdentityStore.Save(identity);
     }
+
+    /// <summary>
+    /// Shared tail for both connect paths (manual code exchange and browser device
+    /// pairing) once a TrayAuthPayload has been obtained: derives/persists device
+    /// identity, sends the initial heartbeat, and transitions into Stopped
+    /// (enrolled-but-not-clocked-in). Returns false with "INVALID_STATE" only if the
+    /// state machine transition itself is rejected (e.g. a race with a concurrent
+    /// enrollment) — everything before that point cannot fail once a valid auth
+    /// payload is in hand.
+    /// </summary>
+    private async Task<(bool Success, string? ErrorCode)> CompleteEnrollmentAsync(
+        TrayAuthPayload auth, string fingerprint, CancellationToken ct)
+    {
+        var (backendDeviceId, tenantId) = JwtClaimsReader.ReadDeviceClaims(auth.AccessToken);
+        var storedIdentity = _deviceIdentityStore.Load();
+        var stableDeviceId = storedIdentity?.DeviceId
+            ?? backendDeviceId
+            ?? Guid.NewGuid().ToString("N");
+        var stableAgentId = storedIdentity?.AgentId
+            ?? backendDeviceId
+            ?? stableDeviceId;
+        var identity = new DeviceIdentity
+        {
+            DeviceId = stableDeviceId,
+            AgentId = stableAgentId,
+            TenantId = tenantId ?? storedIdentity?.TenantId ?? string.Empty,
+            DeviceFingerprint = fingerprint
+        };
+
+        PersistAuth(identity, auth);
+        await _apiClient.SendHeartbeatAsync(auth.AccessToken, ct);
+
+        if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
+            return (false, "INVALID_STATE");
+
+        ApplyEnrollmentGates();
+        return (true, null);
+    }
+
+    internal MonitoringState CurrentStateForTest => _stateMachine.CurrentState;
 
     /// <summary>
     /// Clears authentication material without deleting the machine identity.
@@ -212,6 +253,14 @@ public sealed class AgentWorker : BackgroundService
 
             case IpcMessageTypes.BiometricEnrollmentCaptureFinished:
                 await HandleBiometricEnrollmentCaptureFinishedAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.DevicePairingStart:
+                await HandleDevicePairingStartAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.DevicePairingCancel:
+                await HandleDevicePairingCancelAsync(envelope, reply);
                 break;
 
             case IpcMessageTypes.EvidenceTransferStart:
@@ -704,47 +753,168 @@ public sealed class AgentWorker : BackgroundService
             return;
         }
 
-        var (backendDeviceId, tenantId) = JwtClaimsReader.ReadDeviceClaims(result.Auth.AccessToken);
-        var storedIdentity = _deviceIdentityStore.Load();
-        var stableDeviceId = storedIdentity?.DeviceId
-            ?? backendDeviceId
-            ?? Guid.NewGuid().ToString("N");
-        var stableAgentId = storedIdentity?.AgentId
-            ?? backendDeviceId
-            ?? stableDeviceId;
-        var identity = new DeviceIdentity
+        var (completed, completionError) = await CompleteEnrollmentAsync(result.Auth, fingerprint, CancellationToken.None);
+        if (!completed)
         {
-            // DeviceId/AgentId are installation-scoped. Reuse the persisted values
-            // after sign-out so a new employee activation does not create a new
-            // device on the same Windows machine.
-            DeviceId = stableDeviceId,
-            AgentId = stableAgentId,
-            TenantId = tenantId ?? storedIdentity?.TenantId ?? string.Empty,
-            DeviceFingerprint = fingerprint
-        };
-
-        PersistAuth(identity, result.Auth);
-        await _apiClient.SendHeartbeatAsync(result.Auth.AccessToken, CancellationToken.None);
-
-        if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
-        {
-            await ReplyEnrollmentAsync(envelope, reply, false, "INVALID_STATE", null);
+            await ReplyEnrollmentAsync(envelope, reply, false, completionError, null);
             return;
         }
-
-        ApplyEnrollmentGates();
 
         _logger.LogInformation("Activation succeeded via backend exchange. State={State}", _stateMachine.CurrentState);
 
         await ReplyEnrollmentAsync(
             envelope, reply, true, null,
             result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber,
-            result.Auth.EmployeeProfileStatus);
+            result.Auth.EmployeeProfileStatus,
             result.Auth.DepartmentName, result.Auth.WorkModeLabel, result.Auth.OfficeName,
             result.Auth.OrganizationName);
 
         // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
         await reply(BuildStatusEnvelope(correlationId: null));
+    }
+
+    internal async Task HandleDevicePairingStartAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<DevicePairingStartPayload>();
+        if (payload is null)
+        {
+            await reply(BuildDevicePairingStartedEnvelope(envelope.CorrelationId, false, "INVALID_REQUEST"));
+            return;
+        }
+
+        var fingerprint = DeviceFingerprint.Compute();
+        var start = await _apiClient.StartDeviceAuthorizationAsync(
+            payload.DeviceName, payload.DeviceOs, payload.ClientVersion, fingerprint, CancellationToken.None);
+
+        if (!start.Success || start.DeviceCode is null)
+        {
+            _logger.LogWarning("Device pairing start failed. ErrorCode={ErrorCode}", start.ErrorCode);
+            await reply(BuildDevicePairingStartedEnvelope(envelope.CorrelationId, false, start.ErrorCode ?? "SERVICE_UNAVAILABLE"));
+            return;
+        }
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.DevicePairingStarted,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(new DevicePairingStartedPayload(
+                true, null, start.VerificationUri, start.VerificationUriComplete,
+                start.ExpiresInSeconds, start.IntervalSeconds))
+        });
+
+        _pairingCts?.Cancel();
+        _pairingCts = new CancellationTokenSource();
+        _ = PollDevicePairingLoopAsync(start, fingerprint, _pairingCts.Token);
+    }
+
+    private static IpcEnvelope BuildDevicePairingStartedEnvelope(string correlationId, bool success, string? errorCode) =>
+        new()
+        {
+            Type = IpcMessageTypes.DevicePairingStarted,
+            CorrelationId = correlationId,
+            Payload = JsonSerializer.SerializeToElement(new DevicePairingStartedPayload(success, errorCode))
+        };
+
+    internal Task HandleDevicePairingCancelAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        _pairingCts?.Cancel();
+        _pairingCts = null;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Polls PollDeviceAuthorizationAsync at the server-specified interval until a terminal
+    /// state is reached (Authorized, ExpiredToken, AccessDenied, ServiceUnavailable) or the
+    /// authorization's own expiry deadline passes, then pushes exactly one
+    /// DevicePairingResult. On Authorized, runs the same completion tail
+    /// HandleActivationCodeSubmitAsync uses. <paramref name="delay"/> and
+    /// <paramref name="pushResult"/> are test seams — production callers omit both and get
+    /// real Task.Delay plus a broadcast over the named pipe.
+    /// </summary>
+    internal async Task PollDevicePairingLoopAsync(
+        DeviceAuthorizationStartResult start,
+        string fingerprint,
+        CancellationToken ct,
+        Func<TimeSpan, CancellationToken, Task>? delay = null,
+        Func<DevicePairingResultPayload, Task>? pushResult = null)
+    {
+        delay ??= Task.Delay;
+        pushResult ??= PushDevicePairingResultAsync;
+
+        var interval = TimeSpan.FromSeconds(start.IntervalSeconds);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(start.ExpiresInSeconds);
+
+        while (!ct.IsCancellationRequested && DateTimeOffset.UtcNow < deadline)
+        {
+            await delay(interval, ct);
+            if (ct.IsCancellationRequested) return;
+
+            var poll = await _apiClient.PollDeviceAuthorizationAsync(start.DeviceCode!, fingerprint, ct);
+
+            switch (poll.State)
+            {
+                case DeviceAuthorizationPollState.AuthorizationPending:
+                    continue;
+
+                case DeviceAuthorizationPollState.SlowDown:
+                    interval += TimeSpan.FromSeconds(5);
+                    continue;
+
+                case DeviceAuthorizationPollState.Authorized:
+                {
+                    var (completed, completionError) = await CompleteEnrollmentAsync(poll.Auth!, fingerprint, ct);
+                    if (!completed)
+                    {
+                        await pushResult(new DevicePairingResultPayload { Success = false, ErrorCode = completionError });
+                        return;
+                    }
+                    _logger.LogInformation("Device pairing succeeded via browser approval. State={State}", _stateMachine.CurrentState);
+                    await pushResult(new DevicePairingResultPayload
+                    {
+                        Success = true,
+                        EmployeeName = poll.Auth!.EmployeeName,
+                        EmployeeEmail = poll.Auth.EmployeeEmail,
+                        EmployeeNumber = poll.Auth.EmployeeNumber,
+                        EmployeeProfileStatus = poll.Auth.EmployeeProfileStatus,
+                        DepartmentName = poll.Auth.DepartmentName,
+                        WorkModeLabel = poll.Auth.WorkModeLabel,
+                        OfficeName = poll.Auth.OfficeName,
+                        OrganizationName = poll.Auth.OrganizationName
+                    });
+                    return;
+                }
+
+                case DeviceAuthorizationPollState.ExpiredToken:
+                    await pushResult(new DevicePairingResultPayload { Success = false, ErrorCode = "EXPIRED" });
+                    return;
+
+                case DeviceAuthorizationPollState.AccessDenied:
+                    await pushResult(new DevicePairingResultPayload { Success = false, ErrorCode = "ACCESS_DENIED" });
+                    return;
+
+                case DeviceAuthorizationPollState.ServiceUnavailable:
+                    await pushResult(new DevicePairingResultPayload { Success = false, ErrorCode = "SERVICE_UNAVAILABLE" });
+                    return;
+            }
+        }
+
+        await pushResult(new DevicePairingResultPayload { Success = false, ErrorCode = "EXPIRED" });
+    }
+
+    private async Task PushDevicePairingResultAsync(DevicePairingResultPayload payload)
+    {
+        try
+        {
+            await _pipeServer.BroadcastAsync(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.DevicePairingResult,
+                Payload = JsonSerializer.SerializeToElement(payload)
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast device pairing result");
+        }
     }
 
     private async Task ReplyEnrollmentAsync(
@@ -755,7 +925,7 @@ public sealed class AgentWorker : BackgroundService
         string? employeeName,
         string? employeeEmail = null,
         string? employeeNumber = null,
-        string? employeeProfileStatus = null)
+        string? employeeProfileStatus = null,
         string? departmentName = null,
         string? workModeLabel = null,
         string? officeName = null,
@@ -772,7 +942,7 @@ public sealed class AgentWorker : BackgroundService
                 EmployeeName = employeeName,
                 EmployeeEmail = employeeEmail,
                 EmployeeNumber = employeeNumber,
-                EmployeeProfileStatus = employeeProfileStatus
+                EmployeeProfileStatus = employeeProfileStatus,
                 DepartmentName = departmentName,
                 WorkModeLabel = workModeLabel,
                 OfficeName = officeName,
