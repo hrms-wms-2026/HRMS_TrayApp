@@ -1431,14 +1431,14 @@ untouched.
   (unchanged), `SessionPreferenceKeys` (unchanged).
 - Produces: nothing consumed by later tasks — this is the last task.
 
-- [ ] **Step 1: Check for an existing ViewModel test file**
+- [x] **Step 1: Check for an existing ViewModel test file**
 
 Run: `ls tests/ONEVO.Agent.TrayApp.Tests/ViewModels/ | grep -i ConnectWorkspace`
 If `ConnectWorkspaceViewModelTests.cs` exists, read it for its construction pattern
 (likely `new ConnectWorkspaceViewModel(fakePipe, fakePreferences)`) and add the new tests
 into that file instead of creating a new one. If it doesn't exist, use the file path above.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 ```csharp
 namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
@@ -1535,13 +1535,13 @@ grep for how `VerifyAndConnectAsync`'s existing tests construct an `IPreferences
 (`grep -rn "IPreferencesStore" tests/ONEVO.Agent.TrayApp.Tests/`) and reuse that exact fake
 instead of inventing a new one.
 
-- [ ] **Step 3: Run the test to verify it fails**
+- [x] **Step 3: Run the test to verify it fails**
 
 Run: `dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --filter "FullyQualifiedName~ConnectWorkspaceViewModelDevicePairingTests"`
 Expected: FAIL — compile error, `ConnectViaBrowserCommand`/`IsWaitingForBrowserApproval`/
 `CancelBrowserApprovalCommand` don't exist yet.
 
-- [ ] **Step 4: Update `ConnectWorkspaceViewModel`**
+- [x] **Step 4: Update `ConnectWorkspaceViewModel`**
 
 Edit `ONEVO.Agent.TrayApp/ViewModels/ConnectWorkspaceViewModel.cs`. Add two new
 observable properties after `_hintText` (line 21):
@@ -1662,7 +1662,7 @@ replaced — leave `WorkspaceLinks.cs` itself untouched (Task 3's frontend route
 the tenant-agnostic base host the backend already builds into `verification_uri_complete`,
 not at `WorkspaceLinks.PortalUrl`).
 
-- [ ] **Step 5: Update the XAML**
+- [x] **Step 5: Update the XAML**
 
 Edit `ONEVO.Agent.TrayApp/Views/ConnectWorkspacePage.xaml`. Replace the "Open Activation
 Website" `Border` block (lines 156–172) with two mutually-exclusive blocks — the original
@@ -1713,17 +1713,17 @@ already used elsewhere on this page so no new style resources are needed, and no
           </Border>
 ```
 
-- [ ] **Step 6: Run the test to verify it passes**
+- [x] **Step 6: Run the test to verify it passes**
 
 Run: `dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --filter "FullyQualifiedName~ConnectWorkspaceViewModelDevicePairingTests"`
 Expected: PASS (all five tests).
 
-- [ ] **Step 7: Run the layout contract test to confirm no ScrollView was introduced**
+- [x] **Step 7: Run the layout contract test to confirm no ScrollView was introduced**
 
 Run: `dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --filter "FullyQualifiedName~TrayScreenLayoutContractTests"`
 Expected: PASS.
 
-- [ ] **Step 8: Run the full TrayApp UI test project to confirm no regression**
+- [x] **Step 8: Run the full TrayApp UI test project to confirm no regression**
 
 Run: `dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj`
 Expected: PASS (all tests, including any pre-existing `ConnectWorkspaceViewModel` tests for
@@ -1745,7 +1745,7 @@ sign in (or confirm auto-continue if already signed in), click Accept, and confi
 TrayApp transitions to the connected/review screen within a few seconds without any manual
 step in the app itself.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add ONEVO.Agent.TrayApp/ViewModels/ConnectWorkspaceViewModel.cs ONEVO.Agent.TrayApp/Views/ConnectWorkspacePage.xaml tests/ONEVO.Agent.TrayApp.Tests/ViewModels/ConnectWorkspaceViewModelDevicePairingTests.cs
