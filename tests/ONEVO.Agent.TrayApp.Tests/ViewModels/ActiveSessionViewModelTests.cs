@@ -44,7 +44,7 @@ public sealed class ActiveSessionViewModelTests
         Assert.Contains(LifecycleAction.StartBreak, pipe.LifecycleActions);
         Assert.True(vm.IsOnBreak);
         Assert.Equal("On Break", vm.StatusText);
-        Assert.Equal("Break started. Enjoy your break! ☕", vm.HintMessage);
+        Assert.Equal("You'll be notified when your break time is ending.", vm.HintMessage);
     }
 
     [Fact]

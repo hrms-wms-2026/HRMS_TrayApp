@@ -10,6 +10,7 @@ using ONEVO.Agent.TrayApp.Services;
 public sealed partial class IdentityVerificationViewModel : BaseViewModel
 {
     private readonly CapturedPhotoBuffer _photoBuffer;
+    private readonly IPreferencesStore? _preferences;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MatchPercentageText))]
@@ -25,20 +26,28 @@ public sealed partial class IdentityVerificationViewModel : BaseViewModel
     [ObservableProperty] private bool _isGoodLighting = true;
     [ObservableProperty] private bool _isFaceVisible = true;
     [ObservableProperty] private bool _isNoMaskOrGlasses = true;
+    [ObservableProperty] private string _employeeName = "—";
+    [ObservableProperty] private string _employeeId = "—";
 
     public string MatchPercentageText => $"{MatchPercentage:0}%";
     public double MatchProgress => MatchPercentage / 100;
     public bool HasVerificationPhoto => VerificationPhotoSource is not null;
 
-    public IdentityVerificationViewModel(CapturedPhotoBuffer photoBuffer)
+    public IdentityVerificationViewModel(CapturedPhotoBuffer photoBuffer, IPreferencesStore? preferences = null)
     {
         Title = "Verify Your Identity";
         _photoBuffer = photoBuffer;
+        _preferences = preferences;
     }
 
     /// <summary>Call from the page's OnAppearing so the freshly-captured selfie shows in the ring.</summary>
     public void LoadCapturedPhoto()
     {
+        if (_preferences is not null)
+        {
+            EmployeeName = SetupFlow.DisplayOrDash(EmployeeSession.Name(_preferences));
+            EmployeeId = SetupFlow.DisplayOrDash(EmployeeSession.Id(_preferences));
+        }
         var bytes = _photoBuffer.Bytes;
         VerificationPhotoSource = bytes is { Length: > 0 }
             ? ImageSource.FromStream(() => new MemoryStream(bytes))

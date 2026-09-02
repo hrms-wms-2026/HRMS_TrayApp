@@ -31,7 +31,7 @@ public sealed class WorkLocationFlowTests
         WorkLocationFlow.MarkSetupComplete(prefs);
         WorkLocationFlow.MarkConfirmedToday(prefs, Today);
 
-        Assert.Equal(WorkLocationFlow.ClockInRoute, WorkLocationFlow.RouteWhenStopped(prefs, Today));
+        Assert.Equal(SetupFlow.WelcomeBack, WorkLocationFlow.RouteWhenStopped(prefs, Today));
     }
 
     [Fact]
@@ -50,11 +50,20 @@ public sealed class WorkLocationFlowTests
     }
 
     [Fact]
-    public void ResolveNextRoute_MissingOrPrepare_ReturnsPrepare()
+    public void ResolveNextRoute_MissingOrPrepare_ReturnsPermissions()
     {
-        Assert.Equal(WorkLocationFlow.PrepareRoute, WorkLocationFlow.ResolveNextRoute(null));
-        Assert.Equal(WorkLocationFlow.PrepareRoute, WorkLocationFlow.ResolveNextRoute("prepare"));
-        Assert.Equal(WorkLocationFlow.PrepareRoute, WorkLocationFlow.ResolveNextRoute("unknown"));
+        Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute(null));
+        Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute("prepare"));
+        Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute("policy"));
+        Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute("unknown"));
+    }
+
+    [Fact]
+    public void RouteToStartWork_ConfirmedToday_GoesToWelcomeBack()
+    {
+        var prefs = new FakePreferencesStore();
+        WorkLocationFlow.MarkConfirmedToday(prefs, Today);
+        Assert.Equal(SetupFlow.WelcomeBack, WorkLocationFlow.RouteToStartWork(prefs, Today));
     }
 
     [Fact]

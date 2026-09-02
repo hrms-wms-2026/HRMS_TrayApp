@@ -425,7 +425,11 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("refresh_expires_in_seconds")] int RefreshExpiresInSeconds,
     [property: JsonPropertyName("employee_name")] string? EmployeeName,
     [property: JsonPropertyName("employee_email")] string? EmployeeEmail,
-    [property: JsonPropertyName("employee_number")] string? EmployeeNumber);
+    [property: JsonPropertyName("employee_number")] string? EmployeeNumber,
+    [property: JsonPropertyName("department_name")] string? DepartmentName = null,
+    [property: JsonPropertyName("work_mode_label")] string? WorkModeLabel = null,
+    [property: JsonPropertyName("office_name")] string? OfficeName = null,
+    [property: JsonPropertyName("organization_name")] string? OrganizationName = null);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
 

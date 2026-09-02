@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ONEVO.Agent.TrayApp.Controls.SetupStepRow"
+             x:Name="Root">
+  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" MinimumHeightRequest="40">
+    <Grid Grid.Column="0" WidthRequest="28" HeightRequest="28"
+          VerticalOptions="Start" Margin="0,1,0,0">
+      <Ellipse StrokeThickness="2"
+               IsVisible="{Binding Source={x:Reference Root}, Path=ShowPendingRing}">
+        <Ellipse.Stroke>
+          <SolidColorBrush Color="{StaticResource Separator}" />
+        </Ellipse.Stroke>
+      </Ellipse>
+      <Ellipse StrokeThickness="2.4"
+               IsVisible="{Binding Source={x:Reference Root}, Path=ShowProgressRing}">
+        <Ellipse.Stroke>
+          <SolidColorBrush Color="{StaticResource Primary}" />
+        </Ellipse.Stroke>
+      </Ellipse>
+      <Ellipse IsVisible="{Binding Source={x:Reference Root}, Path=ShowBrandComplete}">
+        <Ellipse.Fill>
+          <SolidColorBrush Color="{StaticResource StatusBlue}" />
+        </Ellipse.Fill>
+      </Ellipse>
+      <Ellipse IsVisible="{Binding Source={x:Reference Root}, Path=ShowSuccessComplete}">
+        <Ellipse.Fill>
+          <SolidColorBrush Color="{StaticResource StatusGreen}" />
+        </Ellipse.Fill>
+      </Ellipse>
+      <Label Text="{StaticResource IconCheck}"
+             FontFamily="Segoe MDL2 Assets"
+             FontSize="12"
+             TextColor="White"
+             HorizontalOptions="Center"
+             VerticalOptions="Center"
+             IsVisible="{Binding Source={x:Reference Root}, Path=IsComplete}" />
+    </Grid>
+
+    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+      <Label Text="{Binding Source={x:Reference Root}, Path=Title}"
+             Style="{StaticResource SetupStepTitle}" />
+      <Label Text="{Binding Source={x:Reference Root}, Path=StatusText}"
+             Style="{StaticResource SetupStepStatus}" />
+    </VerticalStackLayout>
+  </Grid>
+</ContentView>

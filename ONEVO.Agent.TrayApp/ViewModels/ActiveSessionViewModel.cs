@@ -21,6 +21,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private bool _subscribed;
 
     [ObservableProperty] private string _headerTitle       = "You are now Clocked In!";
+    [ObservableProperty] private string _headerLead        = "You are now";
+    [ObservableProperty] private string _headerAccent      = "Clocked In";
     [ObservableProperty] private string _headerSubtitle    = "Have a productive and successful day ahead.";
     [ObservableProperty] private string _statusText        = "Working";
     [ObservableProperty] private string _primaryTimerLabel = "Live Shift Timer";
@@ -32,12 +34,27 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _idleTimeDisplay = "00:00:00";
     [ObservableProperty] private string _productiveTimeDisplay = "00:00:00";
     [ObservableProperty] private bool _isIdle;
-    [ObservableProperty] private bool   _isOnBreak;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
+    [NotifyPropertyChangedFor(nameof(ShowResumedActions))]
+    private bool   _isOnBreak;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
+    [NotifyPropertyChangedFor(nameof(ShowResumedActions))]
+    private bool _isResumedFromBreak;
+    [ObservableProperty] private string _lastBreakEndedDisplay = "—";
+    [ObservableProperty] private string _lastBreakDurationDisplay = "00:00:00";
     [ObservableProperty] private bool   _isBreakConfirmVisible;
+    [ObservableProperty] private bool   _isEndBreakConfirmVisible;
     [ObservableProperty] private bool   _isBusyAction;
     [ObservableProperty] private string? _syncMessage;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string _hintMessage = "";
+    [ObservableProperty] private string _workLocationDisplay = "—";
+    [ObservableProperty] private string _breakSessionsDisplay = "0";
+    [ObservableProperty] private string _workStartedCaption = "";
+    [ObservableProperty] private string _breakTotalCaption = "Total Break Time: 00:00:00";
+    [ObservableProperty] private string _productiveShareCaption = "0% of work duration";
 
     public ActiveSessionViewModel(
         INamedPipeClient pipe,
@@ -49,6 +66,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         _dayMetrics = dayMetrics;
         _lifecycleCoordinator = lifecycleCoordinator;
     }
+
+    public bool ShowWorkingActions => !IsOnBreak && !IsResumedFromBreak;
+    public bool ShowResumedActions => !IsOnBreak && IsResumedFromBreak;
 
     /// <summary>Test helper — empty day metrics, no-op collector-lifecycle drain.</summary>
     public ActiveSessionViewModel(INamedPipeClient pipe)
@@ -68,6 +88,13 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         _ = _pipe.SendEnvelopeAsync(
             new IpcEnvelope { Type = IpcMessageTypes.StatusRequest },
             CancellationToken.None);
+
+        try
+        {
+            WorkLocationDisplay = EmployeeSession.FirstNonEmpty(
+                Microsoft.Maui.Storage.Preferences.Get("onevo.work_location_display", string.Empty), "—");
+        }
+        catch { /* unit tests */ }
 
         EnsureUiTimerRunning();
         UpdateTimersCore();
@@ -172,20 +199,35 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     {
         if (IsOnBreak)
         {
+            IsResumedFromBreak = false;
             HeaderTitle       = "You are now On Break";
-            HeaderSubtitle    = "Take a short break. You're doing great!";
+            HeaderLead        = "You are now";
+            HeaderAccent      = "On Break";
+            HeaderSubtitle    = "Take a short break. You're doing great.";
             StatusText        = "On Break";
             PrimaryTimerLabel = "Break Timer";
-            HintMessage       = "Break started. Enjoy your break! ☕";
+            HintMessage       = "You'll be notified when your break time is ending.";
             SyncMessage       = null;
+        }
+        else if (IsResumedFromBreak)
+        {
+            HeaderTitle       = "Back to Work";
+            HeaderLead        = "Back to";
+            HeaderAccent      = "Work";
+            HeaderSubtitle    = "Your work session has resumed successfully.";
+            StatusText        = "Working";
+            PrimaryTimerLabel = "Live Shift Timer";
+            HintMessage       = "You're doing great! Keep the momentum going.";
         }
         else
         {
-            HeaderTitle       = "You are now Clocked In!";
-            HeaderSubtitle    = "Have a productive and successful day ahead.";
+            HeaderTitle       = "You are now Clocked In";
+            HeaderLead        = "You are now";
+            HeaderAccent      = "Clocked In";
+            HeaderSubtitle    = "Your work session has started successfully.";
             StatusText        = "Working";
             PrimaryTimerLabel = "Live Shift Timer";
-            HintMessage       = "";
+            HintMessage       = "Activity monitoring is now active.";
         }
     }
 
@@ -247,6 +289,15 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         BreakTimeDisplay      = Format(breakTotal);
         IdleTimeDisplay       = Format(idleTotal);
         ProductiveTimeDisplay = Format(work);
+        BreakSessionsDisplay  = Math.Max(0, _breakSessionCount).ToString();
+        WorkStartedCaption = string.IsNullOrWhiteSpace(StartTimeDisplay) || StartTimeDisplay == "—"
+            ? string.Empty
+            : $"Started at {StartTimeDisplay}";
+        BreakTotalCaption = $"Total Break Time: {BreakTimeDisplay}";
+        var share = wall.TotalSeconds <= 0
+            ? 0
+            : (int)Math.Round(100.0 * work.TotalSeconds / wall.TotalSeconds);
+        ProductiveShareCaption = $"{share}% of work duration";
 
         // Primary big timer: break segment while on break, else total elapsed shift time
         // (wall clock since clock-in) so it equals Break + Productive + Idle.
@@ -255,6 +306,13 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
     private static string Format(TimeSpan t) =>
         $"{(int)t.TotalHours:00}:{t.Minutes:00}:{t.Seconds:00}";
+
+    [RelayCommand]
+    private void ContinueWorking()
+    {
+        IsResumedFromBreak = false;
+        ApplyModeChrome();
+    }
 
     [RelayCommand]
     private void RequestBreak()
@@ -283,8 +341,26 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     }
 
     [RelayCommand]
+    private void RequestEndBreak()
+    {
+        if (!IsOnBreak || IsBusyAction) return;
+        IsEndBreakConfirmVisible = true;
+        ErrorMessage = null;
+    }
+
+    [RelayCommand]
+    private void CancelEndBreakConfirm()
+    {
+        IsEndBreakConfirmVisible = false;
+    }
+
+    [RelayCommand]
     private async Task EndBreakAsync(CancellationToken ct)
     {
+        IsEndBreakConfirmVisible = false;
+        LastBreakDurationDisplay = PrimaryTimer;
+        LastBreakEndedDisplay = DateTimeOffset.Now.ToString("hh:mm tt");
+        IsResumedFromBreak = true;
         // EndBreak resumes monitoring rather than pausing it, so it does not go through the
         // pre-stop drain — collectors are already stopped for the break's duration.
         var result = await RunLifecycleAsync(LifecycleAction.EndBreak, ct);
@@ -298,6 +374,13 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [RelayCommand]
     private async Task ClockOutAsync(CancellationToken ct)
     {
+        if (_pipe.LastKnownPolicy?.CameraVerificationEnabled == true)
+        {
+            try { await Shell.Current.GoToAsync("//photo?context=clockout"); }
+            catch { /* unit tests */ }
+            return;
+        }
+
         // Navigation on success is owned entirely by App.xaml.cs's state-driven router
         // (fed by OnStateReceived/OnStatusReceived) — not here. Two navigation sources
         // racing on the same transition was the cause of the "//end" screen sometimes

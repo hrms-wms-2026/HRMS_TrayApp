@@ -725,7 +725,9 @@ public sealed class AgentWorker : BackgroundService
 
         await ReplyEnrollmentAsync(
             envelope, reply, true, null,
-            result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber);
+            result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber,
+            result.Auth.DepartmentName, result.Auth.WorkModeLabel, result.Auth.OfficeName,
+            result.Auth.OrganizationName);
 
         // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
         await reply(BuildStatusEnvelope(correlationId: null));
@@ -738,7 +740,11 @@ public sealed class AgentWorker : BackgroundService
         string? errorCode,
         string? employeeName,
         string? employeeEmail = null,
-        string? employeeNumber = null)
+        string? employeeNumber = null,
+        string? departmentName = null,
+        string? workModeLabel = null,
+        string? officeName = null,
+        string? organizationName = null)
     {
         await reply(new IpcEnvelope
         {
@@ -750,7 +756,11 @@ public sealed class AgentWorker : BackgroundService
                 ErrorCode = errorCode,
                 EmployeeName = employeeName,
                 EmployeeEmail = employeeEmail,
-                EmployeeNumber = employeeNumber
+                EmployeeNumber = employeeNumber,
+                DepartmentName = departmentName,
+                WorkModeLabel = workModeLabel,
+                OfficeName = officeName,
+                OrganizationName = organizationName
             })
         });
     }

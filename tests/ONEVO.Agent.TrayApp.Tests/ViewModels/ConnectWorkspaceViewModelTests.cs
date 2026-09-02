@@ -9,6 +9,24 @@ public sealed class ConnectWorkspaceViewModelTests
         new(new FakeNamedPipeClient(), new FakePreferencesStore());
 
     [Fact]
+    public void Title_IsOneXsoWorkPulse()
+    {
+        Assert.Equal("OneXso WorkPulse", Make().Title);
+    }
+
+    [Fact]
+    public void HintText_PointsAtOneXsoPortal()
+    {
+        Assert.Contains("OneXso Workspace", Make().HintText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OpenActivationWebsiteCommand_CanExecute()
+    {
+        Assert.True(Make().OpenActivationWebsiteCommand.CanExecute(null));
+    }
+
+    [Fact]
     public void ActivationCode_DefaultsToEmpty()
     {
         var vm = Make();

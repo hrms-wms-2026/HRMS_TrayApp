@@ -7,7 +7,7 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 public sealed class PrivacyConsentViewModelTests
 {
     private static PrivacyConsentViewModel Make(FakePreferencesStore? prefs = null) =>
-        new(new FakeNamedPipeClient(), prefs ?? new FakePreferencesStore());
+        new(new FakeNamedPipeClient());
 
     [Fact]
     public void ScreenMonitoringEnabled_DefaultsTrue()
@@ -52,14 +52,14 @@ public sealed class PrivacyConsentViewModelTests
     }
 
     [Fact]
-    public async Task AllowAndContinue_MarksSetupComplete()
+    public async Task AllowAndContinue_DoesNotMarkSetupCompleteYet()
     {
         var prefs = new FakePreferencesStore();
         var vm = Make(prefs);
 
         await vm.AllowAndContinueCommand.ExecuteAsync(null);
 
-        Assert.True(WorkLocationFlow.IsSetupComplete(prefs));
+        Assert.False(WorkLocationFlow.IsSetupComplete(prefs));
     }
 
     [Fact]

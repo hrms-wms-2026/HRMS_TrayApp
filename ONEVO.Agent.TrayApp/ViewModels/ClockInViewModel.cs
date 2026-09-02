@@ -19,11 +19,15 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 
     [ObservableProperty] private string _liveTimer        = "00:00:00";
     [ObservableProperty] private string _workingStatus    = "Ready";
-    [ObservableProperty] private string _connectionStatus = "Online";
+    [ObservableProperty] private string _connectionStatus = "Connected";
     [ObservableProperty] private string _internetStatus   = "Excellent Connection";
     [ObservableProperty] private string _deviceType       = "Windows Desktop";
     [ObservableProperty] private bool   _isConnected      = true;
+    [ObservableProperty] private string _workspaceStatus  = "Secure";
+    [ObservableProperty] private string _policiesStatus   = "All policies active";
 
+    [ObservableProperty] private string _scheduleDisplay  = "09:00 AM – 06:00 PM";
+    [ObservableProperty] private bool _isStartConfirmVisible;
     [ObservableProperty] private bool _isClockinIn;
     [ObservableProperty] private bool _isSigningOut;
     [ObservableProperty] private string? _errorMessage;
@@ -60,7 +64,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
                     IsConnected = true;
-                    ConnectionStatus = "Online";
+                    ConnectionStatus = "Connected";
+                    WorkspaceStatus = "Secure";
                 });
             }
             catch { /* unit tests */ }
@@ -77,13 +82,15 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         // cycles, so the employee name must be re-read here, not only at
         // construction, or the previous employee's name survives sign-out.
         LoadEmployeeName();
+        WorkLocation = EmployeeSession.WorkLocation(_preferences);
+        DeviceType = "Windows Desktop";
     }
 
     private void LoadEmployeeName()
     {
         // Enrollment saves the real name; fall back to Windows username.
         var fallbackName = string.IsNullOrWhiteSpace(Environment.UserName) ? "Employee" : Environment.UserName;
-        try { EmployeeName = _preferences.Get(SessionPreferenceKeys.EmployeeDisplayName, fallbackName); }
+        try { EmployeeName = EmployeeSession.Name(_preferences, fallbackName); }
         catch { EmployeeName = fallbackName; }
     }
 
@@ -95,6 +102,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
             {
                 IsConnected = false;
                 ConnectionStatus = "Offline";
+                WorkspaceStatus = "Offline";
             });
         }
         catch { /* unit tests */ }
@@ -105,8 +113,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         void Apply()
         {
             CurrentDate = DateTimeOffset.Now;
-            CurrentDateDisplay = CurrentDate.ToString("dddd, MMMM d, yyyy");
-            CurrentTimeDisplay = CurrentDate.ToString("hh:mm tt");
+            CurrentDateDisplay = CurrentDate.ToString("MMMM d, yyyy");
+            CurrentTimeDisplay = CurrentDate.ToString("hh:mm:ss tt");
             // Mockup: Live Timer stays at 00:00:00 until the employee clocks in.
             LiveTimer = "00:00:00";
         }
@@ -134,7 +142,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     {
         InternetStatus = access switch
         {
-            NetworkAccess.Internet => "Excellent Connection",
+            NetworkAccess.Internet => "Excellent",
             NetworkAccess.ConstrainedInternet => "Limited Connection",
             NetworkAccess.Local => "No Internet Access",
             _ => "No Connection"
@@ -144,7 +152,27 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     private static string GetGreeting()
     {
         var hour = DateTime.Now.Hour;
-        return hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+        return hour < 12 ? "Good Morning," : hour < 17 ? "Good Afternoon," : "Good Evening,";
+    }
+
+    [RelayCommand]
+    private void RequestStartWorkday()
+    {
+        ErrorMessage = null;
+        IsStartConfirmVisible = true;
+    }
+
+    [RelayCommand]
+    private void CancelStartWorkday()
+    {
+        IsStartConfirmVisible = false;
+    }
+
+    [RelayCommand]
+    private async Task ConfirmStartWorkdayAsync(CancellationToken ct)
+    {
+        IsStartConfirmVisible = false;
+        await ClockInAsync(ct);
     }
 
     [RelayCommand]

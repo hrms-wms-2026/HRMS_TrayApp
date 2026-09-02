@@ -3,7 +3,8 @@
      Icons". The two fonts share most codepoints but not all; trusting Fluent Icons docs for an
      MDL2 Assets glyph caused a real regression here (IconClock E917 renders as tofu on MDL2 Assets).
      Every key in this file has been rendered with System.Drawing against the actual installed
-     "Segoe MDL2 Assets" font on a real Windows machine and visually confirmed on 2026-08-10 —
+     "Segoe MDL2 Assets" font on a real Windows machine and visually confirmed on 2026-08-10
+     (IconStopwatch/IconHome/IconLaptop re-checked 2026-09-01, IconCloud E753 on 2026-09-02) —
      not just cross-checked against documentation. Re-run that render check before trusting a new key. -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
@@ -20,6 +21,9 @@
     <x:String x:Key="IconCamera">&#xE722;</x:String>
     <x:String x:Key="IconCheck">&#xE73E;</x:String>
     <x:String x:Key="IconClock">&#xE823;</x:String>
+    <x:String x:Key="IconStopwatch">&#xE916;</x:String>
+    <x:String x:Key="IconHome">&#xE80F;</x:String>
+    <x:String x:Key="IconLaptop">&#xE7F8;</x:String>
     <x:String x:Key="IconCalendar">&#xE787;</x:String>
     <x:String x:Key="IconSettings">&#xE713;</x:String>
     <x:String x:Key="IconMonitor">&#xE7F4;</x:String>
@@ -34,6 +38,7 @@
     <x:String x:Key="IconCancel">&#xE711;</x:String>
     <x:String x:Key="IconChart">&#xE9F9;</x:String>
     <x:String x:Key="IconDownload">&#xE896;</x:String>
+    <x:String x:Key="IconCloud">&#xE753;</x:String>
     <x:String x:Key="IconSearch">&#xE721;</x:String>
     <x:String x:Key="IconChevron">&#xE76C;</x:String>
 </ResourceDictionary>

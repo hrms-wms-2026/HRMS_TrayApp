@@ -5,9 +5,10 @@
              xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Views.PrivacyConsentPage"
              x:DataType="vm:PrivacyConsentViewModel"
-             Title="Allow Required Policies">
+             Shell.NavBarIsVisible="False"
+             Title="OneXso WorkPulse">
 
-  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="28,16,28,12">
+  <Grid RowDefinitions="*,Auto" Padding="28,16,28,12">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
@@ -16,192 +17,98 @@
       </LinearGradientBrush>
     </Grid.Background>
 
-    <Ellipse Grid.RowSpan="5" WidthRequest="480" HeightRequest="480"
-             HorizontalOptions="Start" VerticalOptions="Start" Margin="-180,-140,0,0"
-             Opacity="0.8" InputTransparent="True">
-      <Ellipse.Fill>
-        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-          <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
-          <GradientStop Color="#00175CFF" Offset="1" />
-        </RadialGradientBrush>
-      </Ellipse.Fill>
-    </Ellipse>
-    <Ellipse Grid.RowSpan="5" WidthRequest="400" HeightRequest="400"
-             HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-140,-80"
-             Opacity="0.75" InputTransparent="True">
-      <Ellipse.Fill>
-        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-          <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
-          <GradientStop Color="#006D28D9" Offset="1" />
-        </RadialGradientBrush>
-      </Ellipse.Fill>
-    </Ellipse>
+    <Grid x:Name="PaneGrid" Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="28">
+      <Image x:Name="LeftPane" Grid.Column="0" Source="workspace_connect.png"
+             Aspect="AspectFit" VerticalOptions="Center" />
 
-    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
+      <VerticalStackLayout x:Name="RightPane" Grid.Column="1" VerticalOptions="Center" Spacing="0">
+        <Label Margin="0,0,0,6">
+          <Label.FormattedText>
+            <FormattedString>
+              <Span Text="Allow " FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Span Text="Required Permissions" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+            </FormattedString>
+          </Label.FormattedText>
+        </Label>
+        <Label Text="Grant permissions needed for a secure and productive experience."
+               Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" Margin="0,0,0,14" />
 
-    <VerticalStackLayout Grid.Row="1" HorizontalOptions="Center" Margin="0,2,0,8">
-      <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
-        <Label Text="Allow " Style="{StaticResource PageTitle}" />
-        <Label Text="Required Policies" Style="{StaticResource PageTitleBrand}" />
-      </HorizontalStackLayout>
-      <Label Text="To provide the best experience, please allow the required permissions."
-             Style="{StaticResource PageSubtitle}" Margin="0,6,0,0" />
-    </VerticalStackLayout>
+        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,8" Margin="0,0,0,12">
+          <VerticalStackLayout Spacing="0">
+            <Grid ColumnDefinitions="40,*,Auto" Padding="2,10" ColumnSpacing="10">
+              <Border Grid.Column="0" Style="{StaticResource IconTile}" WidthRequest="32" HeightRequest="32">
+                <Label Text="{StaticResource IconChart}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Work Activity Monitoring" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Tracks active and idle work periods." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="2" IsToggled="{Binding ScreenMonitoringEnabled}" IsEnabled="False" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="40,*,Auto" Padding="2,10" ColumnSpacing="10">
+              <Border Grid.Column="0" Style="{StaticResource IconTile}" WidthRequest="32" HeightRequest="32">
+                <Label Text="{StaticResource IconApps}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Application Usage" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Records applications used and time spent." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="2" IsToggled="{Binding AppTrackingEnabled}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="40,*,Auto" Padding="2,10" ColumnSpacing="10">
+              <Border Grid.Column="0" Style="{StaticResource IconTile}" WidthRequest="32" HeightRequest="32">
+                <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Location Access" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Used to verify your work location." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="2" IsToggled="{Binding LocationAccessEnabled}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="40,*,Auto" Padding="2,10" ColumnSpacing="10">
+              <Border Grid.Column="0" Style="{StaticResource IconTile}" WidthRequest="32" HeightRequest="32">
+                <Label Text="{StaticResource IconCamera}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Camera Access" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Used for identity verification as per company policy." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="2" IsToggled="{Binding CameraAccessEnabled}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="40,*,Auto" Padding="2,10" ColumnSpacing="10">
+              <Border Grid.Column="0" Style="{StaticResource IconTile}" WidthRequest="32" HeightRequest="32">
+                <Label Text="{StaticResource IconBell}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="System Notifications" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Keeps you informed about important updates." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Switch Grid.Column="2" IsToggled="{Binding NotificationsEnabled}" VerticalOptions="Center" />
+            </Grid>
+          </VerticalStackLayout>
+        </Border>
 
-    <Border Grid.Row="2" Style="{StaticResource TrayCompactGlassCard}" Padding="16,4"
-            HorizontalOptions="Center" MaximumWidthRequest="640"
-            VerticalOptions="Fill">
-        <VerticalStackLayout Spacing="0" VerticalOptions="Center">
-
-          <Grid ColumnDefinitions="44,*,Auto" Padding="2,8" ColumnSpacing="12">
-            <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                    StrokeShape="RoundRectangle 12" WidthRequest="38" HeightRequest="38">
-              <Label Text="{StaticResource IconMonitor}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="17" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-              <Label Text="Screen Monitoring" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
-              <Label Text="Allows capturing your screen activity for productivity insights."
-                     TextColor="{StaticResource TextSecondary}" FontSize="11" />
-            </VerticalStackLayout>
-            <Switch Grid.Column="2" IsToggled="{Binding ScreenMonitoringEnabled}"
-                    IsEnabled="False" VerticalOptions="Center" />
+        <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,8">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Grid>
+            <Button Command="{Binding AllowAndContinueCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Allow and Continue" />
+            <Label InputTransparent="True" Text="Allow &amp; Continue" FontSize="15" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
           </Grid>
-          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+        </Border>
+        <Button Text="Why are these needed?" Command="{Binding WhyNeededCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="13" HorizontalOptions="Center" />
+      </VerticalStackLayout>
+    </Grid>
 
-          <Grid ColumnDefinitions="44,*,Auto" Padding="2,8" ColumnSpacing="12">
-            <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                    StrokeShape="RoundRectangle 12" WidthRequest="38" HeightRequest="38">
-              <Label Text="{StaticResource IconApps}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="17" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-              <Label Text="Application Tracking" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
-              <Label Text="Tracks application usage to help improve your workflow."
-                     TextColor="{StaticResource TextSecondary}" FontSize="11" />
-            </VerticalStackLayout>
-            <Switch Grid.Column="2" IsToggled="{Binding AppTrackingEnabled}"
-                    VerticalOptions="Center" />
-          </Grid>
-          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-          <Grid ColumnDefinitions="44,*,Auto" Padding="2,8" ColumnSpacing="12">
-            <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                    StrokeShape="RoundRectangle 12" WidthRequest="38" HeightRequest="38">
-              <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="17" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-              <Label Text="Location Access" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
-              <Label Text="Helps contextualize your work environment."
-                     TextColor="{StaticResource TextSecondary}" FontSize="11" />
-            </VerticalStackLayout>
-            <Switch Grid.Column="2" IsToggled="{Binding LocationAccessEnabled}"
-                    VerticalOptions="Center" />
-          </Grid>
-          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-          <Grid ColumnDefinitions="44,*,Auto" Padding="2,8" ColumnSpacing="12">
-            <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                    StrokeShape="RoundRectangle 12" WidthRequest="38" HeightRequest="38">
-              <Label Text="{StaticResource IconCamera}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="17" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-              <Label Text="Camera Access" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
-              <Label Text="Enables video meetings and identity verification."
-                     TextColor="{StaticResource TextSecondary}" FontSize="11" />
-            </VerticalStackLayout>
-            <Switch Grid.Column="2" IsToggled="{Binding CameraAccessEnabled}"
-                    VerticalOptions="Center" />
-          </Grid>
-          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-          <Grid ColumnDefinitions="44,*,Auto" Padding="2,8" ColumnSpacing="12">
-            <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                    StrokeShape="RoundRectangle 12" WidthRequest="38" HeightRequest="38">
-              <Label Text="{StaticResource IconBell}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="17" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-              <Label Text="System Notifications" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
-              <Label Text="Keeps you informed with important updates and alerts."
-                     TextColor="{StaticResource TextSecondary}" FontSize="11" />
-            </VerticalStackLayout>
-            <Switch Grid.Column="2" IsToggled="{Binding NotificationsEnabled}"
-                    VerticalOptions="Center" />
-          </Grid>
-          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-
-          <Grid ColumnDefinitions="44,*,Auto" Padding="2,8" ColumnSpacing="12">
-            <Border Grid.Column="0" Style="{StaticResource IconTile}"
-                    StrokeShape="RoundRectangle 12" WidthRequest="38" HeightRequest="38">
-              <Label Text="{StaticResource IconKeyboard}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="17" TextColor="{StaticResource Primary}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-              <Label Text="Keyboard &amp; Mouse Activity" FontAttributes="Bold"
-                     TextColor="{StaticResource TextPrimary}" FontSize="13" />
-              <Label Text="Helps analyze work patterns to enhance productivity."
-                     TextColor="{StaticResource TextSecondary}" FontSize="11" />
-            </VerticalStackLayout>
-            <Switch Grid.Column="2" IsToggled="{Binding KeyboardMouseEnabled}"
-                    IsEnabled="False" VerticalOptions="Center" />
-          </Grid>
-
-          <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-          <HorizontalStackLayout Spacing="8" Padding="4,8" HorizontalOptions="Center">
-            <Border Style="{StaticResource IconTile}"
-                    WidthRequest="24" HeightRequest="24" StrokeShape="RoundRectangle 12">
-              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
-                     FontSize="11" TextColor="{StaticResource BrandTitle}"
-                     HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
-            <Label Text="Permissions are managed according to your company policy."
-                   FontSize="11" TextColor="{StaticResource TextSecondary}"
-                   VerticalOptions="Center" />
-          </HorizontalStackLayout>
-        </VerticalStackLayout>
-    </Border>
-
-    <Border Grid.Row="3" Style="{StaticResource TrayPrimaryActionBorder}"
-            HorizontalOptions="Center" WidthRequest="420" Margin="0,10,0,0">
-      <Border.Background>
-        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-          <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
-          <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
-          <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
-        </LinearGradientBrush>
-      </Border.Background>
-      <Grid>
-        <Button Command="{Binding AllowAndContinueCommand}"
-                Style="{StaticResource TrayPrimaryActionOverlay}"
-                Text=""
-                SemanticProperties.Description="Allow and Continue" />
-        <HorizontalStackLayout InputTransparent="True"
-                               HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-          <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets"
-                 FontSize="16" TextColor="White" VerticalOptions="Center" />
-          <Label Text="Allow &amp; Continue" FontSize="15" FontAttributes="Bold"
-                 TextColor="White" VerticalOptions="Center" />
-        </HorizontalStackLayout>
-      </Grid>
-    </Border>
-
-    <controls:FooterStatusBar Grid.Row="4"
-                              VersionText="Version 1.0.0"
-                              ConnectionLabel="Connected"
-                              IsConnected="True" />
+    <controls:FooterStatusBar Grid.Row="1" VersionText="Version 1.0.0" ConnectionLabel="Connected" IsConnected="True" />
   </Grid>
 </ContentPage>
