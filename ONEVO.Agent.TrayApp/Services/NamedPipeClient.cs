@@ -25,6 +25,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
     public event Action<NotificationPushPayload>? OnNotificationReceived;
+    public event Action<DevicePairingResultPayload>? OnDevicePairingResult;
 
     public StatusResponsePayload? LastKnownStatus { get; private set; }
     public AgentPolicy? LastKnownPolicy { get; private set; }
@@ -197,6 +198,51 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             _pending.TryRemove(correlationId, out _);
         }
     }
+
+    public async Task<DevicePairingStartedPayload?> SendDevicePairingStartAsync(
+        string deviceName, string deviceOs, string clientVersion, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.DevicePairingStart,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new DevicePairingStartPayload(deviceName, deviceOs, clientVersion))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Device pairing start timed out waiting for DevicePairingStarted");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<DevicePairingStartedPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
+    public Task SendDevicePairingCancelAsync(CancellationToken ct) =>
+        WriteEnvelopeAsync(new IpcEnvelope { Type = IpcMessageTypes.DevicePairingCancel }, ct);
 
     public async Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct)
     {
@@ -453,7 +499,8 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         or IpcMessageTypes.EnrollmentResult
                         or IpcMessageTypes.LogoutResult
                         or IpcMessageTypes.BiometricEnrollmentSessionReady
-                        or IpcMessageTypes.BiometricEnrollmentResult)
+                        or IpcMessageTypes.BiometricEnrollmentResult
+                        or IpcMessageTypes.DevicePairingStarted)
                 {
                     pending.TrySetResult(envelope);
                 }
@@ -507,6 +554,13 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         var notificationPayload = envelope.Payload?.Deserialize<NotificationPushPayload>();
                         if (notificationPayload is not null)
                             OnNotificationReceived?.Invoke(notificationPayload);
+                        break;
+                    }
+                    case IpcMessageTypes.DevicePairingResult:
+                    {
+                        var pairingResult = envelope.Payload?.Deserialize<DevicePairingResultPayload>();
+                        if (pairingResult is not null)
+                            OnDevicePairingResult?.Invoke(pairingResult);
                         break;
                     }
                     case IpcMessageTypes.CollectionRecordAck:

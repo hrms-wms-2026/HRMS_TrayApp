@@ -417,6 +417,7 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
     public event Action<NotificationPushPayload>? OnNotificationReceived;
+    public event Action<DevicePairingResultPayload>? OnDevicePairingResult;
 
     public StatusResponsePayload? LastKnownStatus => null;
     public AgentPolicy? LastKnownPolicy { get; set; }
@@ -434,6 +435,12 @@ internal sealed class RecordingPipeClient : INamedPipeClient
 
     public Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct) =>
         Task.FromResult<EnrollmentResultPayload?>(null);
+
+    public Task<DevicePairingStartedPayload?> SendDevicePairingStartAsync(
+        string deviceName, string deviceOs, string clientVersion, CancellationToken ct) =>
+        Task.FromResult<DevicePairingStartedPayload?>(null);
+
+    public Task SendDevicePairingCancelAsync(CancellationToken ct) => Task.CompletedTask;
 
     public Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct) =>
         Task.FromResult<LogoutResultPayload?>(null);

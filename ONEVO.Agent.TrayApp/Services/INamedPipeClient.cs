@@ -10,6 +10,7 @@ public interface INamedPipeClient
     event Action<StatusResponsePayload>? OnStatusReceived;
     event Action<AgentPolicy>? OnPolicyReceived;
     event Action<NotificationPushPayload>? OnNotificationReceived;
+    event Action<DevicePairingResultPayload>? OnDevicePairingResult;
 
     /// <summary>Last status received from the service — null until first response arrives.</summary>
     StatusResponsePayload? LastKnownStatus { get; }
@@ -33,6 +34,17 @@ public interface INamedPipeClient
     /// Submits activation code and waits for EnrollmentResult (or timeout).
     /// </summary>
     Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct);
+
+    /// <summary>
+    /// Starts a browser-based device pairing and waits for the correlated
+    /// DevicePairingStarted reply (or timeout) carrying the browser URL to open. The
+    /// terminal outcome arrives later, asynchronously, via OnDevicePairingResult.
+    /// </summary>
+    Task<DevicePairingStartedPayload?> SendDevicePairingStartAsync(
+        string deviceName, string deviceOs, string clientVersion, CancellationToken ct);
+
+    /// <summary>Cancels an in-progress device pairing poll loop. Fire-and-forget — no reply expected.</summary>
+    Task SendDevicePairingCancelAsync(CancellationToken ct);
 
     /// <summary>
     /// Requests sign-out and waits for LogoutResult (or timeout).

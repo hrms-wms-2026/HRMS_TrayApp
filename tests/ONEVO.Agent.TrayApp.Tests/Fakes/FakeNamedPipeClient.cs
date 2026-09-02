@@ -13,6 +13,7 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
     public event Action<NotificationPushPayload>? OnNotificationReceived;
+    public event Action<DevicePairingResultPayload>? OnDevicePairingResult;
 
     public StatusResponsePayload? LastKnownStatus { get; set; }
     public AgentPolicy? LastKnownPolicy { get; set; }
@@ -170,6 +171,39 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
         return Task.FromResult<BiometricEnrollmentResultPayload?>(
             new BiometricEnrollmentResultPayload(true, null, "active"));
     }
+
+    /// <summary>Optional canned result for SendDevicePairingStartAsync. Null = auto-success.</summary>
+    public DevicePairingStartedPayload? NextDevicePairingStartedResult { get; set; }
+
+    public Task<DevicePairingStartedPayload?> SendDevicePairingStartAsync(
+        string deviceName, string deviceOs, string clientVersion, CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.DevicePairingStart,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new DevicePairingStartPayload(deviceName, deviceOs, clientVersion))
+        });
+
+        if (NextDevicePairingStartedResult is not null)
+            return Task.FromResult<DevicePairingStartedPayload?>(NextDevicePairingStartedResult);
+
+        return Task.FromResult<DevicePairingStartedPayload?>(
+            new DevicePairingStartedPayload(
+                true, null,
+                "https://localhost:4200/device/activate",
+                "https://localhost:4200/device/activate?request_id=fake-request-id&user_code=FAKECODE",
+                600, 5));
+    }
+
+    public Task SendDevicePairingCancelAsync(CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.DevicePairingCancel });
+        return Task.CompletedTask;
+    }
+
+    public void SimulateDevicePairingResult(DevicePairingResultPayload payload) =>
+        OnDevicePairingResult?.Invoke(payload);
 
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();
     public void SimulateState(MonitoringState s)  => OnStateReceived?.Invoke(s);
