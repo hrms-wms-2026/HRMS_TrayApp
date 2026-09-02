@@ -173,56 +173,160 @@
       </VerticalStackLayout>
     </Grid>
 
-    <!-- 10 Readiness -->
+    <!-- Workspace Readiness Check -->
     <Grid Grid.Row="1" IsVisible="{Binding ShowReadiness}" ColumnDefinitions="*,*" ColumnSpacing="28">
       <Image Grid.Column="0" Source="workspace_connect.png" Aspect="AspectFit" VerticalOptions="Center" />
       <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="10">
         <Label>
           <Label.FormattedText>
             <FormattedString>
-              <Span Text="Workspace Readiness " FontSize="24" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-              <Span Text="Check" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+              <Span Text="Workspace Readiness " FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Span Text="Check" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
             </FormattedString>
           </Label.FormattedText>
         </Label>
         <Label Text="We have checked everything needed to start your workday."
-               Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" />
-        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16">
-          <VerticalStackLayout Spacing="8">
-            <Label Text="All systems go!" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Device health — OK" FontSize="12" TextColor="{StaticResource StatusGreen}" />
-            <Label Text="Internet connection — OK" FontSize="12" TextColor="{StaticResource StatusGreen}" />
-            <Label Text="Workspace policy sync — OK" FontSize="12" TextColor="{StaticResource StatusGreen}" />
-            <Label Text="Monitoring agent active — OK" FontSize="12" TextColor="{StaticResource StatusGreen}" />
-            <Label Text="Server synchronisation — OK" FontSize="12" TextColor="{StaticResource StatusGreen}" />
+               Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" Margin="0,0,0,4" />
+
+        <Border Style="{StaticResource SetupResultCard}">
+          <VerticalStackLayout Spacing="0">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Margin="0,0,0,12">
+              <controls:SetupProgressRing Progress="100" ShowPercentLabel="True" Size="88" StrokeThickness="8" />
+              <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                <Label Text="All systems go!" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Your workspace is fully ready. You can start your workday with confidence."
+                       FontSize="12" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+              </VerticalStackLayout>
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10" ColumnSpacing="10">
+              <Border WidthRequest="22" HeightRequest="22" StrokeShape="RoundRectangle 11" StrokeThickness="0" BackgroundColor="{StaticResource StatusGreen}" VerticalOptions="Start">
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets" FontSize="10" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Device health" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Your device is healthy and performing well." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Label Grid.Column="2" Text="OK" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10" ColumnSpacing="10">
+              <Border WidthRequest="22" HeightRequest="22" StrokeShape="RoundRectangle 11" StrokeThickness="0" BackgroundColor="{StaticResource StatusGreen}" VerticalOptions="Start">
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets" FontSize="10" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Internet connection" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Internet connection is stable." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Label Grid.Column="2" Text="OK" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10" ColumnSpacing="10">
+              <Border WidthRequest="22" HeightRequest="22" StrokeShape="RoundRectangle 11" StrokeThickness="0" BackgroundColor="{StaticResource StatusGreen}" VerticalOptions="Start">
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets" FontSize="10" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Workspace policy sync" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="All workspace policies are up to date." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Label Grid.Column="2" Text="OK" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10" ColumnSpacing="10">
+              <Border WidthRequest="22" HeightRequest="22" StrokeShape="RoundRectangle 11" StrokeThickness="0" BackgroundColor="{StaticResource StatusGreen}" VerticalOptions="Start">
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets" FontSize="10" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Monitoring agent active" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Monitoring agent is running properly." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Label Grid.Column="2" Text="OK" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10" ColumnSpacing="10">
+              <Border WidthRequest="22" HeightRequest="22" StrokeShape="RoundRectangle 11" StrokeThickness="0" BackgroundColor="{StaticResource StatusGreen}" VerticalOptions="Start">
+                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets" FontSize="10" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <VerticalStackLayout Grid.Column="1" Spacing="1">
+                <Label Text="Server synchronisation" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Successfully connected and synchronized." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+              </VerticalStackLayout>
+              <Label Grid.Column="2" Text="OK" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+            </Grid>
           </VerticalStackLayout>
+        </Border>
+
+        <Border Style="{StaticResource SetupResultCard}" Padding="14,12" Margin="0,4,0,0">
+          <VerticalStackLayout Spacing="8">
+            <Label Text="Ready for today" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+              <Border Grid.Column="0" StrokeShape="RoundRectangle 10" Stroke="{StaticResource Separator}" StrokeThickness="1" Padding="8,6" BackgroundColor="{StaticResource CardBackground}">
+                <HorizontalStackLayout Spacing="6">
+                  <Label Text="{StaticResource IconPerson}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+                  <Label Text="Profile loaded" FontSize="11" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="1" />
+                </HorizontalStackLayout>
+              </Border>
+              <Border Grid.Column="1" StrokeShape="RoundRectangle 10" Stroke="{StaticResource Separator}" StrokeThickness="1" Padding="8,6" BackgroundColor="{StaticResource CardBackground}">
+                <HorizontalStackLayout Spacing="6">
+                  <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
+                  <Label Text="Security active" FontSize="11" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="1" />
+                </HorizontalStackLayout>
+              </Border>
+              <Border Grid.Column="2" StrokeShape="RoundRectangle 10" Stroke="{StaticResource Separator}" StrokeThickness="1" Padding="8,6" BackgroundColor="{StaticResource CardBackground}">
+                <HorizontalStackLayout Spacing="6">
+                  <Label Text="{StaticResource IconLaptop}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+                  <Label Text="Device verified" FontSize="11" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" LineBreakMode="TailTruncation" MaxLines="1" />
+                </HorizontalStackLayout>
+              </Border>
+            </Grid>
+          </VerticalStackLayout>
+        </Border>
+
+        <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,6,0,0">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Grid>
+            <Button Command="{Binding ContinueSetupCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Continue to Work Location" />
+            <Label InputTransparent="True" Text="{Binding ReadinessContinueLabel}" FontSize="15" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+          </Grid>
         </Border>
       </VerticalStackLayout>
     </Grid>
 
-    <!-- 11 Workspace Ready -->
+    <!-- Workspace Ready -->
     <Grid Grid.Row="1" IsVisible="{Binding ShowReady}" ColumnDefinitions="*,*" ColumnSpacing="28">
       <Image Grid.Column="0" Source="workspace_connect.png" Aspect="AspectFit" VerticalOptions="Center" />
       <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="12">
         <Label>
           <Label.FormattedText>
             <FormattedString>
-              <Span Text="Workspace " FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-              <Span Text="Ready" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+              <Span Text="Workspace " FontSize="28" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Span Text="Ready" FontSize="28" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
             </FormattedString>
           </Label.FormattedText>
         </Label>
         <Label Text="Your workspace is ready to use." Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" />
-        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16">
-          <VerticalStackLayout Spacing="10">
-            <Label Text="Device connected" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Your device is securely connected." FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-            <Label Text="All policies applied" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Security and productivity policies are active." FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
-            <Label Text="Everything is ready" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="You're all set to focus and get things done." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+        <Border Style="{StaticResource SetupResultCard}">
+          <VerticalStackLayout Spacing="0">
+            <controls:SetupStepRow Title="Device connected"
+                                   StatusText="Your device is securely connected."
+                                   IsComplete="True"
+                                   UseSuccessAccent="True" />
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" Margin="40,8,0,8" />
+            <controls:SetupStepRow Title="All policies applied"
+                                   StatusText="Security and productivity policies are active."
+                                   IsComplete="True"
+                                   UseSuccessAccent="True" />
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" Margin="40,8,0,8" />
+            <controls:SetupStepRow Title="Everything is ready"
+                                   StatusText="You're all set to focus and get things done."
+                                   IsComplete="True"
+                                   UseSuccessAccent="True" />
           </VerticalStackLayout>
         </Border>
         <Border Style="{StaticResource TrayPrimaryActionBorder}">
@@ -238,28 +342,83 @@
             <Label InputTransparent="True" Text="Start My Workday" FontSize="15" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
           </Grid>
         </Border>
-        <Button Text="Open Dashboard" Command="{Binding OpenDashboardCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="13" HorizontalOptions="Center" />
+        <HorizontalStackLayout HorizontalOptions="Center" Spacing="6">
+          <Label Text="{StaticResource IconGlobe}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+          <Button Text="Open Dashboard" Command="{Binding OpenDashboardCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="13" Padding="0" />
+        </HorizontalStackLayout>
       </VerticalStackLayout>
     </Grid>
 
-    <!-- 12 Welcome back -->
+    <!-- Welcome back -->
     <Grid Grid.Row="1" IsVisible="{Binding ShowWelcomeBack}" ColumnDefinitions="*,*" ColumnSpacing="28">
-      <Image Grid.Column="0" Source="workspace_connect.png" Aspect="AspectFit" VerticalOptions="Center" />
-      <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="12">
-        <Label Text="{Binding EmployeeFullName, StringFormat='Welcome back, {0}'}"
-               FontSize="24" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+      <Image Grid.Column="0" Source="clockin_hero.png" Aspect="AspectFit" VerticalOptions="Center" />
+      <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="10">
+        <HorizontalStackLayout Spacing="6">
+          <Label Text="Welcome back," FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+          <Label Text="{Binding EmployeeFullName}" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" LineBreakMode="TailTruncation" MaxLines="1" />
+        </HorizontalStackLayout>
         <Label Text="Opening your workspace and preparing today's work session."
                Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" />
-        <Label Text="{Binding ProgressPercent, StringFormat='{0}%'}" FontSize="32" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-        <Label Text="Getting everything ready" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14">
-          <VerticalStackLayout Spacing="8">
-            <Label Text="Connecting to OneXso server" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Checking internet connection" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Loading your profile" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Syncing workspace policies" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16" Margin="0,4,0,4">
+          <controls:SetupProgressRing Progress="{Binding ProgressPercent}" ShowPercentLabel="True" Size="108" StrokeThickness="10" />
+          <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+            <Label Text="Getting everything ready" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Label Text="Please wait while we complete a few quick checks to make sure everything is set."
+                   FontSize="12" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+          </VerticalStackLayout>
+        </Grid>
+
+        <Border Style="{StaticResource SetupResultCard}" Padding="16,8">
+          <VerticalStackLayout Spacing="0">
+            <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+              <controls:SetupStepRow Title="Connecting to OneXso server"
+                                     StatusText="Secure connection established"
+                                     IsComplete="{Binding WelcomeServerDone}"
+                                     UseSuccessAccent="True" />
+              <Label Grid.Column="1" Text="{Binding WelcomeServerDuration}" FontSize="11" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+              <controls:SetupStepRow Title="Checking internet connection"
+                                     StatusText="Internet connection is stable"
+                                     IsComplete="{Binding WelcomeInternetDone}"
+                                     UseSuccessAccent="True" />
+              <Label Grid.Column="1" Text="{Binding WelcomeInternetDuration}" FontSize="11" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+              <controls:SetupStepRow Title="Loading your profile"
+                                     StatusText="Profile loaded successfully"
+                                     IsComplete="{Binding WelcomeProfileDone}"
+                                     UseSuccessAccent="True" />
+              <Label Grid.Column="1" Text="{Binding WelcomeProfileDuration}" FontSize="11" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+              <controls:SetupStepRow Title="Syncing workspace policies"
+                                     StatusText="Applying latest policies and settings"
+                                     IsComplete="{Binding WelcomePoliciesDone}"
+                                     IsInProgress="{Binding WelcomePoliciesInProgress}"
+                                     UseSuccessAccent="True" />
+              <Label Grid.Column="1" Text="{Binding WelcomePoliciesDuration}" FontSize="11" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+            </Grid>
+            <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" />
+            <Grid ColumnDefinitions="*,Auto" Padding="0,8" ColumnSpacing="8">
+              <controls:SetupStepRow Title="Preparing your workspace"
+                                     StatusText="Finalizing setup and optimizing performance"
+                                     IsComplete="{Binding WelcomeWorkspaceDone}"
+                                     IsInProgress="{Binding WelcomeWorkspaceInProgress}"
+                                     UseSuccessAccent="True" />
+              <Label Grid.Column="1" Text="{Binding WelcomeWorkspaceDuration}" FontSize="11" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+            </Grid>
           </VerticalStackLayout>
         </Border>
+
+        <HorizontalStackLayout Spacing="6" Margin="0,4,0,0">
+          <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+          <Label Text="Please wait while we prepare your workspace." FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+        </HorizontalStackLayout>
       </VerticalStackLayout>
     </Grid>
 

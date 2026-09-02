@@ -83,6 +83,14 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Validating device", xaml, StringComparison.Ordinal);
         Assert.Contains("Checking connectivity", xaml, StringComparison.Ordinal);
         Assert.Contains("Everything is ready.", xaml, StringComparison.Ordinal);
+        Assert.Contains("Workspace Readiness ", xaml, StringComparison.Ordinal);
+        Assert.Contains("All systems go!", xaml, StringComparison.Ordinal);
+        Assert.Contains("Continue to Work Location", xaml, StringComparison.Ordinal);
+        Assert.Contains("Ready for today", xaml, StringComparison.Ordinal);
+        Assert.Contains("Start My Workday", xaml, StringComparison.Ordinal);
+        Assert.Contains("Welcome back,", xaml, StringComparison.Ordinal);
+        Assert.Contains("Getting everything ready", xaml, StringComparison.Ordinal);
+        Assert.Contains("Connecting to OneXso server", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Continue\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SetupProgressRing", xaml, StringComparison.Ordinal);
         Assert.Contains("SetupStepRow", xaml, StringComparison.Ordinal);

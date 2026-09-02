@@ -109,13 +109,19 @@ public sealed class PrepareWorkspaceViewModelTests
     }
 
     [Fact]
-    public async Task LoadAsync_WithoutLocation_ContinueStaysDisabled()
+    public async Task LoadAsync_WithoutLocation_ContinueAdvancesToLocation()
     {
-        var vm = MakeVm();
+        var prefs = new FakePreferencesStore();
+        var vm = MakeVm(prefs);
         await vm.LoadAsync(CancellationToken.None);
         Assert.False(vm.CanContinue);
-        Assert.False(vm.ContinueSetupCommand.CanExecute(null));
         Assert.True(vm.ShouldOpenLocation);
+        Assert.True(vm.ContinueSetupCommand.CanExecute(null));
+        await vm.ContinueSetupCommand.ExecuteAsync(null);
+        Assert.Equal("readiness", vm.Stage);
+        await vm.ContinueSetupCommand.ExecuteAsync(null);
+        Assert.Equal("readiness", vm.Stage);
+        Assert.False(WorkLocationFlow.IsSetupComplete(prefs));
     }
 
     [Fact]
@@ -189,11 +195,21 @@ public sealed class PrepareWorkspaceViewModelTests
     }
 
     [Fact]
-    public async Task ContinueSetup_MarksSetupComplete()
+    public async Task ContinueSetup_WalksFinalReadinessReadyThenMarksComplete()
     {
         var prefs = new FakePreferencesStore();
         var vm = MakeVm(prefs, new FakeWorkLocationStore { Value = AReference() });
         await vm.LoadAsync(CancellationToken.None);
+        Assert.Equal("final", vm.Stage);
+
+        await vm.ContinueSetupCommand.ExecuteAsync(null);
+        Assert.Equal("readiness", vm.Stage);
+        Assert.False(WorkLocationFlow.IsSetupComplete(prefs));
+
+        await vm.ContinueSetupCommand.ExecuteAsync(null);
+        Assert.Equal("ready", vm.Stage);
+        Assert.False(WorkLocationFlow.IsSetupComplete(prefs));
+
         await vm.ContinueSetupCommand.ExecuteAsync(null);
         Assert.True(WorkLocationFlow.IsSetupComplete(prefs));
     }
