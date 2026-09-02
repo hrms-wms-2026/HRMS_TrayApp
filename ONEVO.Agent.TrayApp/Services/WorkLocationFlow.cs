@@ -35,7 +35,9 @@ public static class WorkLocationFlow
     public static string ResolveNextRoute(string? next) =>
         string.Equals(next, "clockin", StringComparison.OrdinalIgnoreCase)
             ? ClockInRoute
-            : PrepareRoute;
+            : string.Equals(next, "policy", StringComparison.OrdinalIgnoreCase)
+                ? SetupFlow.Permissions
+                : SetupFlow.Permissions;
 
     /// <summary>
     /// Where an enrolled Stopped employee should land.
@@ -50,5 +52,5 @@ public static class WorkLocationFlow
     }
 
     public static string RouteToStartWork(IPreferencesStore prefs, DateTimeOffset? now = null) =>
-        IsConfirmedToday(prefs, now) ? ClockInRoute : LocationThenClockIn;
+        IsConfirmedToday(prefs, now) ? SetupFlow.WelcomeBack : LocationThenClockIn;
 }

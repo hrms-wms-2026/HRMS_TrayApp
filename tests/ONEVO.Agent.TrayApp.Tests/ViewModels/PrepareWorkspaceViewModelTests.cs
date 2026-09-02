@@ -141,6 +141,64 @@ public sealed class PrepareWorkspaceViewModelTests
     }
 
     [Fact]
+    public async Task LoadAsync_StopsOnFinalSetupAtHundredPercent()
+    {
+        var vm = MakeVm(workLocationStore: new FakeWorkLocationStore { Value = AReference() });
+        await vm.LoadAsync(CancellationToken.None);
+
+        Assert.Equal("final", vm.Stage);
+        Assert.True(vm.ShowFinalSetup);
+        Assert.True(vm.ShowFinalContinue);
+        Assert.Equal(100, vm.ProgressPercent);
+        Assert.Equal(100, vm.SettingProgressPercent);
+        Assert.True(vm.FinalConnectivityChecked);
+        Assert.True(vm.ActivationVerified);
+        Assert.True(vm.DeviceRegistered);
+        Assert.False(vm.IsLoading);
+        Assert.Equal("Completed", vm.ConnectivityStepStatus);
+    }
+
+    [Fact]
+    public void SettingProgressPercent_TracksCompletedSteps()
+    {
+        var vm = MakeVm();
+        Assert.Equal(12, vm.SettingProgressPercent);
+
+        vm.ActivationVerified = true;
+        Assert.Equal(25, vm.SettingProgressPercent);
+        Assert.Equal("Completed", vm.ActivationStepStatus);
+        Assert.True(vm.DetailsInProgress);
+
+        vm.UserDetailsFetched = true;
+        vm.DeviceRegistered = true;
+        vm.WorkspacePrepared = true;
+        Assert.Equal(100, vm.SettingProgressPercent);
+        Assert.True(vm.ShowSettingCheck);
+        Assert.Equal("Completed", vm.WorkspaceStepStatus);
+    }
+
+    [Fact]
+    public void ActivationStepStatus_InProgressUntilVerified()
+    {
+        var vm = MakeVm();
+        Assert.Equal("In progress", vm.ActivationStepStatus);
+
+        vm.ActivationVerified = true;
+        Assert.Equal("Completed", vm.ActivationStepStatus);
+        Assert.False(vm.ActivationInProgress);
+    }
+
+    [Fact]
+    public async Task ContinueSetup_MarksSetupComplete()
+    {
+        var prefs = new FakePreferencesStore();
+        var vm = MakeVm(prefs, new FakeWorkLocationStore { Value = AReference() });
+        await vm.LoadAsync(CancellationToken.None);
+        await vm.ContinueSetupCommand.ExecuteAsync(null);
+        Assert.True(WorkLocationFlow.IsSetupComplete(prefs));
+    }
+
+    [Fact]
     public void IsLocationConfirmed_FalseWhenNoReferenceSaved()
     {
         var vm = MakeVm();

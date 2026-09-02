@@ -33,7 +33,12 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     [ObservableProperty] private string _breakSessionsDisplay = "0";
     [ObservableProperty] private string _statusText         = "Clocked Out";
     [ObservableProperty] private string? _message;
+    [ObservableProperty] private string _greetingMessage = "Great job! You've had a productive day.";
+    [ObservableProperty] private string _sessionEndedCaption = "Your work session has ended.";
+    [ObservableProperty] private string _savedAtDisplay = "";
     [ObservableProperty] private string? _errorMessage;
+    [ObservableProperty] private string _employeeName = string.Empty;
+    [ObservableProperty] private bool _isDailySummary;
 
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
 
@@ -43,7 +48,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         _pipe = pipe;
         _dayMetrics = dayMetrics;
         _iconCache = iconCache;
-        Message = "Here is your daily monitoring summary for today.";
+        GreetingMessage = "Great job! You've had a productive day.";
     }
 
     /// <summary>Test helper.</summary>
@@ -67,6 +72,13 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             LoadFromSnapshot(completed);
         else if (_pipe.LastKnownStatus?.Session is { } cached)
             LoadFromSnapshot(cached);
+
+        try
+        {
+            EmployeeName = Microsoft.Maui.Storage.Preferences.Get("onevo.employee_display_name", string.Empty);
+            ApplyGreeting();
+        }
+        catch { /* unit tests */ }
 
         RefreshTopAppsAndIdle();
 
@@ -160,9 +172,21 @@ public sealed partial class EndSessionViewModel : BaseViewModel
 
         // Productive equals payroll work (idle already excluded server-side).
         StatusText = "Clocked Out";
-        Message    = "Here is your daily monitoring summary for today.";
+        SavedAtDisplay = ClockOutDisplay == "—" ? string.Empty : ClockOutDisplay;
+        var sessionDay = session.ClockOutAt?.ToLocalTime() ?? session.ClockInAt?.ToLocalTime();
+        SessionEndedCaption = sessionDay is null
+            ? "Your work session has ended."
+            : $"Your work session for {sessionDay.Value:MMMM d, yyyy} has ended.";
+        ApplyGreeting();
 
         RefreshTopAppsAndIdle();
+    }
+
+    private void ApplyGreeting()
+    {
+        GreetingMessage = string.IsNullOrWhiteSpace(EmployeeName)
+            ? "Great job! You've had a productive day."
+            : $"Great job, {EmployeeName}! You've had a productive day.";
     }
 
     private void RefreshTopAppsAndIdle()
@@ -277,6 +301,31 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         {
             ErrorMessage = ex.Message;
         }
+    }
+
+    [RelayCommand]
+    private async Task ShowDailySummary()
+    {
+        IsDailySummary = true;
+        try { await Shell.Current.GoToAsync("//summary"); }
+        catch { /* unit tests */ }
+    }
+
+    [RelayCommand]
+    private void HideDailySummary() => IsDailySummary = false;
+
+    [RelayCommand]
+    private static void OpenDashboard()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = WorkspaceLinks.DashboardUrl,
+                UseShellExecute = true
+            });
+        }
+        catch { /* browser unavailable */ }
     }
 
     [RelayCommand]

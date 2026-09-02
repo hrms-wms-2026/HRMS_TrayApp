@@ -6,9 +6,10 @@
              x:Class="ONEVO.Agent.TrayApp.Views.WorkLocationPage"
              x:DataType="vm:WorkLocationViewModel"
              x:Name="RootPage"
-             Title="Confirm Today's Work Location">
+             Shell.NavBarIsVisible="False"
+             Title="OneXso WorkPulse">
 
-  <Grid RowDefinitions="Auto,*,Auto" Padding="{StaticResource TrayPagePadding}">
+  <Grid RowDefinitions="*,Auto" Padding="28,16,28,12">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
@@ -17,9 +18,7 @@
       </LinearGradientBrush>
     </Grid.Background>
 
-    <controls:AppHeaderBar Grid.Row="0" ShowSubtitle="False" />
-
-    <Grid x:Name="PaneGrid" Grid.Row="1" ColumnDefinitions="5*,6*" ColumnSpacing="22">
+    <Grid x:Name="PaneGrid" Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="28">
 
       <Ellipse Grid.ColumnSpan="2" WidthRequest="460" HeightRequest="460"
                HorizontalOptions="Start" VerticalOptions="Start" Margin="-140,-100,0,0"
@@ -203,7 +202,7 @@
       </Grid>
     </Grid>
 
-    <controls:FooterStatusBar Grid.Row="2"
+    <controls:FooterStatusBar Grid.Row="1"
                               VersionText="Version 1.0.0"
                               ConnectionLabel="Connected"
                               IsConnected="True" />

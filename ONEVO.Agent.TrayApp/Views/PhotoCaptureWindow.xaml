@@ -62,18 +62,18 @@
           MaximumWidthRequest="660"
           Padding="12,0">
 
-      <Label Grid.Row="0"
-             FontSize="25"
-             FontAttributes="Bold"
-             HorizontalTextAlignment="Center"
-             HorizontalOptions="Center">
-        <Label.FormattedText>
-          <FormattedString>
-            <Span Text="Set Up " TextColor="{StaticResource TextPrimary}" />
-            <Span Text="Face Verification" TextColor="{StaticResource BrandTitle}" />
-          </FormattedString>
-        </Label.FormattedText>
-      </Label>
+      <VerticalStackLayout Grid.Row="0" HorizontalOptions="Center">
+        <Label Text="{Binding Headline}"
+               FontSize="25"
+               FontAttributes="Bold"
+               TextColor="{StaticResource TextPrimary}"
+               HorizontalTextAlignment="Center"
+               HorizontalOptions="Center" />
+        <Label Text="{Binding EmployeeName}" FontSize="13" FontAttributes="Bold"
+               TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" />
+        <Label Text="{Binding EmployeeId}" FontSize="12" TextColor="{StaticResource TextSecondary}"
+               HorizontalOptions="Center" />
+      </VerticalStackLayout>
 
       <Border Grid.Row="1"
               StrokeShape="RoundRectangle 16"
@@ -89,7 +89,7 @@
                  FontSize="12"
                  TextColor="{StaticResource BrandTitle}"
                  VerticalOptions="Center" />
-          <Label Text="Identity Enrolment"
+          <Label Text="{Binding ContextPill}"
                  FontSize="12"
                  TextColor="{StaticResource BrandTitle}"
                  VerticalOptions="Center" />
@@ -374,7 +374,7 @@
             <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
           </LinearGradientBrush>
         </Border.Background>
-        <Button Text="Enroll &amp; Continue"
+        <Button Text="{Binding ContinueLabel}"
                 Command="{Binding ContinueCommand}"
                 Style="{StaticResource TrayPrimaryActionOverlay}" />
       </Border>

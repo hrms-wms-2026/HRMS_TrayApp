@@ -129,12 +129,20 @@ public partial class App : Microsoft.Maui.Controls.Application
             Width         = TrayLayoutMetrics.DefaultWindowWidth,
             Height        = TrayLayoutMetrics.DefaultWindowHeight,
             MinimumWidth  = TrayLayoutMetrics.MinimumWindowWidth,
-            MinimumHeight = TrayLayoutMetrics.MinimumWindowHeight
+            MinimumHeight = TrayLayoutMetrics.MinimumWindowHeight,
+            TitleBar      = new TitleBar
+            {
+                Title           = "OneXso WorkPulse",
+                Icon            = "onexso_x_mark.png",
+                BackgroundColor = Colors.White,
+                ForegroundColor = Color.FromArgb("#0F1B2D")
+            }
         };
 
         window.Created    += (_, _) =>
         {
             BootLog("Window.Created");
+            ApplyLightCaption(window);
             HookCloseToHide(window);
             try
             {
@@ -175,6 +183,42 @@ public partial class App : Microsoft.Maui.Controls.Application
             else MainThread.BeginInvokeOnMainThread(action);
         }
         catch { }
+    }
+
+    private static void ApplyLightCaption(Window window)
+    {
+#if WINDOWS
+        try
+        {
+            if (window.Handler?.PlatformView is not Microsoft.UI.Xaml.Window native
+                || native.AppWindow?.TitleBar is null)
+                return;
+
+            var white    = global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
+            var text     = global::Windows.UI.Color.FromArgb(255, 15, 27, 45);
+            var hover    = global::Windows.UI.Color.FromArgb(255, 241, 245, 249);
+            var pressed  = global::Windows.UI.Color.FromArgb(255, 226, 232, 240);
+            var inactive = global::Windows.UI.Color.FromArgb(255, 107, 122, 142);
+
+            var titleBar = native.AppWindow.TitleBar;
+            titleBar.BackgroundColor                 = white;
+            titleBar.ForegroundColor                 = text;
+            titleBar.InactiveBackgroundColor         = white;
+            titleBar.InactiveForegroundColor         = inactive;
+            titleBar.ButtonBackgroundColor           = white;
+            titleBar.ButtonForegroundColor           = text;
+            titleBar.ButtonHoverBackgroundColor      = hover;
+            titleBar.ButtonHoverForegroundColor      = text;
+            titleBar.ButtonPressedBackgroundColor    = pressed;
+            titleBar.ButtonPressedForegroundColor    = text;
+            titleBar.ButtonInactiveBackgroundColor   = white;
+            titleBar.ButtonInactiveForegroundColor   = inactive;
+        }
+        catch (Exception ex)
+        {
+            BootLog($"ApplyLightCaption failed: {ex.Message}");
+        }
+#endif
     }
 
     private void HookCloseToHide(Window window)

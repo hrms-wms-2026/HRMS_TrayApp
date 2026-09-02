@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:Class="ONEVO.Agent.TrayApp.Views.PrivacyTransparencyPage"
+             x:DataType="vm:PrivacyTransparencyViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="OneXso WorkPulse">
+
+  <Grid RowDefinitions="*,Auto" Padding="28,16,28,12">
+    <Grid.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
+      </LinearGradientBrush>
+    </Grid.Background>
+
+    <Grid x:Name="PaneGrid" Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="28">
+      <Image x:Name="LeftPane" Grid.Column="0" Source="workspace_connect.png" Aspect="AspectFit" VerticalOptions="Center" />
+
+      <VerticalStackLayout x:Name="RightPane" Grid.Column="1" VerticalOptions="Center" Spacing="0">
+        <Label Margin="0,0,0,6">
+          <Label.FormattedText>
+            <FormattedString>
+              <Span Text="Privacy &amp; " FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Span Text="Transparency" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+            </FormattedString>
+          </Label.FormattedText>
+        </Label>
+        <Label Text="Understand how your work data is used and your privacy rights."
+               Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" Margin="0,0,0,14" />
+
+        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12" Margin="0,0,0,10">
+          <VerticalStackLayout Spacing="6">
+            <HorizontalStackLayout Spacing="8">
+              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="{StaticResource BrandTitle}" VerticalOptions="Center" />
+              <Label Text="OneXso records" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
+            </HorizontalStackLayout>
+            <Label Text="• Work session times (clock in / out)" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Work activity monitoring (active / idle periods)" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Applications used and time spent" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Meeting activity and duration" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Device status and connectivity" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Identity verification events" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+          </VerticalStackLayout>
+        </Border>
+
+        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12" Margin="0,0,0,12">
+          <VerticalStackLayout Spacing="6">
+            <HorizontalStackLayout Spacing="8">
+              <Label Text="{StaticResource IconCancel}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="{StaticResource StatusRed}" VerticalOptions="Center" />
+              <Label Text="OneXso does not collect" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
+            </HorizontalStackLayout>
+            <Label Text="• Personal files or document contents" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Keystrokes or typed text" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Personal web browsing content" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Audio or video from meetings" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+          </VerticalStackLayout>
+        </Border>
+
+        <HorizontalStackLayout Spacing="8" Margin="4,0,0,12">
+          <CheckBox IsChecked="{Binding HasAgreed}" Color="{StaticResource Primary}" VerticalOptions="Center" />
+          <Label Text="I understand and agree" FontSize="13" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+
+        <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,8">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+              <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+              <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+              <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+          <Grid>
+            <Button Command="{Binding ContinueCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Continue" />
+            <Label InputTransparent="True" Text="Continue" FontSize="15" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+          </Grid>
+        </Border>
+        <Button Text="View Privacy Policy" Command="{Binding OpenPrivacyPolicyCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="13" HorizontalOptions="Center" />
+      </VerticalStackLayout>
+    </Grid>
+
+    <controls:FooterStatusBar Grid.Row="1" VersionText="Version 1.0.0" ConnectionLabel="Connected" IsConnected="True" />
+  </Grid>
+</ContentPage>
