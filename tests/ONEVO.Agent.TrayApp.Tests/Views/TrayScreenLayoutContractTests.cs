@@ -54,7 +54,7 @@ public sealed class TrayScreenLayoutContractTests
     {
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/ConnectWorkspacePage.xaml");
         Assert.Contains("OneXso Workspace", xaml, StringComparison.Ordinal);
-        Assert.Contains("Open Activation Website", xaml, StringComparison.Ordinal);
+        Assert.Contains("Connect via Browser", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Connect\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Shell.NavBarIsVisible=\"False\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Connect &amp; Login", xaml, StringComparison.Ordinal);

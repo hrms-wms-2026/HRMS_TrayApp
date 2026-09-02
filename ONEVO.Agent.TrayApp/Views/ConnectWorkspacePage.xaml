@@ -153,22 +153,44 @@
             </Grid>
           </Border>
 
-          <Border Style="{StaticResource TraySecondaryActionBorder}" Margin="0,0,0,16">
+          <Border Style="{StaticResource TraySecondaryActionBorder}" Margin="0,0,0,16"
+                  IsVisible="{Binding IsWaitingForBrowserApproval, Converter={StaticResource InvertBoolConverter}}">
             <Grid>
-              <Button Command="{Binding OpenActivationWebsiteCommand}"
+              <Button Command="{Binding ConnectViaBrowserCommand}"
                       Style="{StaticResource TrayPrimaryActionOverlay}"
                       Text=""
-                      SemanticProperties.Description="Open activation website" />
+                      SemanticProperties.Description="Connect via browser" />
               <HorizontalStackLayout InputTransparent="True"
                                      HorizontalOptions="Center"
                                      VerticalOptions="Center"
                                      Spacing="8">
                 <Label Text="{StaticResource IconGlobe}" FontFamily="Segoe MDL2 Assets"
                        FontSize="16" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
-                <Label Text="Open Activation Website" FontSize="15" FontAttributes="Bold"
+                <Label Text="Connect via Browser" FontSize="15" FontAttributes="Bold"
                        TextColor="{StaticResource Primary}" VerticalOptions="Center" />
               </HorizontalStackLayout>
             </Grid>
+          </Border>
+
+          <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,12" Margin="0,0,0,16"
+                  IsVisible="{Binding IsWaitingForBrowserApproval}">
+            <VerticalStackLayout Spacing="8">
+              <HorizontalStackLayout Spacing="8">
+                <ActivityIndicator IsRunning="{Binding IsWaitingForBrowserApproval}"
+                                   Color="{StaticResource Primary}"
+                                   WidthRequest="18" HeightRequest="18" />
+                <Label Text="Waiting for approval in your browser…" FontSize="13" FontAttributes="Bold"
+                       TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <Button Command="{Binding CancelBrowserApprovalCommand}"
+                      Text="Cancel"
+                      Style="{StaticResource TrayPrimaryActionOverlay}"
+                      BackgroundColor="Transparent"
+                      TextColor="{StaticResource TextSecondary}"
+                      FontSize="12"
+                      HeightRequest="32"
+                      HorizontalOptions="Start" />
+            </VerticalStackLayout>
           </Border>
 
           <ActivityIndicator IsRunning="{Binding IsConnecting}"
