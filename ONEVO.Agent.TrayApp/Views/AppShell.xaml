@@ -14,6 +14,7 @@
   <ShellContent Route="policy"   ContentTemplate="{DataTemplate views:PrivacyConsentPage}" />
   <ShellContent Route="prepare"  ContentTemplate="{DataTemplate views:PrepareWorkspacePage}" />
   <ShellContent Route="clockin"  ContentTemplate="{DataTemplate views:ClockInPage}" />
+  <ShellContent Route="awaiting-clockin" ContentTemplate="{DataTemplate views:AwaitingClockInPage}" />
   <ShellContent Route="identity-verification" ContentTemplate="{DataTemplate views:IdentityVerificationPage}" />
   <ShellContent Route="active"   ContentTemplate="{DataTemplate views:ActiveSessionPage}" />
   <ShellContent Route="end"      ContentTemplate="{DataTemplate views:EndSessionPage}" />
