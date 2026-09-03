@@ -97,10 +97,12 @@ public partial class App : Microsoft.Maui.Controls.Application
                     MonitoringState.Active     => "//active",
                     MonitoringState.Paused     => "//active", // On-break mode of ActiveSessionPage
                     MonitoringState.Stopped when showEndAfterClockOut => "//end",
-                    MonitoringState.Stopped    => WorkLocationFlow.RouteWhenStopped(_preferences),
+                    MonitoringState.Stopped    => WorkLocationFlow.RouteWhenStopped(
+                        _preferences, _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false),
                     MonitoringState.Unenrolled => "//connect",
                     MonitoringState.Locked     => "//connect",
-                    _                          => WorkLocationFlow.RouteWhenStopped(_preferences)
+                    _                          => WorkLocationFlow.RouteWhenStopped(
+                        _preferences, _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false)
                 };
                 if (!string.IsNullOrEmpty(route))
                     Shell.Current?.GoToAsync(route);
@@ -114,7 +116,8 @@ public partial class App : Microsoft.Maui.Controls.Application
             _trayIcon.UpdateState(MonitoringState.Stopped);
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                var route = WorkLocationFlow.RouteWhenStopped(_preferences);
+                var route = WorkLocationFlow.RouteWhenStopped(
+                    _preferences, _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false);
                 if (!string.IsNullOrEmpty(route))
                     Shell.Current?.GoToAsync(route);
             });
