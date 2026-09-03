@@ -19,6 +19,36 @@ public sealed class ActiveSessionViewModelTests
     }
 
     [Fact]
+    public void ShowClockOutAction_TrayClockInEnabledFalse_IsFalseEvenWhileWorking()
+    {
+        var pipe = new FakeNamedPipeClient();
+        pipe.LastKnownPolicy = new AgentPolicy { Version = "v1", TrayClockInEnabled = false, ValidUntil = DateTimeOffset.UtcNow.AddHours(1) };
+        var vm = new ActiveSessionViewModel(pipe);
+        // IsOnBreak defaults to false, so ShowWorkingActions is true — this isolates the new check.
+
+        Assert.False(vm.ShowClockOutAction);
+    }
+
+    [Fact]
+    public void ShowClockOutAction_TrayClockInEnabledTrueAndWorking_IsTrue()
+    {
+        var pipe = new FakeNamedPipeClient();
+        pipe.LastKnownPolicy = new AgentPolicy { Version = "v1", TrayClockInEnabled = true, ValidUntil = DateTimeOffset.UtcNow.AddHours(1) };
+        var vm = new ActiveSessionViewModel(pipe);
+
+        Assert.True(vm.ShowClockOutAction);
+    }
+
+    [Fact]
+    public void ShowClockOutAction_NoPolicyYet_IsFalse()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm = new ActiveSessionViewModel(pipe);
+
+        Assert.False(vm.ShowClockOutAction);
+    }
+
+    [Fact]
     public void RequestBreak_ShowsConfirmOverlay()
     {
         var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());

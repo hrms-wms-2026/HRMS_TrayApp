@@ -1,11 +1,14 @@
+using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
@@ -25,8 +28,16 @@ namespace ONEVO.Agent.Service.Tests;
 /// was never successfully populated (Current resolves to the fail-closed CreateDefault(), i.e. a
 /// simulated total monitoring/server-policy failure).
 /// </summary>
-public class AgentWorkerLifecycleGateTests
+[Collection(CredentialStoreFileCollection.Name)]
+public class AgentWorkerLifecycleGateTests : IDisposable
 {
+    public void Dispose() => new CredentialStore().ClearDeviceJwt();
+
+
+    // TrayClockInEnabled is a distinct, orthogonal gate from the monitoring-toggle capabilities
+    // this class is about (PolicyAllowsCollection etc.) — every fixture here sets it true so
+    // these tests keep proving what they're meant to prove (monitoring-policy unavailability
+    // does not block clock-in/out) rather than tripping the unrelated tray-eligibility gate.
     private static AgentWorker BuildStoppedWorkerWithUnavailablePolicy(out PresenceSession presence, out LifecycleGate gate)
     {
         var stateMachine = new AgentStateMachine();
@@ -35,10 +46,22 @@ public class AgentWorkerLifecycleGateTests
         presence = new PresenceSession();
         gate = new LifecycleGate();
 
-        // PolicyCache never Set() — Current resolves to CreateDefault(): every capability flag
-        // false, EffectiveScope="none". This is the worst case: monitoring is completely
-        // unavailable/failed, not merely one capability disabled.
+        // Every monitoring capability flag stays false/"none" (CreateDefault()'s worst case) —
+        // only TrayClockInEnabled is overridden true, so the monitoring-unavailable scenario this
+        // class tests for is otherwise unchanged.
         var policyCache = new PolicyCache();
+        policyCache.Set(new AgentPolicy
+        {
+            Version = "test",
+            TrayClockInEnabled = true,
+            ValidUntil = DateTimeOffset.UtcNow.AddHours(1)
+        });
+
+        var credentials = new CredentialStore();
+        credentials.StoreDeviceJwt("test-device-jwt");
+
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
 
         var worker = new AgentWorker(
             NullLogger<AgentWorker>.Instance,
@@ -49,8 +72,8 @@ public class AgentWorkerLifecycleGateTests
             presence,
             gate,
             Options.Create(new AgentOptions()),
-            null!, // OnevoApiClient — not touched by lifecycle commands
-            null!, // CredentialStore — not touched by lifecycle commands
+            apiClient,
+            credentials,
             new DeviceIdentityStore(),
             null!, // EnrollmentCoordinator — not touched by lifecycle commands
             null!, // InactivityEvidenceHandler — not touched by lifecycle commands
@@ -61,6 +84,21 @@ public class AgentWorkerLifecycleGateTests
         // command can be sent. PolicyAllowsCollection is set true here, independent of policyCache.
         worker.ApplyEnrollmentGates();
         return worker;
+    }
+
+    private sealed class StubHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpMessageHandler _handler;
+        public StubHttpClientFactory(HttpMessageHandler handler) => _handler = handler;
+        public HttpClient CreateClient(string name) => new(_handler) { BaseAddress = new Uri("https://api.example.com/") };
+    }
+
+    private sealed class StubHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _respond;
+        public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) => _respond = respond;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(_respond(request));
     }
 
     private static async Task<LifecycleResultPayload> SendLifecycleAsync(

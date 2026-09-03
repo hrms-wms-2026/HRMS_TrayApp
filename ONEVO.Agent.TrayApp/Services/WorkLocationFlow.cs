@@ -8,6 +8,7 @@ public static class WorkLocationFlow
 {
     public const string PrepareRoute = "//prepare";
     public const string ClockInRoute = "//clockin";
+    public const string AwaitingClockInRoute = "//awaiting-clockin";
     public const string LocationThenPrepare = "//location?next=prepare";
     public const string LocationThenClockIn = "//location?next=clockin";
 
@@ -45,10 +46,13 @@ public static class WorkLocationFlow
     /// Where an enrolled Stopped employee should land.
     /// Empty means first-time setup is still in progress — do not hijack the current page.
     /// </summary>
-    public static string RouteWhenStopped(IPreferencesStore prefs, DateTimeOffset? now = null)
+    public static string RouteWhenStopped(IPreferencesStore prefs, bool trayClockInEnabled, DateTimeOffset? now = null)
     {
         if (!IsSetupComplete(prefs))
             return string.Empty;
+
+        if (!trayClockInEnabled)
+            return AwaitingClockInRoute;
 
         return RouteToStartWork(prefs, now);
     }

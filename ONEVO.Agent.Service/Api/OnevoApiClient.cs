@@ -202,10 +202,95 @@ public sealed class OnevoApiClient
             CameraVerificationEnabled = payload.CameraVerificationEnabled,
             IdleThresholdMinutes = payload.IdleThresholdMinutes,
             EffectiveScope = payload.EffectiveScope ?? "employee",
-            ValidUntil = payload.ValidUntil
+            ValidUntil = payload.ValidUntil,
+            TrayClockInEnabled = payload.TrayClockInEnabled
         };
 
         return new PolicyResult(true, null, policy);
+    }
+
+    /// <summary>Fetches the backend's real attendance state for this employee. Auth: Bearer Device JWT.</summary>
+    public async Task<AttendanceStatusResult> GetAttendanceStatusAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.TrayAttendanceStatus);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.TrayAttendanceStatus);
+            return new AttendanceStatusResult(false, "SERVICE_UNAVAILABLE", false, null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new AttendanceStatusResult(false, "UNAUTHORIZED", false, null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", AgentApiRoutes.TrayAttendanceStatus, (int)response.StatusCode);
+            return new AttendanceStatusResult(false, "SERVICE_UNAVAILABLE", false, null);
+        }
+
+        TrayAttendanceStatusPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<TrayAttendanceStatusPayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.TrayAttendanceStatus);
+            return new AttendanceStatusResult(false, "SERVICE_UNAVAILABLE", false, null);
+        }
+
+        if (payload is null)
+            return new AttendanceStatusResult(false, "SERVICE_UNAVAILABLE", false, null);
+
+        return new AttendanceStatusResult(true, null, payload.IsClockedIn, payload.ClockedInAtUtc);
+    }
+
+    /// <summary>Clocks in via the tray, backend-enforced. Auth: Bearer Device JWT.</summary>
+    public Task<ClockActionResult> ClockInAsync(string accessToken, CancellationToken ct) =>
+        PostClockActionAsync(AgentApiRoutes.TrayClockIn, accessToken, ct);
+
+    /// <summary>Clocks out via the tray. Auth: Bearer Device JWT.</summary>
+    public Task<ClockActionResult> ClockOutAsync(string accessToken, CancellationToken ct) =>
+        PostClockActionAsync(AgentApiRoutes.TrayClockOut, accessToken, ct);
+
+    private async Task<ClockActionResult> PostClockActionAsync(string route, string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, route);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
+            return new ClockActionResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new ClockActionResult(false, "UNAUTHORIZED", null);
+
+        if (response.StatusCode is HttpStatusCode.Forbidden)
+            return new ClockActionResult(false, "TRAY_CLOCK_IN_NOT_ALLOWED", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", route, (int)response.StatusCode);
+            return new ClockActionResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        return new ClockActionResult(true, null, null);
     }
 
     /// <summary>Polls for pending break/idle notifications. Auth: Bearer Device JWT.</summary>
@@ -453,9 +538,19 @@ public sealed record TrayAgentPolicyPayload(
     [property: JsonPropertyName("idle_threshold_minutes")] int IdleThresholdMinutes,
     [property: JsonPropertyName("valid_until")] DateTimeOffset ValidUntil,
     [property: JsonPropertyName("effective_scope")] string EffectiveScope = "employee",
-    [property: JsonPropertyName("location_tracking_enabled")] bool LocationTrackingEnabled = false);
+    [property: JsonPropertyName("location_tracking_enabled")] bool LocationTrackingEnabled = false,
+    [property: JsonPropertyName("tray_clock_in_enabled")] bool TrayClockInEnabled = false);
 
 public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);
+
+/// <summary>Wire-format mirror of the backend's TrayAttendanceStatusDto.</summary>
+public sealed record TrayAttendanceStatusPayload(
+    [property: JsonPropertyName("is_clocked_in")] bool IsClockedIn,
+    [property: JsonPropertyName("clocked_in_at_utc")] DateTimeOffset? ClockedInAtUtc);
+
+public sealed record AttendanceStatusResult(bool Success, string? ErrorCode, bool IsClockedIn, DateTimeOffset? ClockedInAtUtc);
+
+public sealed record ClockActionResult(bool Success, string? ErrorCode, string? Message);
 
 /// <summary>Wire-format mirror of the backend's EnrollmentAttemptResponseDto.</summary>
 public sealed record EnrollmentAttemptPayload(

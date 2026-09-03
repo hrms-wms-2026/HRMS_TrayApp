@@ -106,6 +106,7 @@ public static class MauiProgram
         builder.Services.AddTransient<PrivacyConsentViewModel>();
         builder.Services.AddTransient<PrivacyTransparencyViewModel>();
         builder.Services.AddTransient<ClockInViewModel>();
+        builder.Services.AddTransient<AwaitingClockInViewModel>();
         builder.Services.AddTransient<ActiveSessionViewModel>();
         builder.Services.AddTransient<EndSessionViewModel>();
         builder.Services.AddTransient<DailySummaryViewModel>();
@@ -121,6 +122,7 @@ public static class MauiProgram
         builder.Services.AddTransient<PrivacyConsentPage>();
         builder.Services.AddTransient<PrivacyTransparencyPage>();
         builder.Services.AddTransient<ClockInPage>();
+        builder.Services.AddTransient<AwaitingClockInPage>();
         builder.Services.AddTransient<ActiveSessionPage>();
         builder.Services.AddTransient<EndSessionPage>();
         builder.Services.AddTransient<DailySummaryPage>();

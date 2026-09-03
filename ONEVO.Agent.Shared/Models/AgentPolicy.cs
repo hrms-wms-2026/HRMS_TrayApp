@@ -10,6 +10,7 @@ public sealed record AgentPolicy
     public bool ScreenshotEnabled { get; init; }
     public bool CameraVerificationEnabled { get; init; }
     public bool InactivityScreenshotEnabled { get; init; }
+    public bool TrayClockInEnabled { get; init; }
 
     /// <summary>
     /// The scope the server evaluated this policy against (e.g. "employee"). Mirrors the

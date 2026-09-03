@@ -12,6 +12,9 @@ public static class AgentApiRoutes
     public const string ScreenshotSubmit    = "/api/v1/monitoring/tray/screenshots";
     public const string InactivityAttemptSubmit = "/api/v1/monitoring/tray/inactivity-attempts";
     public const string TrayPolicy          = "/api/v1/monitoring/tray/policy";
+    public const string TrayAttendanceStatus = "/api/v1/monitoring/tray/attendance-status";
+    public const string TrayClockIn          = "/api/v1/monitoring/tray/clock-in";
+    public const string TrayClockOut         = "/api/v1/monitoring/tray/clock-out";
     public const string PendingTrayNotifications = "/api/v1/monitoring/tray/notifications/pending";
     public const string AckTrayNotification = "/api/v1/monitoring/tray/notifications/{0}/ack";
 
