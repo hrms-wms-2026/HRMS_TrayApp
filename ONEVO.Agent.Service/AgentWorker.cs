@@ -381,10 +381,10 @@ public sealed class AgentWorker : BackgroundService
         var now = DateTimeOffset.UtcNow;
         var (success, errorCode, message, state) = payload.Action switch
         {
-            LifecycleAction.ClockIn    => ExecuteClockIn(now),
+            LifecycleAction.ClockIn    => await ExecuteClockInAsync(now, CancellationToken.None),
             LifecycleAction.StartBreak => ExecuteStartBreak(now),
             LifecycleAction.EndBreak   => ExecuteEndBreak(now),
-            LifecycleAction.ClockOut   => ExecuteClockOut(now),
+            LifecycleAction.ClockOut   => await ExecuteClockOutAsync(now, CancellationToken.None),
             _ => (false, "UNKNOWN_ACTION", "Unknown lifecycle action.", _stateMachine.CurrentState)
         };
 
@@ -398,8 +398,8 @@ public sealed class AgentWorker : BackgroundService
         await reply(BuildStatusEnvelope(correlationId: null));
     }
 
-    private (bool Success, string? ErrorCode, string? Message, MonitoringState State) ExecuteClockIn(
-        DateTimeOffset now)
+    private async Task<(bool Success, string? ErrorCode, string? Message, MonitoringState State)> ExecuteClockInAsync(
+        DateTimeOffset now, CancellationToken ct)
     {
         var current = _stateMachine.CurrentState;
         if (current == MonitoringState.Active)
@@ -411,21 +411,49 @@ public sealed class AgentWorker : BackgroundService
         if (current == MonitoringState.Unenrolled)
             return (false, "UNENROLLED", "Device is not enrolled.", current);
 
-        // Presence session must be active before CanActivate is true.
+        if (!_policyCache.Current.TrayClockInEnabled)
+            return (false, "TRAY_CLOCK_IN_NOT_ALLOWED", "Clock in from this device is not enabled for your work mode.", current);
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+            return (false, "UNENROLLED", "Device is not enrolled.", current);
+
+        var backendResult = await _apiClient.ClockInAsync(jwt, ct);
+        if (!backendResult.Success)
+            return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
+
+        if (!ApplyPresenceActive(now))
+            return (false, "GATES_CLOSED", "Monitoring gates are not satisfied.", current);
+
+        return (true, null, "Clocked in successfully.", MonitoringState.Active);
+    }
+
+    /// <summary>
+    /// Transitions local state to Active, either from a successful tray clock-in (above) or from
+    /// AttendanceStatusSyncService observing a backend clock-in made via another channel (web, or
+    /// future biometric). Still goes through LifecycleGate.CanActivate either way — a poll-detected
+    /// clock-in doesn't bypass consent/enrollment/etc.
+    /// </summary>
+    public bool ApplyPresenceActive(DateTimeOffset now)
+    {
+        var current = _stateMachine.CurrentState;
+        if (current is MonitoringState.Active or MonitoringState.Paused)
+            return true; // already active/paused — nothing to do
+
         _lifecycleGate.SetPresenceSessionActive(true);
         _lifecycleGate.SetNotOnBreak(true);
 
         if (!_options.AllowLocalLifecycleWithoutFullGates && !_lifecycleGate.CanActivate)
         {
             _lifecycleGate.SetPresenceSessionActive(false);
-            return (false, "GATES_CLOSED", "Monitoring gates are not satisfied.", current);
+            return false;
         }
 
         if (!_stateMachine.TryTransition(MonitoringState.Active, out _))
-            return (false, "INVALID_STATE", $"Cannot clock in from {current}.", current);
+            return false;
 
         _presenceSession.ClockIn(now);
-        return (true, null, "Clocked in successfully.", MonitoringState.Active);
+        return true;
     }
 
     private (bool Success, string? ErrorCode, string? Message, MonitoringState State) ExecuteStartBreak(
@@ -466,15 +494,43 @@ public sealed class AgentWorker : BackgroundService
         return (true, null, "Break ended. Welcome back.", MonitoringState.Active);
     }
 
-    private (bool Success, string? ErrorCode, string? Message, MonitoringState State) ExecuteClockOut(
-        DateTimeOffset now)
+    private async Task<(bool Success, string? ErrorCode, string? Message, MonitoringState State)> ExecuteClockOutAsync(
+        DateTimeOffset now, CancellationToken ct)
     {
         var current = _stateMachine.CurrentState;
         if (current is not (MonitoringState.Active or MonitoringState.Paused))
             return (false, "INVALID_STATE", "You are not in an active work session.", current);
 
-        if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
+        // Client-side-only convenience gate — a small, deliberate deviation from the backend's
+        // own ClockOutCommandHandler, which has no method gate (clock-out isn't source-restricted
+        // for web either). Don't let the tray UI perform a backend clock-out call for an employee
+        // whose tray isn't supposed to offer that action at all, even though the backend itself
+        // would allow it.
+        if (!_policyCache.Current.TrayClockInEnabled)
+            return (false, "TRAY_CLOCK_IN_NOT_ALLOWED", "Clock out from this device is not enabled for your work mode.", current);
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+            return (false, "UNENROLLED", "Device is not enrolled.", current);
+
+        var backendResult = await _apiClient.ClockOutAsync(jwt, ct);
+        if (!backendResult.Success)
+            return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
+
+        if (!ApplyPresenceStopped(now))
             return (false, "INVALID_STATE", "Cannot clock out.", current);
+
+        return (true, null, "Clocked out. Workday completed.", MonitoringState.Stopped);
+    }
+
+    public bool ApplyPresenceStopped(DateTimeOffset now)
+    {
+        var current = _stateMachine.CurrentState;
+        if (current is not (MonitoringState.Active or MonitoringState.Paused))
+            return true; // already stopped — nothing to do
+
+        if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
+            return false;
 
         _presenceSession.ClockOut(now);
         _lifecycleGate.SetPresenceSessionActive(false);
@@ -504,7 +560,7 @@ public sealed class AgentWorker : BackgroundService
             _logger.LogWarning(ex, "Failed to persist session_history to SQLite");
         }
 
-        return (true, null, "Clocked out. Workday completed.", MonitoringState.Stopped);
+        return true;
     }
 
     /// <summary>
