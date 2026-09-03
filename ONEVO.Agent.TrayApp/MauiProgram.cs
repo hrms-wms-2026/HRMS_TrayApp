@@ -108,6 +108,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ClockInViewModel>();
         builder.Services.AddTransient<ActiveSessionViewModel>();
         builder.Services.AddTransient<EndSessionViewModel>();
+        builder.Services.AddTransient<DailySummaryViewModel>();
         builder.Services.AddTransient<PhotoCaptureWindowViewModel>();
         builder.Services.AddTransient<BiometricEnrollmentViewModel>();
         builder.Services.AddTransient<IdentityVerificationViewModel>();
@@ -122,6 +123,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ClockInPage>();
         builder.Services.AddTransient<ActiveSessionPage>();
         builder.Services.AddTransient<EndSessionPage>();
+        builder.Services.AddTransient<DailySummaryPage>();
         builder.Services.AddTransient<PhotoCaptureWindow>();
         builder.Services.AddTransient<BiometricEnrollmentPage>();
         builder.Services.AddTransient<IdentityVerificationPage>();

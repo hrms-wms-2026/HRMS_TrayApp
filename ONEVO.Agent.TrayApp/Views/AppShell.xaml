@@ -17,4 +17,5 @@
   <ShellContent Route="identity-verification" ContentTemplate="{DataTemplate views:IdentityVerificationPage}" />
   <ShellContent Route="active"   ContentTemplate="{DataTemplate views:ActiveSessionPage}" />
   <ShellContent Route="end"      ContentTemplate="{DataTemplate views:EndSessionPage}" />
+  <ShellContent Route="summary"  ContentTemplate="{DataTemplate views:DailySummaryPage}" />
 </Shell>
