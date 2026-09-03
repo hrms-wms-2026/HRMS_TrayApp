@@ -1,5 +1,7 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
+using ONEVO.Agent.TrayApp.Services;
+
 public sealed partial class AwaitingClockInViewModel : BaseViewModel
 {
     public AwaitingClockInViewModel()
@@ -10,4 +12,11 @@ public sealed partial class AwaitingClockInViewModel : BaseViewModel
     }
 
     public string Message { get; }
+
+    [RelayCommand]
+    private async Task BackAsync()
+    {
+        try { await Shell.Current.GoToAsync(SetupFlow.ClockIn); }
+        catch { /* unit tests */ }
+    }
 }

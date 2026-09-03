@@ -19,6 +19,14 @@
     <Border Style="{StaticResource TrayCompactGlassCard}" Padding="24,20"
             HorizontalOptions="Center" VerticalOptions="Center" WidthRequest="420">
       <VerticalStackLayout Spacing="12">
+        <Button Text="&#8592; Back"
+                Command="{Binding BackCommand}"
+                HorizontalOptions="Start"
+                BackgroundColor="Transparent"
+                TextColor="{StaticResource Primary}"
+                FontSize="14"
+                Padding="0"
+                BorderWidth="0" />
         <Label Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
                TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="Center" />
         <Label Text="{Binding Message}" FontSize="15" TextColor="{StaticResource TextSecondary}"
