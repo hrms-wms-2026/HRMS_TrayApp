@@ -69,9 +69,9 @@
                TextColor="{StaticResource TextPrimary}"
                HorizontalTextAlignment="Center"
                HorizontalOptions="Center" />
-        <Label Text="{Binding EmployeeName}" FontSize="13" FontAttributes="Bold"
+        <Label Text="{Binding EmployeeName}" FontSize="15" FontAttributes="Bold"
                TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" />
-        <Label Text="{Binding EmployeeId}" FontSize="12" TextColor="{StaticResource TextSecondary}"
+        <Label Text="{Binding EmployeeId}" FontSize="14" TextColor="{StaticResource TextSecondary}"
                HorizontalOptions="Center" />
       </VerticalStackLayout>
 
@@ -90,7 +90,7 @@
                  TextColor="{StaticResource BrandTitle}"
                  VerticalOptions="Center" />
           <Label Text="{Binding ContextPill}"
-                 FontSize="12"
+                 FontSize="13"
                  TextColor="{StaticResource BrandTitle}"
                  VerticalOptions="Center" />
         </HorizontalStackLayout>
@@ -256,7 +256,7 @@
                      VerticalOptions="Center" />
             </Border>
             <Label Text="{Binding CaptureStatusText}"
-                   FontSize="12"
+                   FontSize="14"
                    FontAttributes="Bold"
                    TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" />
@@ -281,7 +281,7 @@
                                Color="{StaticResource Primary}"
                                WidthRequest="18" HeightRequest="18" />
             <Label Text="{Binding CaptureStatusText}"
-                   FontSize="12"
+                   FontSize="14"
                    FontAttributes="Bold"
                    TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" />
@@ -310,7 +310,7 @@
                      VerticalOptions="Center" />
             </Border>
             <Label Text="Good lighting"
-                   FontSize="11"
+                   FontSize="13"
                    TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" />
           </HorizontalStackLayout>
@@ -333,7 +333,7 @@
                      VerticalOptions="Center" />
             </Border>
             <Label Text="Face clearly visible"
-                   FontSize="11"
+                   FontSize="13"
                    TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" />
           </HorizontalStackLayout>
@@ -356,7 +356,7 @@
                      VerticalOptions="Center" />
             </Border>
             <Label Text="No sunglasses or mask"
-                   FontSize="11"
+                   FontSize="13"
                    TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" />
           </HorizontalStackLayout>
@@ -395,7 +395,7 @@
                  VerticalOptions="Center" />
         </Border>
         <Label Text="This reference will be used whenever identity verification is required."
-               FontSize="11"
+               FontSize="13"
                TextColor="{StaticResource TextSecondary}"
                VerticalOptions="Center" />
       </HorizontalStackLayout>

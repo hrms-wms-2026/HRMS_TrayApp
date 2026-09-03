@@ -37,7 +37,9 @@ public static class WorkLocationFlow
             ? ClockInRoute
             : string.Equals(next, "policy", StringComparison.OrdinalIgnoreCase)
                 ? SetupFlow.Permissions
-                : SetupFlow.Permissions;
+                : string.Equals(next, "prepare", StringComparison.OrdinalIgnoreCase)
+                    ? PrepareRoute
+                    : SetupFlow.Privacy;
 
     /// <summary>
     /// Where an enrolled Stopped employee should land.

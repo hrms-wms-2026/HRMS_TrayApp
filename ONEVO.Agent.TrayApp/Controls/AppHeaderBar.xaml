@@ -18,7 +18,7 @@
                TextColor="{StaticResource TextPrimary}"
                LineBreakMode="TailTruncation" MaxLines="1" />
         <Label Text="{Binding Source={x:Reference Root}, Path=Subtitle}"
-               FontSize="10" TextColor="{StaticResource TextSecondary}"
+               FontSize="14" TextColor="{StaticResource TextSecondary}"
                LineBreakMode="TailTruncation" MaxLines="1"
                IsVisible="{Binding Source={x:Reference Root}, Path=ShowSubtitle}" />
       </VerticalStackLayout>

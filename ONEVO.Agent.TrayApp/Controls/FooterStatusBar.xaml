@@ -6,12 +6,12 @@
   <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,4,0,0">
     <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
       <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets"
-             FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+             FontSize="13" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
       <Label Text="{Binding Source={x:Reference Root}, Path=VersionText}"
              Style="{StaticResource FooterLabel}"
              LineBreakMode="TailTruncation" MaxLines="1" />
       <Label Text="Sign out"
-             FontSize="11"
+             FontSize="13"
              TextDecorations="Underline"
              TextColor="{StaticResource Primary}"
              VerticalOptions="Center"
@@ -36,7 +36,7 @@
         </Ellipse.Triggers>
       </Ellipse>
       <Label Text="{Binding Source={x:Reference Root}, Path=ConnectionLabel}"
-             FontSize="11"
+             FontSize="13"
              TextColor="{StaticResource TextSecondary}"
              VerticalOptions="Center"
              LineBreakMode="TailTruncation" MaxLines="1" />

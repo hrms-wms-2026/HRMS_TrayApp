@@ -93,8 +93,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         }
         else if (string.Equals(context, "clockout", StringComparison.OrdinalIgnoreCase))
         {
-            Headline = "Verify to Clock Out";
-            ContextPill = "Secure Identity Verification";
+            Headline = "Verify Your Identity";
+            ContextPill = "Clock-out verification";
             ContinueLabel = "Verify & Clock Out";
         }
         else

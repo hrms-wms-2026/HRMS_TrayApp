@@ -739,7 +739,7 @@ public sealed class AgentWorker : BackgroundService
         await ReplyEnrollmentAsync(
             envelope, reply, true, null,
             result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber,
-            result.Auth.EmployeeProfileStatus);
+            result.Auth.EmployeeProfileStatus,
             result.Auth.DepartmentName, result.Auth.WorkModeLabel, result.Auth.OfficeName,
             result.Auth.OrganizationName);
 
@@ -755,7 +755,7 @@ public sealed class AgentWorker : BackgroundService
         string? employeeName,
         string? employeeEmail = null,
         string? employeeNumber = null,
-        string? employeeProfileStatus = null)
+        string? employeeProfileStatus = null,
         string? departmentName = null,
         string? workModeLabel = null,
         string? officeName = null,
@@ -772,7 +772,7 @@ public sealed class AgentWorker : BackgroundService
                 EmployeeName = employeeName,
                 EmployeeEmail = employeeEmail,
                 EmployeeNumber = employeeNumber,
-                EmployeeProfileStatus = employeeProfileStatus
+                EmployeeProfileStatus = employeeProfileStatus,
                 DepartmentName = departmentName,
                 WorkModeLabel = workModeLabel,
                 OfficeName = officeName,

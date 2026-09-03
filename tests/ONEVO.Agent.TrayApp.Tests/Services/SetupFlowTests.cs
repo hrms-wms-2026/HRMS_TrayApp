@@ -9,10 +9,9 @@ public sealed class SetupFlowTests
     {
         Assert.Equal("//review", SetupFlow.AfterActivation);
         Assert.Equal("//photo", SetupFlow.AfterConfirmDetails);
-        Assert.Equal("//location?next=policy", SetupFlow.AfterFaceEnrollment);
-        Assert.Equal("//privacy", SetupFlow.AfterPermissions);
-        Assert.Equal("//device", SetupFlow.AfterPrivacy);
-        Assert.Equal("//prepare", SetupFlow.AfterConfirmDevice);
+        Assert.Equal("//location?next=privacy", SetupFlow.AfterFaceEnrollment);
+        Assert.Equal("//policy", SetupFlow.AfterPrivacy);
+        Assert.Equal("//prepare", SetupFlow.AfterPermissions);
         Assert.Equal("//clockin", SetupFlow.AfterWorkspaceReady);
     }
 
