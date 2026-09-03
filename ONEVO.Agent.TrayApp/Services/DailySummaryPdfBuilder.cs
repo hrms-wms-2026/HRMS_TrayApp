@@ -116,6 +116,18 @@ public static class DailySummaryPdfBuilder
         return document.GeneratePdf();
     }
 
+    public static async Task<string> WriteToDownloadsAsync(DailySummaryPdfData data, CancellationToken ct = default)
+    {
+        var downloads = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var dir = Path.Combine(downloads, "Downloads");
+        if (!Directory.Exists(dir))
+            dir = downloads;
+
+        var path = Path.Combine(dir, $"OneXso-Daily-Summary-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.pdf");
+        await File.WriteAllBytesAsync(path, Build(data), ct);
+        return path;
+    }
+
     private sealed class SummaryTile(string label, string value) : IComponent
     {
         public void Compose(IContainer container)

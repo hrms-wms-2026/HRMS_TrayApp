@@ -282,18 +282,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     {
         try
         {
-            var downloads = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            var dir = Path.Combine(downloads, "Downloads");
-            if (!Directory.Exists(dir))
-                dir = downloads;
-
-            var path = Path.Combine(dir, $"OneXso-Daily-Summary-{DateTime.Now:yyyyMMdd-HHmmss}.pdf");
-            var bytes = DailySummaryPdfBuilder.Build(new DailySummaryPdfData(
-                StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
-                WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
-                BreakSessionsDisplay, [.. TopApps]));
-
-            await File.WriteAllBytesAsync(path, bytes);
+            var path = await DailySummaryPdfBuilder.WriteToDownloadsAsync(ToPdfData());
             Message = $"Summary saved to {path}";
         }
         catch (Exception ex)
@@ -301,6 +290,11 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             ErrorMessage = ex.Message;
         }
     }
+
+    internal DailySummaryPdfData ToPdfData() => new(
+        StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
+        WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
+        BreakSessionsDisplay, [.. TopApps]);
 
     [RelayCommand]
     private static void OpenDashboard()
@@ -317,9 +311,16 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    private static void CloseApp()
+    private static async Task ViewSummary()
     {
-        try { Shell.Current.GoToAsync("//clockin"); }
+        try { await Shell.Current.GoToAsync(SetupFlow.Summary); }
+        catch { /* unit tests */ }
+    }
+
+    [RelayCommand]
+    private static async Task Back()
+    {
+        try { await Shell.Current.GoToAsync(SetupFlow.ClockIn); }
         catch { /* unit tests */ }
     }
 }

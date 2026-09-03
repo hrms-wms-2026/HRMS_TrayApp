@@ -19,6 +19,7 @@ public sealed class TrayScreenLayoutContractTests
         yield return ["ONEVO.Agent.TrayApp/Views/IdentityVerificationPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml"];
+        yield return ["ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml"];
     }
 
     [Fact]
@@ -166,13 +167,27 @@ public sealed class TrayScreenLayoutContractTests
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml");
         Assert.Contains("end_session_hero.png", xaml, StringComparison.Ordinal);
         Assert.Contains("View Dashboard", xaml, StringComparison.Ordinal);
-        Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
-        Assert.Contains("Close App", xaml, StringComparison.Ordinal);
+        Assert.Contains("View Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("Back", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Close App", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Download Summary", xaml, StringComparison.Ordinal);
         Assert.Contains("Synced to OneXso Cloud", xaml, StringComparison.Ordinal);
         Assert.Contains("IconCloud", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"1\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"2\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DailySummaryPage_HasDownloadAndBack()
+    {
+        var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml");
+        Assert.Contains("Daily ", xaml, StringComparison.Ordinal);
+        Assert.Contains("Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("Top Applications", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Back\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ScrollView", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

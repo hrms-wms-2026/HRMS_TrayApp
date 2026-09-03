@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:ONEVO.Agent.TrayApp.ViewModels"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:Class="ONEVO.Agent.TrayApp.Views.DailySummaryPage"
+             x:DataType="vm:DailySummaryViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="OneXso WorkPulse">
+
+  <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="28,16,28,12">
+    <Grid.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
+        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
+      </LinearGradientBrush>
+    </Grid.Background>
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <VerticalStackLayout Spacing="2">
+        <Label>
+          <Label.FormattedText>
+            <FormattedString>
+              <Span Text="Daily " FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Span Text="Summary" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+            </FormattedString>
+          </Label.FormattedText>
+        </Label>
+        <Label Text="{Binding Headline}" FontSize="13" TextColor="{StaticResource TextSecondary}" />
+      </VerticalStackLayout>
+      <Border Grid.Column="1" Style="{StaticResource TrayCompactGlassCard}" Padding="12,8" VerticalOptions="Start">
+        <HorizontalStackLayout Spacing="6">
+          <Label Text="{StaticResource IconCalendar}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+          <Label Text="{Binding DateDisplay}" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+          <Label Text="·" FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+          <Label Text="{Binding WeekdayDisplay}" FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,*" RowSpacing="12">
+      <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+        <Border Style="{StaticResource SetupResultCard}" Padding="12,10">
+          <VerticalStackLayout Spacing="4">
+            <Label Text="Total Shift" FontSize="11" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="{Binding TotalShiftDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Label Text="Clocked hours" FontSize="11" TextColor="{StaticResource TextMuted}" />
+          </VerticalStackLayout>
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource SetupResultCard}" Padding="12,10">
+          <VerticalStackLayout Spacing="4">
+            <Label Text="Active Time" FontSize="11" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="{Binding WorkingTimeDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Label Text="Work duration" FontSize="11" TextColor="{StaticResource TextMuted}" />
+          </VerticalStackLayout>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource SetupResultCard}" Padding="12,10">
+          <VerticalStackLayout Spacing="4">
+            <Label Text="Idle Time" FontSize="11" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="{Binding IdleTimeDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Label Text="Away from keyboard" FontSize="11" TextColor="{StaticResource TextMuted}" />
+          </VerticalStackLayout>
+        </Border>
+        <Border Grid.Column="3" Style="{StaticResource SetupResultCard}" Padding="12,10">
+          <VerticalStackLayout Spacing="4">
+            <Label Text="Total Break Time" FontSize="11" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="{Binding BreakTimeDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Label Text="{Binding BreakSessionsDisplay, StringFormat='{0} breaks'}" FontSize="11" TextColor="{StaticResource TextMuted}" />
+          </VerticalStackLayout>
+        </Border>
+      </Grid>
+
+      <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
+        <Border Style="{StaticResource SetupResultCard}">
+          <Grid RowDefinitions="Auto,*">
+            <Label Text="Top Applications" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" Margin="0,0,0,8" />
+            <VerticalStackLayout Grid.Row="1" BindableLayout.ItemsSource="{Binding TopApps}" Spacing="8">
+              <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="vm:TopAppItem">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="{Binding Name}" FontSize="13" TextColor="{StaticResource TextPrimary}" LineBreakMode="TailTruncation" MaxLines="1" />
+                    <Label Grid.Column="1" Text="{Binding Duration}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}" />
+                  </Grid>
+                </DataTemplate>
+              </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+          </Grid>
+        </Border>
+        <Border Grid.Column="1" Style="{StaticResource SetupResultCard}">
+          <VerticalStackLayout Spacing="10">
+            <Label Text="Session" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Grid ColumnDefinitions="*,Auto">
+              <Label Text="Clock in" FontSize="13" TextColor="{StaticResource TextSecondary}" />
+              <Label Grid.Column="1" Text="{Binding ClockInDisplay}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <Label Text="Clock out" FontSize="13" TextColor="{StaticResource TextSecondary}" />
+              <Label Grid.Column="1" Text="{Binding ClockOutDisplay}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            </Grid>
+            <Grid ColumnDefinitions="*,Auto">
+              <Label Text="Productive time" FontSize="13" TextColor="{StaticResource TextSecondary}" />
+              <Label Grid.Column="1" Text="{Binding ProductiveTimeDisplay}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            </Grid>
+            <Label Text="{Binding ExcellentDayCaption}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" Margin="0,8,0,0" />
+            <Label Text="You stayed focused and made meaningful progress." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+          </VerticalStackLayout>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <VerticalStackLayout Grid.Row="2" Spacing="2" Margin="0,8,0,0">
+      <Label Text="{Binding Message}" FontSize="12" TextColor="{StaticResource StatusGreen}"
+             IsVisible="{Binding Message, Converter={StaticResource IsNotNullConverter}}" />
+      <Label Text="{Binding ErrorMessage}" FontSize="12" TextColor="{StaticResource StatusRed}"
+             IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+    </VerticalStackLayout>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Margin="0,8,0,0">
+      <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
+        <VerticalStackLayout Spacing="2">
+          <Label Text="{Binding ExcellentDayCaption}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+          <Label Text="Download your summary or go back to wrap up." FontSize="12" TextColor="{StaticResource TextSecondary}" />
+        </VerticalStackLayout>
+      </Border>
+      <Border Grid.Column="1" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44" MinimumWidthRequest="180">
+        <Grid>
+          <Button Command="{Binding DownloadSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Download Summary" />
+          <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
+            <Label Text="{StaticResource IconDownload}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+            <Label Text="Download Summary" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
+          </HorizontalStackLayout>
+        </Grid>
+      </Border>
+      <Border Grid.Column="2" Style="{StaticResource TrayPrimaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44" MinimumWidthRequest="120">
+        <Grid>
+          <Button Command="{Binding BackCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Back" />
+          <Label InputTransparent="True" Text="Back" FontSize="13" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+        </Grid>
+      </Border>
+    </Grid>
+
+    <controls:FooterStatusBar Grid.Row="4" VersionText="Version 1.0.0" ConnectionLabel="Connected" IsConnected="True" />
+  </Grid>
+</ContentPage>

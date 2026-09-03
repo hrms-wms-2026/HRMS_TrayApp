@@ -17,6 +17,7 @@ public static class SetupFlow
     public const string ClockIn = "//clockin";
     public const string Active = "//active";
     public const string End = "//end";
+    public const string Summary = "//summary";
 
     public static string AfterActivation => ConfirmDetails;
     public static string AfterConfirmDetails => FaceEnrollment;
