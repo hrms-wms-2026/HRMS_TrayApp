@@ -12,4 +12,12 @@ public sealed class AwaitingClockInViewModelTests
         Assert.Equal("Waiting for Clock In", vm.Title);
         Assert.Contains("web portal", vm.Message);
     }
+
+    [Fact]
+    public async Task BackCommand_WithoutShell_DoesNotThrow()
+    {
+        var vm = new AwaitingClockInViewModel();
+
+        await vm.BackCommand.ExecuteAsync(null);
+    }
 }
