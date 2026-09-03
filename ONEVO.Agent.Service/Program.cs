@@ -115,7 +115,9 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<OnevoApiClient>();
         services.AddSingleton<EnrollmentCoordinator>();
 
-        services.AddHostedService<AgentWorker>();
+        services.AddSingleton<AgentWorker>();
+        services.AddSingleton<IPresenceReconciler>(sp => sp.GetRequiredService<AgentWorker>());
+        services.AddHostedService(sp => sp.GetRequiredService<AgentWorker>());
         services.AddHostedService<ActivitySyncService>();
         services.AddHostedService<HeartbeatService>();
         services.AddHostedService<TokenRefreshService>();
@@ -127,6 +129,7 @@ var host = Host.CreateDefaultBuilder(args)
         // achieved instead by its immediate-fetch-on-JWT behavior (see PolicySyncService.cs).
         services.AddHostedService<PolicySyncService>();
         services.AddHostedService<NotificationPollingService>();
+        services.AddHostedService<AttendanceStatusSyncService>();
         // packages-guide §1 — SignalR remote commands (waits for JWT)
         services.AddHostedService<AgentCommandListener>();
     })

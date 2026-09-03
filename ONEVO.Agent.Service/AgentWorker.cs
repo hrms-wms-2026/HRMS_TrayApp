@@ -14,7 +14,7 @@ using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
-public sealed class AgentWorker : BackgroundService
+public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 {
     private readonly ILogger<AgentWorker> _logger;
     private readonly NamedPipeServer _pipeServer;
