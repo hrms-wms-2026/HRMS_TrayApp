@@ -267,7 +267,54 @@
             "method": "GET",
             "header": [],
             "url": "{{base_url}}/api/v1/monitoring/tray/policy",
-            "description": "Tray device JWT. Returns effective monitoring policy (inactivity screenshot enabled, thresholds, etc.)."
+            "description": "Tray device JWT. Returns effective monitoring policy (inactivity screenshot enabled, thresholds, tray_clock_in_enabled, etc.)."
+          }
+        },
+        {
+          "name": "Get Tray Attendance Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/monitoring/tray/attendance-status",
+            "description": "Tray device JWT. Returns { is_clocked_in, clocked_in_at_utc } derived from today's real attendance record — the source AttendanceStatusSyncService polls every 60s."
+          }
+        },
+        {
+          "name": "Tray Clock In",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": "{{base_url}}/api/v1/monitoring/tray/clock-in",
+            "description": "Tray device JWT. 200 = AttendanceTodayResponse. 403 if the employee's work mode policy does not allow DesktopTray clock-in."
+          }
+        },
+        {
+          "name": "Tray Clock Out",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tray_access_token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": "{{base_url}}/api/v1/monitoring/tray/clock-out",
+            "description": "Tray device JWT. 200 = AttendanceTodayResponse."
           }
         },
         {
