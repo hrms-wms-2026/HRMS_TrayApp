@@ -36,6 +36,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private bool _isIdle;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
+    [NotifyPropertyChangedFor(nameof(ShowClockOutAction))]
     private bool   _isOnBreak;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isEndBreakConfirmVisible;
@@ -62,6 +63,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
     public bool ShowWorkingActions => !IsOnBreak;
 
+    public bool ShowClockOutAction => ShowWorkingActions && (_pipe.LastKnownPolicy?.TrayClockInEnabled ?? false);
+
     /// <summary>Test helper — empty day metrics, no-op collector-lifecycle drain.</summary>
     public ActiveSessionViewModel(INamedPipeClient pipe)
         : this(pipe, new SessionDayMetrics(), NoOpCollectorLifecycleCoordinator.Instance) { }
@@ -71,6 +74,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         if (!_subscribed)
         {
             _pipe.OnStatusReceived += OnStatus;
+            _pipe.OnPolicyReceived += OnPolicyReceivedForClockOutVisibility;
             _subscribed = true;
         }
 
@@ -462,11 +466,14 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         }
     }
 
+    private void OnPolicyReceivedForClockOutVisibility(AgentPolicy _) => OnPropertyChanged(nameof(ShowClockOutAction));
+
     public async ValueTask DisposeAsync()
     {
         if (_subscribed)
         {
             _pipe.OnStatusReceived -= OnStatus;
+            _pipe.OnPolicyReceived -= OnPolicyReceivedForClockOutVisibility;
             _subscribed = false;
         }
 
