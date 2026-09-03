@@ -9,18 +9,40 @@ public sealed class TrayScreenLayoutContractTests
     public static IEnumerable<object[]> PrimaryScreenXamlFiles()
     {
         yield return ["ONEVO.Agent.TrayApp/Views/ConnectWorkspacePage.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/PrepareWorkspacePage.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/WorkLocationPage.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/PhotoCaptureWindow.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/BiometricEnrollmentPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ReviewSetupPage.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/PrivacyConsentPage.xaml"];
+        yield return ["ONEVO.Agent.TrayApp/Views/PhotoCaptureWindow.xaml"];
+        yield return ["ONEVO.Agent.TrayApp/Views/WorkLocationPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/PrivacyTransparencyPage.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/ConfirmDevicePage.xaml"];
+        yield return ["ONEVO.Agent.TrayApp/Views/PrivacyConsentPage.xaml"];
+        yield return ["ONEVO.Agent.TrayApp/Views/PrepareWorkspacePage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ClockInPage.xaml"];
+        yield return ["ONEVO.Agent.TrayApp/Views/IdentityVerificationPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml"];
+    }
+
+    [Fact]
+    public void SharedTextStyles_AreLargeEnoughToRead()
+    {
+        var styles = ReadSource("ONEVO.Agent.TrayApp/Resources/Styles/Styles.xaml");
+        var subtitle = SliceStyle(styles, "PageSubtitle");
+        var fieldLabel = SliceStyle(styles, "FieldLabel");
+        var fieldValue = SliceStyle(styles, "FieldValue");
+        var stepStatus = SliceStyle(styles, "SetupStepStatus");
+
+        Assert.Contains("Value=\"15\"", subtitle, StringComparison.Ordinal);
+        Assert.Contains("Value=\"14\"", fieldLabel, StringComparison.Ordinal);
+        Assert.Contains("Value=\"15\"", fieldValue, StringComparison.Ordinal);
+        Assert.Contains("Value=\"13\"", stepStatus, StringComparison.Ordinal);
+        Assert.DoesNotContain("HeightRequest", stepStatus, StringComparison.Ordinal);
+    }
+
+    private static string SliceStyle(string styles, string key)
+    {
+        var start = styles.IndexOf($"x:Key=\"{key}\"", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Missing style {key}");
+        var end = styles.IndexOf("</Style>", start, StringComparison.Ordinal);
+        return styles[start..end];
     }
 
     [Fact]
@@ -63,7 +85,7 @@ public sealed class TrayScreenLayoutContractTests
     }
 
     [Fact]
-    public void PrepareWorkspacePage_MatchesSettingUpAndFinalSetupMocks()
+    public void PrepareWorkspacePage_MatchesSettingUpAndWelcomeBackMocks()
     {
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/PrepareWorkspacePage.xaml");
         Assert.Contains("Setting up ", xaml, StringComparison.Ordinal);
@@ -74,29 +96,19 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Registering this device", xaml, StringComparison.Ordinal);
         Assert.Contains("Preparing your workspace", xaml, StringComparison.Ordinal);
         Assert.Contains("Please wait while we finish your setup.", xaml, StringComparison.Ordinal);
-        Assert.Contains("Final ", xaml, StringComparison.Ordinal);
-        Assert.Contains("Workspace Setup", xaml, StringComparison.Ordinal);
-        Assert.Contains("Applying your organisation policies and synchronising your workspace.", xaml, StringComparison.Ordinal);
-        Assert.Contains("Applying organisation policies", xaml, StringComparison.Ordinal);
-        Assert.Contains("Initialising monitoring agent", xaml, StringComparison.Ordinal);
-        Assert.Contains("Syncing configuration", xaml, StringComparison.Ordinal);
-        Assert.Contains("Validating device", xaml, StringComparison.Ordinal);
-        Assert.Contains("Checking connectivity", xaml, StringComparison.Ordinal);
-        Assert.Contains("Everything is ready.", xaml, StringComparison.Ordinal);
-        Assert.Contains("Workspace Readiness ", xaml, StringComparison.Ordinal);
-        Assert.Contains("All systems go!", xaml, StringComparison.Ordinal);
-        Assert.Contains("Continue to Work Location", xaml, StringComparison.Ordinal);
-        Assert.Contains("Ready for today", xaml, StringComparison.Ordinal);
-        Assert.Contains("Start My Workday", xaml, StringComparison.Ordinal);
         Assert.Contains("Welcome back,", xaml, StringComparison.Ordinal);
         Assert.Contains("Getting everything ready", xaml, StringComparison.Ordinal);
         Assert.Contains("Connecting to OneXso server", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Continue\"", xaml, StringComparison.Ordinal);
         Assert.Contains("SetupProgressRing", xaml, StringComparison.Ordinal);
         Assert.Contains("SetupStepRow", xaml, StringComparison.Ordinal);
-        Assert.Contains("workspace_connect.png", xaml, StringComparison.Ordinal);
         Assert.Contains("onexso_x_mark.png", xaml, StringComparison.Ordinal);
         Assert.Contains("FooterStatusBar", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Final ", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Workspace Setup", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Workspace Readiness ", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("All systems go!", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Start My Workday", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Workspace Ready", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ActivityIndicator", xaml, StringComparison.Ordinal);
     }
 
@@ -129,6 +141,9 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("workspace_active.png", xaml, StringComparison.Ordinal);
         Assert.Contains("Open Dashboard", xaml, StringComparison.Ordinal);
         Assert.Contains("Start Break Later", xaml, StringComparison.Ordinal);
+        Assert.Contains("Clock Out", xaml, StringComparison.Ordinal);
+        Assert.Contains("IconPower", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("BackgroundColor=\"Transparent\" TextColor=\"{StaticResource StatusRed}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"1\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IconStopwatch", xaml, StringComparison.Ordinal);
@@ -140,6 +155,9 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("BreakTotalCaption", xaml, StringComparison.Ordinal);
         Assert.Contains("ProductiveShareCaption", xaml, StringComparison.Ordinal);
         Assert.Contains("break_hero.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Back to Work", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Continue Working", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Break ended at", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

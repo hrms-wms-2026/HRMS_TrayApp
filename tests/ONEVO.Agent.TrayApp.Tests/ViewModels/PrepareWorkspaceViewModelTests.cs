@@ -109,19 +109,16 @@ public sealed class PrepareWorkspaceViewModelTests
     }
 
     [Fact]
-    public async Task LoadAsync_WithoutLocation_ContinueAdvancesToLocation()
+    public async Task LoadAsync_WithoutLocation_StillFinishesSettingUp()
     {
         var prefs = new FakePreferencesStore();
         var vm = MakeVm(prefs);
         await vm.LoadAsync(CancellationToken.None);
         Assert.False(vm.CanContinue);
         Assert.True(vm.ShouldOpenLocation);
-        Assert.True(vm.ContinueSetupCommand.CanExecute(null));
-        await vm.ContinueSetupCommand.ExecuteAsync(null);
-        Assert.Equal("readiness", vm.Stage);
-        await vm.ContinueSetupCommand.ExecuteAsync(null);
-        Assert.Equal("readiness", vm.Stage);
-        Assert.False(WorkLocationFlow.IsSetupComplete(prefs));
+        Assert.Equal("setting", vm.Stage);
+        Assert.True(WorkLocationFlow.IsSetupComplete(prefs));
+        Assert.True(vm.WorkspacePrepared);
     }
 
     [Fact]
@@ -134,34 +131,22 @@ public sealed class PrepareWorkspaceViewModelTests
     }
 
     [Fact]
-    public async Task LoadAsync_NotifiesContinueSetupCommandCanExecuteChanged()
+    public async Task LoadAsync_FinishesSettingUpAndMarksComplete()
     {
-        var vm = MakeVm(workLocationStore: new FakeWorkLocationStore { Value = AReference() });
-        var fired = false;
-        vm.ContinueSetupCommand.CanExecuteChanged += (_, _) => fired = true;
-
+        var prefs = new FakePreferencesStore();
+        var vm = MakeVm(prefs, new FakeWorkLocationStore { Value = AReference() });
         await vm.LoadAsync(CancellationToken.None);
 
-        Assert.True(fired, "Continue button must be told to re-check CanExecute once setup finishes");
-        Assert.True(vm.ContinueSetupCommand.CanExecute(null));
-    }
-
-    [Fact]
-    public async Task LoadAsync_StopsOnFinalSetupAtHundredPercent()
-    {
-        var vm = MakeVm(workLocationStore: new FakeWorkLocationStore { Value = AReference() });
-        await vm.LoadAsync(CancellationToken.None);
-
-        Assert.Equal("final", vm.Stage);
-        Assert.True(vm.ShowFinalSetup);
-        Assert.True(vm.ShowFinalContinue);
+        Assert.Equal("setting", vm.Stage);
+        Assert.True(vm.ShowSettingUp);
+        Assert.False(vm.ShowWelcomeBack);
         Assert.Equal(100, vm.ProgressPercent);
         Assert.Equal(100, vm.SettingProgressPercent);
-        Assert.True(vm.FinalConnectivityChecked);
         Assert.True(vm.ActivationVerified);
         Assert.True(vm.DeviceRegistered);
+        Assert.True(vm.WorkspacePrepared);
         Assert.False(vm.IsLoading);
-        Assert.Equal("Completed", vm.ConnectivityStepStatus);
+        Assert.True(WorkLocationFlow.IsSetupComplete(prefs));
     }
 
     [Fact]
@@ -195,23 +180,21 @@ public sealed class PrepareWorkspaceViewModelTests
     }
 
     [Fact]
-    public async Task ContinueSetup_WalksFinalReadinessReadyThenMarksComplete()
+    public async Task LoadAsync_WhenSetupAlreadyComplete_ShowsWelcomeBack()
     {
         var prefs = new FakePreferencesStore();
+        WorkLocationFlow.MarkSetupComplete(prefs);
+        prefs.Set("onevo.employee_display_name", "Acme Owner");
         var vm = MakeVm(prefs, new FakeWorkLocationStore { Value = AReference() });
+
         await vm.LoadAsync(CancellationToken.None);
-        Assert.Equal("final", vm.Stage);
 
-        await vm.ContinueSetupCommand.ExecuteAsync(null);
-        Assert.Equal("readiness", vm.Stage);
-        Assert.False(WorkLocationFlow.IsSetupComplete(prefs));
-
-        await vm.ContinueSetupCommand.ExecuteAsync(null);
-        Assert.Equal("ready", vm.Stage);
-        Assert.False(WorkLocationFlow.IsSetupComplete(prefs));
-
-        await vm.ContinueSetupCommand.ExecuteAsync(null);
-        Assert.True(WorkLocationFlow.IsSetupComplete(prefs));
+        Assert.Equal("welcome", vm.Stage);
+        Assert.True(vm.ShowWelcomeBack);
+        Assert.False(vm.ShowSettingUp);
+        Assert.True(vm.WelcomeWorkspaceDone);
+        Assert.Equal("Acme Owner", vm.EmployeeFullName);
+        Assert.Equal(100, vm.ProgressPercent);
     }
 
     [Fact]

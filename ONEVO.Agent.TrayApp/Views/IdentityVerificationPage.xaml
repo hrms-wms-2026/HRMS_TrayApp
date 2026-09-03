@@ -46,7 +46,7 @@
       <HorizontalStackLayout Spacing="8">
         <ActivityIndicator IsRunning="True" Color="{StaticResource Primary}"
                             WidthRequest="14" HeightRequest="14" />
-        <Label Text="Clock-in verification" FontSize="12" FontAttributes="Bold"
+        <Label Text="Clock-in verification" FontSize="13" FontAttributes="Bold"
                TextColor="{StaticResource Primary}" />
       </HorizontalStackLayout>
     </Border>
@@ -64,7 +64,7 @@
                Style="{StaticResource PageSubtitle}" />
         <Label Text="{Binding EmployeeName}" FontSize="13" FontAttributes="Bold"
                TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
-        <Label Text="{Binding EmployeeId}" FontSize="12" TextColor="{StaticResource TextSecondary}"
+        <Label Text="{Binding EmployeeId}" FontSize="14" TextColor="{StaticResource TextSecondary}"
                HorizontalOptions="Center" />
       </VerticalStackLayout>
 
@@ -162,7 +162,7 @@
                      FontSize="10" TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
-            <Label Text="Good lighting" FontSize="11" TextColor="{StaticResource TextPrimary}"
+            <Label Text="Good lighting" FontSize="13" TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" LineBreakMode="TailTruncation" />
           </HorizontalStackLayout>
         </Border>
@@ -176,7 +176,7 @@
                      FontSize="10" TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
-            <Label Text="Face clearly visible" FontSize="11" TextColor="{StaticResource TextPrimary}"
+            <Label Text="Face clearly visible" FontSize="13" TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" LineBreakMode="TailTruncation" />
           </HorizontalStackLayout>
         </Border>
@@ -190,7 +190,7 @@
                      FontSize="10" TextColor="White"
                      HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
-            <Label Text="No mask or sunglasses" FontSize="11" TextColor="{StaticResource TextPrimary}"
+            <Label Text="No mask or sunglasses" FontSize="13" TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" LineBreakMode="TailTruncation" />
           </HorizontalStackLayout>
         </Border>
@@ -202,7 +202,7 @@
           <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets"
                  FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
           <Label Text="We compare this image with your enrolled verification profile."
-                 FontSize="12" TextColor="{StaticResource TextSecondary}"
+                 FontSize="14" TextColor="{StaticResource TextSecondary}"
                  VerticalOptions="Center" />
         </HorizontalStackLayout>
       </Border>

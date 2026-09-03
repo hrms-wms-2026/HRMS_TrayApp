@@ -56,6 +56,8 @@ public sealed class ActiveSessionViewModelTests
         await vm.EndBreakCommand.ExecuteAsync(null);
         Assert.Contains(LifecycleAction.EndBreak, pipe.LifecycleActions);
         Assert.False(vm.IsOnBreak);
+        Assert.Equal("You are now Clocked In", vm.HeaderTitle);
+        Assert.True(vm.ShowWorkingActions);
     }
 
     [Fact]

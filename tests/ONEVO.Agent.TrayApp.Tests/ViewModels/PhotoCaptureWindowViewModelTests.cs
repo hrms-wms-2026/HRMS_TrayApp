@@ -61,6 +61,14 @@ public sealed class PhotoCaptureWindowViewModelTests
     }
 
     [Fact]
+    public void SetContext_ClockOut_UsesVerifyYourIdentityTitle()
+    {
+        var vm = MakeVm();
+        vm.SetContext("clockout");
+        Assert.Equal("Verify Your Identity", vm.Headline);
+    }
+
+    [Fact]
     public async Task CapturePhotoCommand_IsCapturedFalseWhenCameraReturnsNull()
     {
         var vm = MakeVm(cameraSucceeds: false);

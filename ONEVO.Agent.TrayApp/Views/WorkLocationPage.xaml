@@ -87,9 +87,9 @@
             </Border>
 
             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-              <Label Text="{Binding DetectionTitle}" FontSize="13" FontAttributes="Bold"
+              <Label Text="{Binding DetectionTitle}" FontSize="15" FontAttributes="Bold"
                      TextColor="{StaticResource TextPrimary}" />
-              <Label Text="{Binding DetectionDetail}" FontSize="11"
+              <Label Text="{Binding DetectionDetail}" FontSize="13"
                      TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap">
                 <Label.Triggers>
                   <DataTrigger TargetType="Label" Binding="{Binding HasDetectionError}" Value="True">
@@ -107,7 +107,7 @@
               <HorizontalStackLayout Spacing="4">
                 <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets"
                        FontSize="11" TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
-                <Label Text="Location verified" FontSize="11" FontAttributes="Bold"
+                <Label Text="Location verified" FontSize="13" FontAttributes="Bold"
                        TextColor="{StaticResource StatusGreen}" VerticalOptions="Center" />
               </HorizontalStackLayout>
             </Border>
@@ -147,9 +147,9 @@
                   </Border>
                   <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="0">
                     <Label Text="{Binding DisplayName}" FontAttributes="Bold"
-                           TextColor="{StaticResource TextPrimary}" FontSize="13" />
+                           TextColor="{StaticResource TextPrimary}" FontSize="15" />
                     <Label Text="{Binding Subtitle}"
-                           TextColor="{StaticResource TextSecondary}" FontSize="11" />
+                           TextColor="{StaticResource TextSecondary}" FontSize="13" />
                   </VerticalStackLayout>
                 </Grid>
               </Border>
@@ -159,9 +159,9 @@
 
         <HorizontalStackLayout Grid.Row="4" Spacing="6" Margin="2,10,2,10">
           <Label Text="{StaticResource IconInfo}" FontFamily="Segoe MDL2 Assets"
-                 FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Start" />
+                 FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Start" />
           <Label Text="Your selection helps apply the correct attendance and compliance rules."
-                 FontSize="11" TextColor="{StaticResource TextSecondary}"
+                 FontSize="14" TextColor="{StaticResource TextSecondary}"
                  LineBreakMode="WordWrap" VerticalOptions="Center" />
         </HorizontalStackLayout>
 

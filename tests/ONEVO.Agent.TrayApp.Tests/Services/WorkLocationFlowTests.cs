@@ -50,12 +50,13 @@ public sealed class WorkLocationFlowTests
     }
 
     [Fact]
-    public void ResolveNextRoute_MissingOrPrepare_ReturnsPermissions()
+    public void ResolveNextRoute_PrivacyAndPrepare_MatchSetupOrder()
     {
-        Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute(null));
-        Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute("prepare"));
+        Assert.Equal(SetupFlow.Privacy, WorkLocationFlow.ResolveNextRoute(null));
+        Assert.Equal(SetupFlow.Privacy, WorkLocationFlow.ResolveNextRoute("privacy"));
+        Assert.Equal(SetupFlow.Privacy, WorkLocationFlow.ResolveNextRoute("unknown"));
         Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute("policy"));
-        Assert.Equal(SetupFlow.Permissions, WorkLocationFlow.ResolveNextRoute("unknown"));
+        Assert.Equal(WorkLocationFlow.PrepareRoute, WorkLocationFlow.ResolveNextRoute("prepare"));
     }
 
     [Fact]

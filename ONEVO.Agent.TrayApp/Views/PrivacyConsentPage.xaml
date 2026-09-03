@@ -40,8 +40,8 @@
                 <Label Text="{StaticResource IconChart}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="1">
-                <Label Text="Work Activity Monitoring" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-                <Label Text="Tracks active and idle work periods." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="Work Activity Monitoring" FontAttributes="Bold" FontSize="15" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Tracks active and idle work periods." FontSize="14" TextColor="{StaticResource TextSecondary}" />
               </VerticalStackLayout>
               <Switch Grid.Column="2" IsToggled="{Binding ScreenMonitoringEnabled}" IsEnabled="False" VerticalOptions="Center" />
             </Grid>
@@ -51,8 +51,8 @@
                 <Label Text="{StaticResource IconApps}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="1">
-                <Label Text="Application Usage" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-                <Label Text="Records applications used and time spent." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="Application Usage" FontAttributes="Bold" FontSize="15" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Records applications used and time spent." FontSize="14" TextColor="{StaticResource TextSecondary}" />
               </VerticalStackLayout>
               <Switch Grid.Column="2" IsToggled="{Binding AppTrackingEnabled}" VerticalOptions="Center" />
             </Grid>
@@ -62,8 +62,8 @@
                 <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="1">
-                <Label Text="Location Access" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-                <Label Text="Used to verify your work location." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="Location Access" FontAttributes="Bold" FontSize="15" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Used to verify your work location." FontSize="14" TextColor="{StaticResource TextSecondary}" />
               </VerticalStackLayout>
               <Switch Grid.Column="2" IsToggled="{Binding LocationAccessEnabled}" VerticalOptions="Center" />
             </Grid>
@@ -73,8 +73,8 @@
                 <Label Text="{StaticResource IconCamera}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="1">
-                <Label Text="Camera Access" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-                <Label Text="Used for identity verification as per company policy." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="Camera Access" FontAttributes="Bold" FontSize="15" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Used for identity verification as per company policy." FontSize="14" TextColor="{StaticResource TextSecondary}" />
               </VerticalStackLayout>
               <Switch Grid.Column="2" IsToggled="{Binding CameraAccessEnabled}" VerticalOptions="Center" />
             </Grid>
@@ -84,8 +84,8 @@
                 <Label Text="{StaticResource IconBell}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="1">
-                <Label Text="System Notifications" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-                <Label Text="Keeps you informed about important updates." FontSize="11" TextColor="{StaticResource TextSecondary}" />
+                <Label Text="System Notifications" FontAttributes="Bold" FontSize="15" TextColor="{StaticResource TextPrimary}" />
+                <Label Text="Keeps you informed about important updates." FontSize="14" TextColor="{StaticResource TextSecondary}" />
               </VerticalStackLayout>
               <Switch Grid.Column="2" IsToggled="{Binding NotificationsEnabled}" VerticalOptions="Center" />
             </Grid>
@@ -105,7 +105,7 @@
             <Label InputTransparent="True" Text="Allow &amp; Continue" FontSize="15" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
           </Grid>
         </Border>
-        <Button Text="Why are these needed?" Command="{Binding WhyNeededCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="13" HorizontalOptions="Center" />
+        <Button Text="Why are these needed?" Command="{Binding WhyNeededCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="15" HorizontalOptions="Center" />
       </VerticalStackLayout>
     </Grid>
 

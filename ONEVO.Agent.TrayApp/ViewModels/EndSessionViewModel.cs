@@ -38,7 +38,6 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     [ObservableProperty] private string _savedAtDisplay = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string _employeeName = string.Empty;
-    [ObservableProperty] private bool _isDailySummary;
 
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
 
@@ -302,17 +301,6 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             ErrorMessage = ex.Message;
         }
     }
-
-    [RelayCommand]
-    private async Task ShowDailySummary()
-    {
-        IsDailySummary = true;
-        try { await Shell.Current.GoToAsync("//summary"); }
-        catch { /* unit tests */ }
-    }
-
-    [RelayCommand]
-    private void HideDailySummary() => IsDailySummary = false;
 
     [RelayCommand]
     private static void OpenDashboard()

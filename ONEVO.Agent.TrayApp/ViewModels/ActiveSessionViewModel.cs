@@ -36,14 +36,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private bool _isIdle;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
-    [NotifyPropertyChangedFor(nameof(ShowResumedActions))]
     private bool   _isOnBreak;
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
-    [NotifyPropertyChangedFor(nameof(ShowResumedActions))]
-    private bool _isResumedFromBreak;
-    [ObservableProperty] private string _lastBreakEndedDisplay = "—";
-    [ObservableProperty] private string _lastBreakDurationDisplay = "00:00:00";
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isEndBreakConfirmVisible;
     [ObservableProperty] private bool   _isBusyAction;
@@ -67,8 +60,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         _lifecycleCoordinator = lifecycleCoordinator;
     }
 
-    public bool ShowWorkingActions => !IsOnBreak && !IsResumedFromBreak;
-    public bool ShowResumedActions => !IsOnBreak && IsResumedFromBreak;
+    public bool ShowWorkingActions => !IsOnBreak;
 
     /// <summary>Test helper — empty day metrics, no-op collector-lifecycle drain.</summary>
     public ActiveSessionViewModel(INamedPipeClient pipe)
@@ -199,7 +191,6 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     {
         if (IsOnBreak)
         {
-            IsResumedFromBreak = false;
             HeaderTitle       = "You are now On Break";
             HeaderLead        = "You are now";
             HeaderAccent      = "On Break";
@@ -208,16 +199,6 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             PrimaryTimerLabel = "Break Timer";
             HintMessage       = "You'll be notified when your break time is ending.";
             SyncMessage       = null;
-        }
-        else if (IsResumedFromBreak)
-        {
-            HeaderTitle       = "Back to Work";
-            HeaderLead        = "Back to";
-            HeaderAccent      = "Work";
-            HeaderSubtitle    = "Your work session has resumed successfully.";
-            StatusText        = "Working";
-            PrimaryTimerLabel = "Live Shift Timer";
-            HintMessage       = "You're doing great! Keep the momentum going.";
         }
         else
         {
@@ -308,13 +289,6 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         $"{(int)t.TotalHours:00}:{t.Minutes:00}:{t.Seconds:00}";
 
     [RelayCommand]
-    private void ContinueWorking()
-    {
-        IsResumedFromBreak = false;
-        ApplyModeChrome();
-    }
-
-    [RelayCommand]
     private void RequestBreak()
     {
         if (IsOnBreak || IsBusyAction) return;
@@ -358,9 +332,6 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private async Task EndBreakAsync(CancellationToken ct)
     {
         IsEndBreakConfirmVisible = false;
-        LastBreakDurationDisplay = PrimaryTimer;
-        LastBreakEndedDisplay = DateTimeOffset.Now.ToString("hh:mm tt");
-        IsResumedFromBreak = true;
         // EndBreak resumes monitoring rather than pausing it, so it does not go through the
         // pre-stop drain — collectors are already stopped for the break's duration.
         var result = await RunLifecycleAsync(LifecycleAction.EndBreak, ct);

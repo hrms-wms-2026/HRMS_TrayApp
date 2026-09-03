@@ -38,12 +38,12 @@
               <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="{StaticResource BrandTitle}" VerticalOptions="Center" />
               <Label Text="OneXso records" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
             </HorizontalStackLayout>
-            <Label Text="• Work session times (clock in / out)" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Work activity monitoring (active / idle periods)" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Applications used and time spent" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Meeting activity and duration" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Device status and connectivity" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Identity verification events" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Work session times (clock in / out)" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Work activity monitoring (active / idle periods)" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Applications used and time spent" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Meeting activity and duration" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Device status and connectivity" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Identity verification events" FontSize="14" TextColor="{StaticResource TextSecondary}" />
           </VerticalStackLayout>
         </Border>
 
@@ -53,16 +53,16 @@
               <Label Text="{StaticResource IconCancel}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="{StaticResource StatusRed}" VerticalOptions="Center" />
               <Label Text="OneXso does not collect" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
             </HorizontalStackLayout>
-            <Label Text="• Personal files or document contents" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Keystrokes or typed text" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Personal web browsing content" FontSize="12" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Audio or video from meetings" FontSize="12" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Personal files or document contents" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Keystrokes or typed text" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Personal web browsing content" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <Label Text="• Audio or video from meetings" FontSize="14" TextColor="{StaticResource TextSecondary}" />
           </VerticalStackLayout>
         </Border>
 
         <HorizontalStackLayout Spacing="8" Margin="4,0,0,12">
           <CheckBox IsChecked="{Binding HasAgreed}" Color="{StaticResource Primary}" VerticalOptions="Center" />
-          <Label Text="I understand and agree" FontSize="13" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+          <Label Text="I understand and agree" FontSize="15" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
         </HorizontalStackLayout>
 
         <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,8">
@@ -78,7 +78,7 @@
             <Label InputTransparent="True" Text="Continue" FontSize="15" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
           </Grid>
         </Border>
-        <Button Text="View Privacy Policy" Command="{Binding OpenPrivacyPolicyCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="13" HorizontalOptions="Center" />
+        <Button Text="View Privacy Policy" Command="{Binding OpenPrivacyPolicyCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="15" HorizontalOptions="Center" />
       </VerticalStackLayout>
     </Grid>
 
