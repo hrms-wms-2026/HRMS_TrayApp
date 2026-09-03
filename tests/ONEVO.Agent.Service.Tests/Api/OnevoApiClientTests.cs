@@ -225,6 +225,86 @@ public class OnevoApiClientTests
         Assert.False(success);
     }
 
+    [Fact]
+    public async Task GetAttendanceStatusAsync_Success_ReturnsIsClockedIn()
+    {
+        var body = new { is_clocked_in = true, clocked_in_at_utc = DateTimeOffset.UtcNow };
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(body)
+        });
+        var client = Build(handler);
+
+        var result = await client.GetAttendanceStatusAsync("device-jwt", CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(result.IsClockedIn);
+    }
+
+    [Fact]
+    public async Task GetAttendanceStatusAsync_ServerError_ReturnsServiceUnavailable()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var client = Build(handler);
+
+        var result = await client.GetAttendanceStatusAsync("device-jwt", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("SERVICE_UNAVAILABLE", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ClockInAsync_Success_SendsBearerTokenAndReturnsSuccess()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var client = Build(handler);
+
+        var result = await client.ClockInAsync("device-jwt", CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(AgentApiRoutes.TrayClockIn, captured.RequestUri!.AbsolutePath);
+        Assert.Equal("Bearer", captured.Headers.Authorization!.Scheme);
+        Assert.Equal("device-jwt", captured.Headers.Authorization.Parameter);
+    }
+
+    [Fact]
+    public async Task ClockInAsync_Forbidden_ReturnsTrayClockInNotAllowed()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Forbidden)
+        {
+            Content = JsonContent.Create(new { title = "Clock-in source tray is not allowed by the active policy." })
+        });
+        var client = Build(handler);
+
+        var result = await client.ClockInAsync("device-jwt", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("TRAY_CLOCK_IN_NOT_ALLOWED", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ClockOutAsync_Success_SendsBearerTokenAndCallsClockOutRoute()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var client = Build(handler);
+
+        var result = await client.ClockOutAsync("device-jwt", CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(AgentApiRoutes.TrayClockOut, captured!.RequestUri!.AbsolutePath);
+    }
+
     private static OnevoApiClient Build(HttpMessageHandler handler) =>
         new(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
 
