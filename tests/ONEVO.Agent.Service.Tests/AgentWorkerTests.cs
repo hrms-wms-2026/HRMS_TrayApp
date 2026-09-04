@@ -49,7 +49,7 @@ public class AgentWorkerTests : IDisposable
             Options.Create(new AgentOptions { AllowLocalLifecycleWithoutFullGates = allowLocalLifecycleWithoutFullGates }),
             apiClient ?? defaultApiClient,
             credentials,
-            new DeviceIdentityStore(),
+            new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by lifecycle commands
             null!, // InactivityEvidenceHandler — not touched by lifecycle commands
             null!  // EvidenceSpoolStore — not touched by lifecycle commands

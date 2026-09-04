@@ -40,7 +40,7 @@ public class AgentWorkerCollectionSubmitTests
             Options.Create(new AgentOptions()),
             null!, // OnevoApiClient — not touched by HandleCollectionSubmitAsync
             null!, // CredentialStore — not touched by HandleCollectionSubmitAsync
-            new DeviceIdentityStore(),
+            new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by HandleCollectionSubmitAsync
             null!, // InactivityEvidenceHandler — not touched by HandleCollectionSubmitAsync
             null!  // EvidenceSpoolStore — not touched by HandleCollectionSubmitAsync
