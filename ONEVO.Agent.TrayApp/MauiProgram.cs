@@ -29,6 +29,17 @@ public static class MauiProgram
                     new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
             });
 
+            // Confirm card must stay opaque white — WinUI must not keep an alpha fill.
+            Microsoft.Maui.Handlers.BorderHandler.Mapper.AppendToMapping("PopupOpaqueWhite", (handler, view) =>
+            {
+                if (view is not Microsoft.Maui.Controls.Border border
+                    || border.AutomationId != "PopupGlassCard")
+                    return;
+
+                handler.PlatformView.Background =
+                    new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+            });
+
             // Shell wraps every page's content in a native ScrollViewer on Windows. Our pages
             // lay themselves out to fit the window, so that wrapper only causes unwanted
             // mouse-wheel scrolling of the whole page (including rows meant to stay fixed) —

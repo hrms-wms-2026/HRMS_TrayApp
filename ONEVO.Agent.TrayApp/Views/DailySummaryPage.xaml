@@ -12,7 +12,7 @@
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
-        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashMid}" Offset="0.45" />
         <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
       </LinearGradientBrush>
     </Grid.Background>
@@ -27,7 +27,7 @@
             </FormattedString>
           </Label.FormattedText>
         </Label>
-        <Label Text="{Binding Headline}" FontSize="13" TextColor="{StaticResource TextSecondary}" />
+        <Label Text="{Binding Headline}" Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" />
       </VerticalStackLayout>
       <Border Grid.Column="1" Style="{StaticResource TrayCompactGlassCard}" Padding="12,8" VerticalOptions="Start">
         <HorizontalStackLayout Spacing="6">
@@ -43,30 +43,30 @@
       <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
         <Border Style="{StaticResource SetupResultCard}" Padding="12,10">
           <VerticalStackLayout Spacing="4">
-            <Label Text="Total Shift" FontSize="11" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="{Binding TotalShiftDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Clocked hours" FontSize="11" TextColor="{StaticResource TextMuted}" />
+            <Label Text="Total Shift" Style="{StaticResource StatLabel}" />
+            <Label Text="{Binding TotalShiftDisplay}" Style="{StaticResource StatValue}" />
+            <Label Text="Clocked hours" Style="{StaticResource DeltaNeutral}" />
           </VerticalStackLayout>
         </Border>
         <Border Grid.Column="1" Style="{StaticResource SetupResultCard}" Padding="12,10">
           <VerticalStackLayout Spacing="4">
-            <Label Text="Active Time" FontSize="11" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="{Binding WorkingTimeDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Work duration" FontSize="11" TextColor="{StaticResource TextMuted}" />
+            <Label Text="Active Time" Style="{StaticResource StatLabel}" />
+            <Label Text="{Binding WorkingTimeDisplay}" Style="{StaticResource StatValue}" />
+            <Label Text="Work duration" Style="{StaticResource DeltaNeutral}" />
           </VerticalStackLayout>
         </Border>
         <Border Grid.Column="2" Style="{StaticResource SetupResultCard}" Padding="12,10">
           <VerticalStackLayout Spacing="4">
-            <Label Text="Idle Time" FontSize="11" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="{Binding IdleTimeDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="Away from keyboard" FontSize="11" TextColor="{StaticResource TextMuted}" />
+            <Label Text="Idle Time" Style="{StaticResource StatLabel}" />
+            <Label Text="{Binding IdleTimeDisplay}" Style="{StaticResource StatValue}" />
+            <Label Text="Away from keyboard" Style="{StaticResource DeltaNeutral}" />
           </VerticalStackLayout>
         </Border>
         <Border Grid.Column="3" Style="{StaticResource SetupResultCard}" Padding="12,10">
           <VerticalStackLayout Spacing="4">
-            <Label Text="Total Break Time" FontSize="11" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="{Binding BreakTimeDisplay}" FontSize="20" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-            <Label Text="{Binding BreakSessionsDisplay, StringFormat='{0} breaks'}" FontSize="11" TextColor="{StaticResource TextMuted}" />
+            <Label Text="Total Break Time" Style="{StaticResource StatLabel}" />
+            <Label Text="{Binding BreakTimeDisplay}" Style="{StaticResource StatValue}" />
+            <Label Text="{Binding BreakSessionsDisplay, StringFormat='{0} breaks'}" Style="{StaticResource DeltaNeutral}" />
           </VerticalStackLayout>
         </Border>
       </Grid>
@@ -74,13 +74,13 @@
       <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="12">
         <Border Style="{StaticResource SetupResultCard}">
           <Grid RowDefinitions="Auto,*">
-            <Label Text="Top Applications" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" Margin="0,0,0,8" />
+            <Label Text="Top Applications" Style="{StaticResource SectionTitle}" Margin="0,0,0,8" />
             <VerticalStackLayout Grid.Row="1" BindableLayout.ItemsSource="{Binding TopApps}" Spacing="8">
               <BindableLayout.ItemTemplate>
                 <DataTemplate x:DataType="vm:TopAppItem">
                   <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="{Binding Name}" FontSize="13" TextColor="{StaticResource TextPrimary}" LineBreakMode="TailTruncation" MaxLines="1" />
-                    <Label Grid.Column="1" Text="{Binding Duration}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}" />
+                    <Label Text="{Binding Name}" Style="{StaticResource ListItem}" />
+                    <Label Grid.Column="1" Text="{Binding Duration}" Style="{StaticResource ListTimestamp}" />
                   </Grid>
                 </DataTemplate>
               </BindableLayout.ItemTemplate>
@@ -89,18 +89,18 @@
         </Border>
         <Border Grid.Column="1" Style="{StaticResource SetupResultCard}">
           <VerticalStackLayout Spacing="10">
-            <Label Text="Session" FontSize="14" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+            <Label Text="Session" Style="{StaticResource SectionTitle}" />
             <Grid ColumnDefinitions="*,Auto">
-              <Label Text="Clock in" FontSize="13" TextColor="{StaticResource TextSecondary}" />
-              <Label Grid.Column="1" Text="{Binding ClockInDisplay}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Label Text="Clock in" Style="{StaticResource StatLabel}" />
+              <Label Grid.Column="1" Text="{Binding ClockInDisplay}" Style="{StaticResource ListTimestamp}" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" />
             </Grid>
             <Grid ColumnDefinitions="*,Auto">
-              <Label Text="Clock out" FontSize="13" TextColor="{StaticResource TextSecondary}" />
-              <Label Grid.Column="1" Text="{Binding ClockOutDisplay}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Label Text="Clock out" Style="{StaticResource StatLabel}" />
+              <Label Grid.Column="1" Text="{Binding ClockOutDisplay}" Style="{StaticResource ListTimestamp}" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" />
             </Grid>
             <Grid ColumnDefinitions="*,Auto">
-              <Label Text="Productive time" FontSize="13" TextColor="{StaticResource TextSecondary}" />
-              <Label Grid.Column="1" Text="{Binding ProductiveTimeDisplay}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+              <Label Text="Productive time" Style="{StaticResource StatLabel}" />
+              <Label Grid.Column="1" Text="{Binding ProductiveTimeDisplay}" Style="{StaticResource ListTimestamp}" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" />
             </Grid>
             <Label Text="{Binding ExcellentDayCaption}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" Margin="0,8,0,0" />
             <Label Text="You stayed focused and made meaningful progress." FontSize="12" TextColor="{StaticResource TextSecondary}" />
@@ -127,15 +127,15 @@
         <Grid>
           <Button Command="{Binding DownloadSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Download Summary" />
           <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
-            <Label Text="{StaticResource IconDownload}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
-            <Label Text="Download Summary" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
+            <Label Text="{StaticResource IconDownload}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="{StaticResource BrandTitle}" VerticalOptions="Center" />
+            <Label Text="Download Summary" Style="{StaticResource ButtonLabelOutline}" FontSize="13" />
           </HorizontalStackLayout>
         </Grid>
       </Border>
       <Border Grid.Column="2" Style="{StaticResource TrayPrimaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44" MinimumWidthRequest="120">
         <Grid>
           <Button Command="{Binding BackCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Back" />
-          <Label InputTransparent="True" Text="Back" FontSize="13" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+          <Label InputTransparent="True" Text="Back" Style="{StaticResource ButtonLabel}" FontSize="13" HorizontalOptions="Center" />
         </Grid>
       </Border>
     </Grid>

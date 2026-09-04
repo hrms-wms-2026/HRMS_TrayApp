@@ -23,6 +23,19 @@ public sealed class TrayScreenLayoutContractTests
     }
 
     [Fact]
+    public void ColorTokens_MatchTextRoleSpec()
+    {
+        var colors = ReadSource("ONEVO.Agent.TrayApp/Resources/Styles/Colors.xaml");
+        Assert.Contains("x:Key=\"TextPrimary\">#1E1B4B", colors, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"TextSecondary\">#6B7280", colors, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"TextMuted\">#9CA3AF", colors, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"StatusGreen\">#10B981", colors, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"Background\">#F8FAFC", colors, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"BackgroundWashEnd\">#F5F3FF", colors, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"BrandTitle\">#6C4DFF", colors, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SharedTextStyles_AreLargeEnoughToRead()
     {
         var styles = ReadSource("ONEVO.Agent.TrayApp/Resources/Styles/Styles.xaml");
@@ -36,6 +49,15 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Value=\"15\"", fieldValue, StringComparison.Ordinal);
         Assert.Contains("Value=\"13\"", stepStatus, StringComparison.Ordinal);
         Assert.DoesNotContain("HeightRequest", stepStatus, StringComparison.Ordinal);
+
+        var sectionTitle = SliceStyle(styles, "SectionTitle");
+        var statLabel = SliceStyle(styles, "StatLabel");
+        var statValue = SliceStyle(styles, "StatValue");
+        var footer = SliceStyle(styles, "FooterLabel");
+        Assert.Contains("Value=\"16\"", sectionTitle, StringComparison.Ordinal);
+        Assert.Contains("Value=\"13\"", statLabel, StringComparison.Ordinal);
+        Assert.Contains("Value=\"20\"", statValue, StringComparison.Ordinal);
+        Assert.Contains("Value=\"12\"", footer, StringComparison.Ordinal);
     }
 
     private static string SliceStyle(string styles, string key)
@@ -114,11 +136,51 @@ public sealed class TrayScreenLayoutContractTests
     }
 
     [Fact]
+    public void ReviewSetupPage_AlignsValuesOnTheRightWithRowLines()
+    {
+        var page = ReadSource("ONEVO.Agent.TrayApp/Views/ReviewSetupPage.xaml");
+        var row = ReadSource("ONEVO.Agent.TrayApp/Controls/ReviewDetailRow.xaml");
+
+        Assert.Contains("ReviewDetailRow", page, StringComparison.Ordinal);
+        Assert.Contains("Confirm Your ", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("ColumnDefinitions=\"40,*,Auto\"", page, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"32,Auto,*\"", row, StringComparison.Ordinal);
+        Assert.Contains("HorizontalTextAlignment=\"End\"", row, StringComparison.Ordinal);
+        Assert.Contains("ShowDivider", row, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ClockInHeroAction_UsesCompactHeightResource()
     {
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/ClockInPage.xaml");
         Assert.DoesNotContain("HeightRequest=\"92\"", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TrayHeroActionHeight", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConfirmPopups_UseFrostedGlassHost()
+    {
+        var clockIn = ReadSource("ONEVO.Agent.TrayApp/Views/ClockInPage.xaml");
+        var active = ReadSource("ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml");
+        var host = ReadSource("ONEVO.Agent.TrayApp/Controls/GlassConfirmHost.xaml");
+        var styles = ReadSource("ONEVO.Agent.TrayApp/Resources/Styles/Styles.xaml");
+
+        Assert.DoesNotContain("#80000000", clockIn, StringComparison.Ordinal);
+        Assert.DoesNotContain("#80000000", active, StringComparison.Ordinal);
+        Assert.Contains("GlassConfirmHost", clockIn, StringComparison.Ordinal);
+        Assert.Contains("GlassConfirmHost", active, StringComparison.Ordinal);
+        Assert.Contains("Start your workday?", clockIn, StringComparison.Ordinal);
+        Assert.Contains("Clock In Now", clockIn, StringComparison.Ordinal);
+        Assert.Contains("PopupInfoRow", clockIn, StringComparison.Ordinal);
+        Assert.Contains("Start Break?", active, StringComparison.Ordinal);
+        Assert.Contains("End Break?", active, StringComparison.Ordinal);
+        Assert.Contains("Work session will resume immediately.", active, StringComparison.Ordinal);
+        Assert.Contains("PopupGlassCard", host, StringComparison.Ordinal);
+        Assert.Contains("PopupScrim", host, StringComparison.Ordinal);
+        Assert.Contains("PopupClockBadge", host, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"PopupGlassCard\"", styles, StringComparison.Ordinal);
+        Assert.Contains("PopupCardBackground", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("Four-side scrim", host, StringComparison.Ordinal);
     }
 
     [Fact]

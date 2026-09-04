@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:Class="ONEVO.Agent.TrayApp.Controls.GlassConfirmHost"
+             x:Name="Root"
+             IsVisible="{Binding Source={x:Reference Root}, Path=IsOpen}">
+  <Grid>
+    <BoxView Color="{StaticResource PopupScrim}" />
+    <Border AutomationId="PopupGlassCard"
+            Style="{StaticResource PopupGlassCard}"
+            WidthRequest="420"
+            HorizontalOptions="Center"
+            VerticalOptions="Center">
+      <VerticalStackLayout Spacing="0">
+        <controls:PopupClockBadge Margin="0,0,0,10" />
+        <Label Text="{Binding Source={x:Reference Root}, Path=Title}"
+               Style="{StaticResource SectionTitle}"
+               FontSize="20"
+               HorizontalOptions="Center"
+               HorizontalTextAlignment="Center" />
+        <Label Text="{Binding Source={x:Reference Root}, Path=Message}"
+               Style="{StaticResource PageSubtitle}"
+               Margin="8,6,8,14" />
+        <ContentView x:Name="BodyHost" />
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,18,0,0">
+          <Border Grid.Column="0" Style="{StaticResource TraySecondaryActionBorder}"
+                  BackgroundColor="{StaticResource PopupCardBackground}"
+                  StrokeShape="RoundRectangle 24">
+            <Grid>
+              <Button Command="{Binding Source={x:Reference Root}, Path=CancelCommand}"
+                      Style="{StaticResource TrayPrimaryActionOverlay}"
+                      Text=""
+                      SemanticProperties.Description="{Binding Source={x:Reference Root}, Path=CancelText}" />
+              <Label Text="{Binding Source={x:Reference Root}, Path=CancelText}"
+                     Style="{StaticResource ButtonLabelOutline}"
+                     HorizontalOptions="Center"
+                     InputTransparent="True" />
+            </Grid>
+          </Border>
+          <Border Grid.Column="1"
+                  Style="{StaticResource TrayPrimaryActionBorder}"
+                  StrokeShape="RoundRectangle 24">
+            <Grid>
+              <Button Command="{Binding Source={x:Reference Root}, Path=ConfirmCommand}"
+                      Style="{StaticResource TrayPrimaryActionOverlay}"
+                      Text=""
+                      SemanticProperties.Description="{Binding Source={x:Reference Root}, Path=ConfirmText}" />
+              <Label Text="{Binding Source={x:Reference Root}, Path=ConfirmText}"
+                     Style="{StaticResource ButtonLabel}"
+                     HorizontalOptions="Center"
+                     InputTransparent="True" />
+            </Grid>
+          </Border>
+        </Grid>
+      </VerticalStackLayout>
+    </Border>
+  </Grid>
+</ContentView>

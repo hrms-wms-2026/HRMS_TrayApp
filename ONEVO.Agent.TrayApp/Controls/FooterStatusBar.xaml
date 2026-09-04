@@ -36,10 +36,7 @@
         </Ellipse.Triggers>
       </Ellipse>
       <Label Text="{Binding Source={x:Reference Root}, Path=ConnectionLabel}"
-             FontSize="13"
-             TextColor="{StaticResource TextSecondary}"
-             VerticalOptions="Center"
-             LineBreakMode="TailTruncation" MaxLines="1" />
+             Style="{StaticResource StatusBadge}" />
     </HorizontalStackLayout>
   </Grid>
 </ContentView>
