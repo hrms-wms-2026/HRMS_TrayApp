@@ -270,7 +270,7 @@ public class InactivityEvidenceHandlerTests
             new DpapiEvidenceProtector(),
             state,
             policy,
-            new DeviceIdentityStore(),
+            new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             NullLogger<InactivityEvidenceHandler>.Instance);
     }
 }
