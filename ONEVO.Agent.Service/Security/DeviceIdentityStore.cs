@@ -12,18 +12,43 @@ public sealed class DeviceIdentityStore
     public void Save(DeviceIdentity identity)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(IdentityPath)!);
-        File.WriteAllText(IdentityPath, JsonSerializer.Serialize(identity));
+        var json = JsonSerializer.Serialize(identity);
+        var tempPath = IdentityPath + ".tmp";
+        File.WriteAllText(tempPath, json);
+        File.Move(tempPath, IdentityPath, overwrite: true);
     }
 
     public DeviceIdentity? Load()
     {
-        if (!File.Exists(IdentityPath)) return null;
-        try { return JsonSerializer.Deserialize<DeviceIdentity>(File.ReadAllText(IdentityPath)); }
-        catch (JsonException) { return null; }
+        try
+        {
+            if (!File.Exists(IdentityPath)) return null;
+            using var stream = new FileStream(
+                IdentityPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete);
+            return JsonSerializer.Deserialize<DeviceIdentity>(stream);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
     }
 
     public void Clear()
     {
-        if (File.Exists(IdentityPath)) File.Delete(IdentityPath);
+        try
+        {
+            if (File.Exists(IdentityPath)) File.Delete(IdentityPath);
+        }
+        catch (IOException)
+        {
+            // Another process still has the file; the next Save overwrites.
+        }
     }
 }

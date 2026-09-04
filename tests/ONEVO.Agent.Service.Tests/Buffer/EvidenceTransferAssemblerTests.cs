@@ -5,6 +5,7 @@ using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
@@ -13,6 +14,7 @@ using Xunit;
 
 namespace ONEVO.Agent.Service.Tests.Buffer;
 
+[Collection(CredentialStoreFileCollection.Name)]
 public class EvidenceTransferAssemblerTests
 {
     private static InactivityCaptureAttemptPayload MakeAttempt(Guid id, string outcome, string? sha256 = null) => new()
