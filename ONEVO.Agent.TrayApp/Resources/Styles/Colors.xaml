@@ -10,13 +10,13 @@
     <Color x:Key="PrimaryGradientMid">#175CFF</Color>
     <Color x:Key="PrimaryGradientEnd">#6D28D9</Color>
 
-    <!-- Text -->
-    <Color x:Key="TextPrimary">#0F1B2D</Color>
-    <Color x:Key="TextSecondary">#3D4A5C</Color>
-    <Color x:Key="TextMuted">#5A6878</Color>
+    <!-- Text (design-system roles) -->
+    <Color x:Key="TextPrimary">#1E1B4B</Color>
+    <Color x:Key="TextSecondary">#6B7280</Color>
+    <Color x:Key="TextMuted">#9CA3AF</Color>
 
-    <!-- Surfaces -->
-    <Color x:Key="Background">#F4F7FF</Color>
+    <!-- Surfaces — light lavender-white, never pure page white -->
+    <Color x:Key="Background">#F8FAFC</Color>
     <Color x:Key="CardBackground">#FFFFFF</Color>
     <Color x:Key="RowBackground">#F8FAFF</Color>
     <Color x:Key="Separator">#E4E9F2</Color>
@@ -32,9 +32,17 @@
     <Color x:Key="GlassBorderEnd">#26FFFFFF</Color>
     <Color x:Key="GlassGlowPrimary">#8A22C7F0</Color>
     <Color x:Key="GlassGlowAccent">#8A6D28D9</Color>
+    <!-- Confirm popups: dim the page, keep the card itself solid white. -->
+    <Color x:Key="PopupScrim">#590F1B2D</Color>
+    <Color x:Key="PopupCardBackground">#FFFFFFFF</Color>
+    <Color x:Key="PopupGlassTint">#FFFFFFFF</Color>
+    <Color x:Key="PopupGlassTop">#FFFFFFFF</Color>
+    <Color x:Key="PopupGlassBottom">#FFFFFFFF</Color>
+    <Color x:Key="PopupClockFill">#EEF2FF</Color>
     <Color x:Key="AccentSoft">#F1E9FE</Color>
-    <Color x:Key="BackgroundWashStart">#DCE8FF</Color>
-    <Color x:Key="BackgroundWashEnd">#E9DCFF</Color>
+    <Color x:Key="BackgroundWashStart">#F8FAFC</Color>
+    <Color x:Key="BackgroundWashMid">#F3F0FF</Color>
+    <Color x:Key="BackgroundWashEnd">#F5F3FF</Color>
     <Color x:Key="BrandTitle">#6C4DFF</Color>
     <Color x:Key="ConnectButtonStart">#3B82F6</Color>
     <Color x:Key="ConnectButtonMid">#6366F1</Color>
@@ -43,7 +51,7 @@
     <Color x:Key="InputStroke">#C5D0E3</Color>
 
     <!-- Status -->
-    <Color x:Key="StatusGreen">#22C55E</Color>
+    <Color x:Key="StatusGreen">#10B981</Color>
     <Color x:Key="StatusGreenSoft">#ECFDF3</Color>
     <Color x:Key="StatusGreenBorder">#BBF7D0</Color>
     <Color x:Key="StatusRed">#EF4444</Color>

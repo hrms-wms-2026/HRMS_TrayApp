@@ -12,7 +12,7 @@
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
-        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashMid}" Offset="0.45" />
         <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
       </LinearGradientBrush>
     </Grid.Background>
@@ -37,7 +37,7 @@
             </FormattedString>
           </Label.FormattedText>
         </Label>
-        <Label Text="{Binding GreetingMessage}" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+        <Label Text="{Binding GreetingMessage}" Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" />
 
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12">
           <VerticalStackLayout Spacing="12">
@@ -57,7 +57,7 @@
                 </Border>
                 <Label Grid.Row="1" Text="Total Shift" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding TotalShiftDisplay}" Style="{StaticResource EndSessionMetricValue}" />
-                <Label Grid.Row="3" Text="Hrs" FontSize="11" TextColor="{StaticResource TextMuted}" HorizontalOptions="Center" />
+                <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
               <Grid Grid.Column="1" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Border Style="{StaticResource IconTileCircle}" BackgroundColor="#DCFCE7" HorizontalOptions="Center">
@@ -65,7 +65,7 @@
                 </Border>
                 <Label Grid.Row="1" Text="Total Work Duration" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding WorkingTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
-                <Label Grid.Row="3" Text="Hrs" FontSize="11" TextColor="{StaticResource TextMuted}" HorizontalOptions="Center" />
+                <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
               <Grid Grid.Column="2" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Border Style="{StaticResource IconTileCircle}" BackgroundColor="{StaticResource AccentSoft}" HorizontalOptions="Center">
@@ -73,7 +73,7 @@
                 </Border>
                 <Label Grid.Row="1" Text="Total Break Time" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding BreakTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
-                <Label Grid.Row="3" Text="Hrs" FontSize="11" TextColor="{StaticResource TextMuted}" HorizontalOptions="Center" />
+                <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
               <Grid Grid.Column="3" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Border Style="{StaticResource IconTileCircle}" HorizontalOptions="Center">
@@ -81,7 +81,7 @@
                 </Border>
                 <Label Grid.Row="1" Text="Productive Time" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding ProductiveTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
-                <Label Grid.Row="3" Text="Hrs" FontSize="11" TextColor="{StaticResource TextMuted}" HorizontalOptions="Center" />
+                <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
             </Grid>
           </VerticalStackLayout>

@@ -138,7 +138,7 @@ public partial class App : Microsoft.Maui.Controls.Application
                 Title           = "OneXso WorkPulse",
                 Icon            = "onexso_x_mark.png",
                 BackgroundColor = Colors.White,
-                ForegroundColor = Color.FromArgb("#0F1B2D")
+                ForegroundColor = Color.FromArgb("#1E1B4B")
             }
         };
 
@@ -198,7 +198,7 @@ public partial class App : Microsoft.Maui.Controls.Application
                 return;
 
             var white    = global::Windows.UI.Color.FromArgb(255, 255, 255, 255);
-            var text     = global::Windows.UI.Color.FromArgb(255, 15, 27, 45);
+            var text     = global::Windows.UI.Color.FromArgb(255, 30, 27, 75);
             var hover    = global::Windows.UI.Color.FromArgb(255, 241, 245, 249);
             var pressed  = global::Windows.UI.Color.FromArgb(255, 226, 232, 240);
             var inactive = global::Windows.UI.Color.FromArgb(255, 107, 122, 142);

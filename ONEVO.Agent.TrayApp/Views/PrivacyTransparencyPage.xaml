@@ -12,7 +12,7 @@
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
-        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashMid}" Offset="0.45" />
         <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
       </LinearGradientBrush>
     </Grid.Background>
