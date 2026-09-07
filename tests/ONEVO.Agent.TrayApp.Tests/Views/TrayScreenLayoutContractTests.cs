@@ -150,6 +150,51 @@ public sealed class TrayScreenLayoutContractTests
     }
 
     [Fact]
+    public void PrivacyTransparencyPage_MatchesPrivacyMock()
+    {
+        var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/PrivacyTransparencyPage.xaml");
+        Assert.Contains("workspace_privacy.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("Privacy &amp; ", xaml, StringComparison.Ordinal);
+        Assert.Contains("Transparency", xaml, StringComparison.Ordinal);
+        Assert.Contains("OneXso records", xaml, StringComparison.Ordinal);
+        Assert.Contains("OneXso does not collect", xaml, StringComparison.Ordinal);
+        Assert.Contains("I understand and agree", xaml, StringComparison.Ordinal);
+        Assert.Contains("View Privacy Policy", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_privacy_shield.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_privacy_ban.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_check_circle.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_x_circle.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("FooterStatusBar", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("workspace_connect.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("• Work session times", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrivacyConsentPage_MatchesRequiredPermissionsMock()
+    {
+        var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/PrivacyConsentPage.xaml");
+        Assert.Contains("workspace_permissions.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("Allow ", xaml, StringComparison.Ordinal);
+        Assert.Contains("Required Permissions", xaml, StringComparison.Ordinal);
+        Assert.Contains("Work Activity Monitoring", xaml, StringComparison.Ordinal);
+        Assert.Contains("Application Usage", xaml, StringComparison.Ordinal);
+        Assert.Contains("Location Access", xaml, StringComparison.Ordinal);
+        Assert.Contains("Camera Access", xaml, StringComparison.Ordinal);
+        Assert.Contains("System Notifications", xaml, StringComparison.Ordinal);
+        Assert.Contains("Allow &amp; Continue", xaml, StringComparison.Ordinal);
+        Assert.Contains("Why are these needed?", xaml, StringComparison.Ordinal);
+        Assert.Contains("IconHelp", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_perm_chart.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_perm_apps.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_perm_location.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_perm_camera.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_perm_bell.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("FooterStatusBar", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("workspace_connect.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsEnabled=\"False\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ClockInHeroAction_UsesCompactHeightResource()
     {
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/ClockInPage.xaml");
@@ -194,7 +239,19 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Devices", xaml, StringComparison.Ordinal);
         Assert.Contains("CLOCK IN", xaml, StringComparison.Ordinal);
         Assert.Contains("Not started", xaml, StringComparison.Ordinal);
-        Assert.Contains("IconStopwatch", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_calendar.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_clock.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_home.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_desktop.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_wifi.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_schedule.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_stopwatch.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_clockin_white.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_shield_status.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_shield_policy.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_person.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_laptop.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("IconStopwatch", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

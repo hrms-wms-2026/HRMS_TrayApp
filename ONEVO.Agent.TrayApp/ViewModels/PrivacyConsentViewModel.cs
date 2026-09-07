@@ -33,6 +33,13 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
         CameraAccessEnabled = policy.CameraVerificationEnabled;
     }
 
+    partial void OnScreenMonitoringEnabledChanged(bool value)
+    {
+        // Required by policy — keep the toggle on.
+        if (!value)
+            ScreenMonitoringEnabled = true;
+    }
+
     [RelayCommand]
     private static void WhyNeeded()
     {
