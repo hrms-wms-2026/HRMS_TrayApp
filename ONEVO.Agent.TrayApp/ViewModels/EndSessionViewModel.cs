@@ -33,7 +33,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     [ObservableProperty] private string _breakSessionsDisplay = "0";
     [ObservableProperty] private string _statusText         = "Clocked Out";
     [ObservableProperty] private string? _message;
-    [ObservableProperty] private string _greetingMessage = "Great job! You've had a productive day.";
+    [ObservableProperty] private string _greetingMessage = "Great job! You've had a productive day. 🎉";
     [ObservableProperty] private string _sessionEndedCaption = "Your work session has ended.";
     [ObservableProperty] private string _savedAtDisplay = "";
     [ObservableProperty] private string? _errorMessage;
@@ -47,7 +47,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         _pipe = pipe;
         _dayMetrics = dayMetrics;
         _iconCache = iconCache;
-        GreetingMessage = "Great job! You've had a productive day.";
+        GreetingMessage = "Great job! You've had a productive day. 🎉";
     }
 
     /// <summary>Test helper.</summary>
@@ -184,8 +184,8 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     private void ApplyGreeting()
     {
         GreetingMessage = string.IsNullOrWhiteSpace(EmployeeName)
-            ? "Great job! You've had a productive day."
-            : $"Great job, {EmployeeName}! You've had a productive day.";
+            ? "Great job! You've had a productive day. 🎉"
+            : $"Great job, {EmployeeName}! You've had a productive day. 🎉";
     }
 
     private void RefreshTopAppsAndIdle()
@@ -322,5 +322,26 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     {
         try { await Shell.Current.GoToAsync(SetupFlow.ClockIn); }
         catch { /* unit tests */ }
+    }
+
+    [RelayCommand]
+    private static void CloseApp()
+    {
+        try
+        {
+            if (Application.Current?.Windows.Count is not > 0)
+                return;
+            var window = Application.Current.Windows[0];
+#if WINDOWS
+            if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window native
+                && native.AppWindow is not null)
+            {
+                native.AppWindow.Hide();
+                return;
+            }
+#endif
+            _ = window;
+        }
+        catch { /* unit tests / window not ready */ }
     }
 }
