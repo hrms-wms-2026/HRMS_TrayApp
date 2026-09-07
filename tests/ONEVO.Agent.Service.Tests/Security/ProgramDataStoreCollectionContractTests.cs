@@ -3,9 +3,10 @@ namespace ONEVO.Agent.Service.Tests.Security;
 using Xunit;
 
 /// <summary>
-/// Guards the race that failed CI on identity.json: any test class that constructs a real
-/// DeviceIdentityStore or CredentialStore must sit in CredentialStoreFileCollection so
-/// xUnit does not run it in parallel with other ProgramData writers.
+/// Guards the race that failed CI on identity.json: any test class that constructs a
+/// parameterless DeviceIdentityStore() (real ProgramData path) or CredentialStore must sit
+/// in CredentialStoreFileCollection so xUnit does not run it in parallel with other
+/// ProgramData writers. Tests that inject a temp directory are isolated and exempt.
 /// </summary>
 public sealed class ProgramDataStoreCollectionContractTests
 {
@@ -23,7 +24,7 @@ public sealed class ProgramDataStoreCollectionContractTests
 
             var source = File.ReadAllText(path);
             var touchesStore =
-                source.Contains("new DeviceIdentityStore(", StringComparison.Ordinal)
+                source.Contains("new DeviceIdentityStore()", StringComparison.Ordinal)
                 || source.Contains("new CredentialStore(", StringComparison.Ordinal);
             if (!touchesStore)
                 continue;

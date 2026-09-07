@@ -16,8 +16,10 @@ using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
 
-// This class constructs real CredentialStore/DeviceIdentityStore instances that read/write
-// shared %ProgramData%\ONEVO\Agent\ files — see CredentialStoreFileCollection's own doc comment.
+// This class constructs a real CredentialStore that reads/writes the shared
+// %ProgramData%\ONEVO\Agent\ files — see CredentialStoreFileCollection's own doc comment.
+// (DeviceIdentityStore instances here are built with a per-test temp directory override, so
+// they don't need the same serialization.)
 [Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerDevicePairingTests
 {
@@ -39,7 +41,7 @@ public class AgentWorkerDevicePairingTests
             Options.Create(new AgentOptions()),
             apiClient,
             new CredentialStore(),
-            deviceIdentityStore ?? new DeviceIdentityStore(),
+            deviceIdentityStore ?? new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by device pairing
             null!, // InactivityEvidenceHandler — not touched by device pairing
             null!  // EvidenceSpoolStore — not touched by device pairing
@@ -108,7 +110,7 @@ public class AgentWorkerDevicePairingTests
                 interval_seconds = 5,
             })
         });
-        var identityStore = new DeviceIdentityStore();
+        var identityStore = new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()));
         identityStore.Save(new DeviceIdentity
         {
             DeviceId = "device-1",
