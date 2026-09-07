@@ -20,7 +20,6 @@ public partial class ClockInPage : ContentPage
     private const float ShadowOpacityRest = 0.55f;
     private const float ShadowOpacityHover = 0.85f;
 
-    private CancellationTokenSource? _statusPulse;
     private CancellationTokenSource? _clockInSparkleLoop;
     private bool _clockInHovering;
 
@@ -38,13 +37,11 @@ public partial class ClockInPage : ContentPage
             vm.OnAppearing();
 
         _ = PageAnimations.EntranceAsync(LeftPane, RightPane);
-        _statusPulse = PageAnimations.StartPulse(StatusDot, scaleTo: 1.3, duration: 850);
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        PageAnimations.StopPulse(_statusPulse, StatusDot);
         _clockInSparkleLoop?.Cancel();
         _clockInSparkleLoop = null;
     }

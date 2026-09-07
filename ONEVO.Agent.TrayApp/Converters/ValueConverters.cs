@@ -42,8 +42,8 @@ public sealed class BoolToColorConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         => value is true
-            ? Color.FromArgb("#22C55E")
-            : Color.FromArgb("#9CA8B6");
+            ? Color.FromArgb("#10B981")
+            : Color.FromArgb("#9CA3AF");
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();

@@ -6,6 +6,7 @@ using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
@@ -20,7 +21,10 @@ namespace ONEVO.Agent.Service.Tests;
 /// capability flag (ScreenshotEnabled/AppUsageEnabled/CameraVerificationEnabled) was false, and
 /// only got dropped later at ActivitySyncService flush time. These tests assert the ingest gate
 /// now mirrors ActivitySyncService.IsAllowedByPolicy's per-type mapping exactly.
+/// HandleCollectionSubmitAsync reads DeviceIdentityStore (identity.json under %ProgramData%),
+/// so this class must share CredentialStoreFileCollection with every other ProgramData writer.
 /// </summary>
+[Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerCollectionSubmitTests
 {
     private static AgentWorker BuildActiveWorker(PolicyCache policyCache, ActivityRecordBuffer buffer)

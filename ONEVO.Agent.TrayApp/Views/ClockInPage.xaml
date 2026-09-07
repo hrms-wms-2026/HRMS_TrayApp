@@ -13,7 +13,7 @@
       <Grid.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
           <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
-          <GradientStop Color="#EEF2FF" Offset="0.45" />
+          <GradientStop Color="{StaticResource BackgroundWashMid}" Offset="0.45" />
           <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
         </LinearGradientBrush>
       </Grid.Background>
@@ -27,7 +27,7 @@
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
                 <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="#DCFCE7" VerticalOptions="Center">
-                  <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource StatusGreen}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_shield_status.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Workspace Status" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
@@ -46,7 +46,7 @@
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
                 <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="{StaticResource AccentSoft}" VerticalOptions="Center">
-                  <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_shield_policy.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Policies" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
@@ -59,7 +59,7 @@
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
                 <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="{StaticResource PrimarySoft}" VerticalOptions="Center">
-                  <Label Text="{StaticResource IconPerson}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_person.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Profile" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
@@ -72,7 +72,7 @@
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
                 <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="{StaticResource PrimarySoft}" VerticalOptions="Center">
-                  <Label Text="{StaticResource IconLaptop}" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_laptop.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Devices" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
@@ -103,62 +103,62 @@
             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,*" RowSpacing="12" ColumnSpacing="12">
               <HorizontalStackLayout Grid.Row="0" Grid.Column="0" Spacing="10">
                 <Border Style="{StaticResource IconTileCircle}">
-                  <Label Text="{StaticResource IconCalendar}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_calendar.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="1">
-                  <Label Text="Today's Date" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding CurrentDateDisplay}" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                  <Label Text="Today's Date" Style="{StaticResource StatLabel}" />
+                  <Label Text="{Binding CurrentDateDisplay}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="10">
                 <Border Style="{StaticResource IconTileCircle}">
-                  <Label Text="{StaticResource IconClock}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_clock.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="1">
-                  <Label Text="Current Time" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding CurrentTimeDisplay}" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                  <Label Text="Current Time" Style="{StaticResource StatLabel}" />
+                  <Label Text="{Binding CurrentTimeDisplay}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Spacing="10">
                 <Border Style="{StaticResource IconTileCircle}">
-                  <Label Text="{StaticResource IconLocation}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center">
-                    <Label.Triggers>
-                      <DataTrigger TargetType="Label" Binding="{Binding WorkLocation}" Value="Work From Home">
-                        <Setter Property="Text" Value="&#xE80F;" />
+                  <Image Source="icon_pin.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center">
+                    <Image.Triggers>
+                      <DataTrigger TargetType="Image" Binding="{Binding WorkLocation}" Value="Work From Home">
+                        <Setter Property="Source" Value="icon_home.png" />
                       </DataTrigger>
-                    </Label.Triggers>
-                  </Label>
+                    </Image.Triggers>
+                  </Image>
                 </Border>
                 <VerticalStackLayout Spacing="1">
-                  <Label Text="Work Location" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding WorkLocation}" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                  <Label Text="Work Location" Style="{StaticResource StatLabel}" />
+                  <Label Text="{Binding WorkLocation}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="10">
                 <Border Style="{StaticResource IconTileCircle}">
-                  <Label Text="{StaticResource IconMonitor}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_desktop.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="1">
-                  <Label Text="Device" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding DeviceType}" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                  <Label Text="Device" Style="{StaticResource StatLabel}" />
+                  <Label Text="{Binding DeviceType}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="2" Grid.Column="0" Spacing="10">
                 <Border Style="{StaticResource IconTileCircle}" BackgroundColor="#DCFCE7">
-                  <Label Text="{StaticResource IconWifi}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource StatusGreen}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_wifi.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="1">
-                  <Label Text="Connection" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding InternetStatus}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" />
+                  <Label Text="Connection" Style="{StaticResource StatLabel}" />
+                  <Label Text="{Binding InternetStatus}" Style="{StaticResource FieldValue}" TextColor="{StaticResource StatusGreen}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="2" Grid.Column="1" Spacing="10">
                 <Border Style="{StaticResource IconTileCircle}">
-                  <Label Text="{StaticResource IconCalendar}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_schedule.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <VerticalStackLayout Spacing="1">
-                  <Label Text="Today's Schedule" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding ScheduleDisplay}" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                  <Label Text="Today's Schedule" Style="{StaticResource StatLabel}" />
+                  <Label Text="{Binding ScheduleDisplay}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
             </Grid>
@@ -202,7 +202,7 @@
               </Button>
               <HorizontalStackLayout InputTransparent="True" Spacing="10" HorizontalOptions="Center" VerticalOptions="Center">
                 <Border x:Name="ClockInIconCircle" WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="Transparent">
-                  <Label Text="{StaticResource IconClock}" FontFamily="Segoe MDL2 Assets" FontSize="18" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_clockin_white.png" WidthRequest="18" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Label Text="CLOCK IN" TextColor="White" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
               </HorizontalStackLayout>
@@ -212,14 +212,14 @@
           <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
             <Grid ColumnDefinitions="*,*">
               <HorizontalStackLayout Spacing="10">
-                <Label Text="{StaticResource IconStopwatch}" FontFamily="Segoe MDL2 Assets" FontSize="22" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
+                <Image Source="icon_stopwatch.png" WidthRequest="22" HeightRequest="22" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="1">
-                  <Label Text="Live Timer" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-                  <Label Text="{Binding LiveTimer}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                  <Label Text="Live Timer" Style="{StaticResource StatLabel}" />
+                  <Label Text="{Binding LiveTimer}" Style="{StaticResource StatValue}" FontSize="18" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <VerticalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="4">
-                <Label Text="Work Status" FontSize="14" TextColor="{StaticResource TextSecondary}" HorizontalOptions="End" />
+                <Label Text="Work Status" Style="{StaticResource StatLabel}" HorizontalOptions="End" />
                 <Border StrokeShape="RoundRectangle 10" Padding="10,4" BackgroundColor="#F3F5FA">
                   <Label Text="Not started" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}" />
                 </Border>
@@ -229,7 +229,6 @@
 
           <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}" FontSize="14" Margin="0,8,0,0"
                  IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
-          <Ellipse x:Name="StatusDot" WidthRequest="8" HeightRequest="8" Fill="{StaticResource StatusGreen}" Opacity="0" />
         </VerticalStackLayout>
       </Grid>
 
@@ -240,35 +239,24 @@
                                 SignOutCommand="{Binding SignOutCommand}" />
     </Grid>
 
-    <Grid IsVisible="{Binding IsStartConfirmVisible}" BackgroundColor="#80000000">
-      <Border Style="{StaticResource TrayCompactGlassCard}" WidthRequest="380"
-              HorizontalOptions="Center" VerticalOptions="Center" Padding="24">
-        <VerticalStackLayout Spacing="12">
-          <Label Text="{StaticResource IconClock}" FontFamily="Segoe MDL2 Assets" FontSize="28"
-                 TextColor="{StaticResource Primary}" HorizontalOptions="Center" />
-          <Label Text="Start your workday?" FontSize="18" FontAttributes="Bold"
-                 TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
-          <Label Text="Your attendance and work session will begin now."
-                 FontSize="14" TextColor="{StaticResource TextSecondary}" HorizontalTextAlignment="Center" />
-          <Label FontSize="13" TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center">
-            <Label.FormattedText>
-              <FormattedString>
-                <Span Text="Today's work location: " />
-                <Span Text="{Binding WorkLocation}" FontAttributes="Bold" />
-              </FormattedString>
-            </Label.FormattedText>
-          </Label>
-          <Label Text="Identity verification required" FontSize="14" TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
-          <Label Text="Monitoring starts after clock-in" FontSize="14" TextColor="{StaticResource TextPrimary}" HorizontalOptions="Center" />
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,8,0,0">
-            <Button Grid.Column="0" Text="Cancel" Command="{Binding CancelStartWorkdayCommand}"
-                    Style="{StaticResource OutlineButton}" HeightRequest="44" />
-            <Button Grid.Column="1" Text="Clock In Now" Command="{Binding ConfirmStartWorkdayCommand}"
-                    BackgroundColor="{StaticResource Primary}" TextColor="White"
-                    FontAttributes="Bold" CornerRadius="22" HeightRequest="44" />
-          </Grid>
+    <controls:GlassConfirmHost IsOpen="{Binding IsStartConfirmVisible}"
+                               Title="Start your workday?"
+                               Message="Your attendance and work session will begin now."
+                               CancelCommand="{Binding CancelStartWorkdayCommand}"
+                               ConfirmCommand="{Binding ConfirmStartWorkdayCommand}"
+                               ConfirmText="Clock In Now">
+      <controls:GlassConfirmHost.Body>
+        <VerticalStackLayout Spacing="0">
+          <controls:PopupInfoRow Icon="{StaticResource IconHome}"
+                                 Prefix="Today's work location: "
+                                 Value="{Binding WorkLocation}" />
+          <controls:PopupInfoRow Icon="{StaticResource IconShield}"
+                                 Caption="Identity verification required" />
+          <controls:PopupInfoRow Icon="{StaticResource IconMonitor}"
+                                 Caption="Monitoring starts after clock-in"
+                                 ShowDivider="False" />
         </VerticalStackLayout>
-      </Border>
-    </Grid>
+      </controls:GlassConfirmHost.Body>
+    </controls:GlassConfirmHost>
   </Grid>
 </ContentPage>

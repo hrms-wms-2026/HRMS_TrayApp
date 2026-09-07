@@ -12,13 +12,13 @@
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
-        <GradientStop Color="#EEF2FF" Offset="0.45" />
+        <GradientStop Color="{StaticResource BackgroundWashMid}" Offset="0.45" />
         <GradientStop Color="{StaticResource BackgroundWashEnd}" Offset="1" />
       </LinearGradientBrush>
     </Grid.Background>
 
     <Grid x:Name="PaneGrid" Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="28">
-      <Image x:Name="LeftPane" Grid.Column="0" Source="workspace_connect.png" Aspect="AspectFit" VerticalOptions="Center" />
+      <Image x:Name="LeftPane" Grid.Column="0" Source="workspace_privacy.png" Aspect="AspectFit" VerticalOptions="Center" />
 
       <VerticalStackLayout x:Name="RightPane" Grid.Column="1" VerticalOptions="Center" Spacing="0">
         <Label Margin="0,0,0,6">
@@ -32,37 +32,81 @@
         <Label Text="Understand how your work data is used and your privacy rights."
                Style="{StaticResource PageSubtitle}" HorizontalTextAlignment="Start" Margin="0,0,0,14" />
 
-        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12" Margin="0,0,0,10">
-          <VerticalStackLayout Spacing="6">
-            <HorizontalStackLayout Spacing="8">
-              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="{StaticResource BrandTitle}" VerticalOptions="Center" />
-              <Label Text="OneXso records" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
+        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,14" StrokeShape="RoundRectangle 20" Margin="0,0,0,10">
+          <VerticalStackLayout Spacing="0">
+            <HorizontalStackLayout Spacing="10" Margin="0,0,0,8">
+              <Border Style="{StaticResource IconTile}" BackgroundColor="{StaticResource AccentSoft}">
+                <Image Source="icon_privacy_shield.png" WidthRequest="18" HeightRequest="18"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <Label Text="OneXso records" FontAttributes="Bold" FontSize="15" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
             </HorizontalStackLayout>
-            <Label Text="• Work session times (clock in / out)" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Work activity monitoring (active / idle periods)" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Applications used and time spent" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Meeting activity and duration" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Device status and connectivity" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Identity verification events" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <VerticalStackLayout Spacing="6" Margin="4,0,0,0">
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_check_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Work session times (clock in / out)" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_check_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Work activity monitoring (active / idle periods)" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_check_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Applications used and time spent" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_check_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Meeting activity and duration" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_check_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Device status and connectivity" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_check_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Identity verification events" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+            </VerticalStackLayout>
           </VerticalStackLayout>
         </Border>
 
-        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12" Margin="0,0,0,12">
-          <VerticalStackLayout Spacing="6">
-            <HorizontalStackLayout Spacing="8">
-              <Label Text="{StaticResource IconCancel}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="{StaticResource StatusRed}" VerticalOptions="Center" />
-              <Label Text="OneXso does not collect" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
+        <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,14" StrokeShape="RoundRectangle 20" Margin="0,0,0,12">
+          <VerticalStackLayout Spacing="0">
+            <HorizontalStackLayout Spacing="10" Margin="0,0,0,8">
+              <Border Style="{StaticResource IconTile}" BackgroundColor="{StaticResource AccentSoft}">
+                <Image Source="icon_privacy_ban.png" WidthRequest="18" HeightRequest="18"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+              </Border>
+              <Label Text="OneXso does not collect" FontAttributes="Bold" FontSize="15" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
             </HorizontalStackLayout>
-            <Label Text="• Personal files or document contents" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Keystrokes or typed text" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Personal web browsing content" FontSize="14" TextColor="{StaticResource TextSecondary}" />
-            <Label Text="• Audio or video from meetings" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+            <VerticalStackLayout Spacing="6" Margin="4,0,0,0">
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_x_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Personal files or document contents" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_x_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Keystrokes or typed text" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_x_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Personal web browsing content" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+              <HorizontalStackLayout Spacing="8">
+                <Image Source="icon_x_circle.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Audio or video from meetings" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+              </HorizontalStackLayout>
+            </VerticalStackLayout>
           </VerticalStackLayout>
         </Border>
 
-        <HorizontalStackLayout Spacing="8" Margin="4,0,0,12">
+        <HorizontalStackLayout Spacing="8" Margin="4,0,0,12" HorizontalOptions="Start">
           <CheckBox IsChecked="{Binding HasAgreed}" Color="{StaticResource Primary}" VerticalOptions="Center" />
-          <Label Text="I understand and agree" FontSize="15" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+          <Label Text="I understand and agree" FontSize="15" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center">
+            <Label.GestureRecognizers>
+              <TapGestureRecognizer Command="{Binding ToggleAgreeCommand}" />
+            </Label.GestureRecognizers>
+          </Label>
         </HorizontalStackLayout>
 
         <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,8">

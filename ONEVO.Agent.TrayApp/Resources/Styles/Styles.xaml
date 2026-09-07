@@ -59,6 +59,20 @@
         <Setter Property="StrokeShape" Value="RoundRectangle 12" />
     </Style>
 
+    <!-- Confirm dialog: opaque white card. Page content must not show through. -->
+    <Style x:Key="PopupGlassCard" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource PopupCardBackground}" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 24" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{StaticResource Separator}" />
+        <Setter Property="Padding" Value="28,24" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#33003366" Offset="0,12" Radius="28" Opacity="0.22" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Gradient button wrapper Border -->
     <Style x:Key="GradientButtonBorder" TargetType="Border">
         <Setter Property="StrokeShape" Value="RoundRectangle 28" />
@@ -103,8 +117,8 @@
     <Style x:Key="TraySecondaryActionBorder" TargetType="Border">
         <Setter Property="StrokeShape" Value="RoundRectangle 24" />
         <Setter Property="StrokeThickness" Value="1.5" />
-        <Setter Property="Stroke" Value="{StaticResource SoftOutline}" />
-        <Setter Property="BackgroundColor" Value="{StaticResource GlassSurfaceTop}" />
+        <Setter Property="Stroke" Value="{StaticResource BrandTitle}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
         <Setter Property="HeightRequest" Value="{StaticResource TrayActionHeight}" />
     </Style>
 
@@ -149,8 +163,8 @@
     <!-- Outline secondary button -->
     <Style x:Key="OutlineButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
-        <Setter Property="TextColor" Value="{StaticResource Primary}" />
-        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
+        <Setter Property="TextColor" Value="{StaticResource BrandTitle}" />
+        <Setter Property="BorderColor" Value="{StaticResource BrandTitle}" />
         <Setter Property="BorderWidth" Value="1.5" />
         <Setter Property="CornerRadius" Value="28" />
         <Setter Property="HeightRequest" Value="56" />
@@ -244,23 +258,94 @@
         <Setter Property="HeightRequest" Value="32" />
     </Style>
 
-    <Style x:Key="EndSessionMetricLabel" TargetType="Label">
-        <Setter Property="FontSize" Value="11" />
+    <!-- Card section title — "Today's Completed Tasks" -->
+    <Style x:Key="SectionTitle" TargetType="Label">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+
+    <!-- Stat card label — "Total Focus Time" -->
+    <Style x:Key="StatLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+
+    <!-- Stat card big number — "4h 42m" -->
+    <Style x:Key="StatValue" TargetType="Label">
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="LineBreakMode" Value="NoWrap" />
+        <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <!-- Positive delta — "↑ 12% vs yesterday" -->
+    <Style x:Key="DeltaPositive" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="{StaticResource StatusGreen}" />
+        <Setter Property="LineBreakMode" Value="TailTruncation" />
+        <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <Style x:Key="DeltaNeutral" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="LineBreakMode" Value="TailTruncation" />
+        <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <!-- List item — "Finalize Q2 performance report" -->
+    <Style x:Key="ListItem" TargetType="Label">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="LineBreakMode" Value="TailTruncation" />
+        <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <!-- List timestamp — right-aligned gray -->
+    <Style x:Key="ListTimestamp" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="HorizontalOptions" Value="End" />
+        <Setter Property="HorizontalTextAlignment" Value="End" />
+        <Setter Property="LineBreakMode" Value="NoWrap" />
+        <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <!-- Primary / outline button label -->
+    <Style x:Key="ButtonLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <Style x:Key="ButtonLabelOutline" TargetType="Label" BasedOn="{StaticResource ButtonLabel}">
+        <Setter Property="TextColor" Value="{StaticResource BrandTitle}" />
+    </Style>
+
+    <!-- Status badge — "Connected" -->
+    <Style x:Key="StatusBadge" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="LineBreakMode" Value="TailTruncation" />
+        <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <Style x:Key="EndSessionMetricLabel" TargetType="Label" BasedOn="{StaticResource StatLabel}">
         <Setter Property="HorizontalOptions" Value="Center" />
         <Setter Property="HorizontalTextAlignment" Value="Center" />
-        <Setter Property="LineBreakMode" Value="WordWrap" />
         <Setter Property="MaxLines" Value="2" />
         <Setter Property="HeightRequest" Value="32" />
     </Style>
 
-    <Style x:Key="EndSessionMetricValue" TargetType="Label">
+    <Style x:Key="EndSessionMetricValue" TargetType="Label" BasedOn="{StaticResource StatValue}">
         <Setter Property="FontSize" Value="16" />
-        <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
         <Setter Property="HorizontalOptions" Value="Center" />
-        <Setter Property="LineBreakMode" Value="NoWrap" />
-        <Setter Property="MaxLines" Value="1" />
     </Style>
 
     <!-- Floating status chip overlaid on the clock-in hero illustration -->
@@ -273,9 +358,9 @@
 
     <!-- Soft outlined secondary action — frosted white pill -->
     <Style x:Key="SoftOutlineButton" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{StaticResource GlassSurfaceTop}" />
-        <Setter Property="TextColor" Value="{StaticResource Primary}" />
-        <Setter Property="BorderColor" Value="{StaticResource SoftOutline}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource CardBackground}" />
+        <Setter Property="TextColor" Value="{StaticResource BrandTitle}" />
+        <Setter Property="BorderColor" Value="{StaticResource BrandTitle}" />
         <Setter Property="BorderWidth" Value="1.4" />
         <Setter Property="CornerRadius" Value="28" />
         <Setter Property="HeightRequest" Value="56" />
@@ -309,8 +394,8 @@
     </Style>
 
     <Style x:Key="FooterLabel" TargetType="Label">
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextColor" Value="{StaticResource TextMuted}" />
         <Setter Property="VerticalOptions" Value="Center" />
     </Style>
 
