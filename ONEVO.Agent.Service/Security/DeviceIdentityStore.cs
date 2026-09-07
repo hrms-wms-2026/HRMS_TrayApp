@@ -5,9 +5,19 @@ using ONEVO.Agent.Shared.Models;
 
 public sealed class DeviceIdentityStore
 {
-    private static readonly string IdentityPath = Path.Combine(
+    private static readonly string DefaultIdentityDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ONEVO", "Agent", "identity.json");
+        "ONEVO", "Agent");
+
+    private readonly string _identityPath;
+
+    /// <summary>Production callers use the parameterless constructor (real ProgramData path).
+    /// Tests pass <paramref name="identityDirectoryOverride"/> (e.g. a per-test temp directory)
+    /// so parallel test runs don't share and race on the same real file.</summary>
+    public DeviceIdentityStore(string? identityDirectoryOverride = null)
+    {
+        _identityPath = Path.Combine(identityDirectoryOverride ?? DefaultIdentityDirectory, "identity.json");
+    }
 
     public void Save(DeviceIdentity identity)
     {
@@ -16,6 +26,8 @@ public sealed class DeviceIdentityStore
         var tempPath = IdentityPath + ".tmp";
         File.WriteAllText(tempPath, json);
         File.Move(tempPath, IdentityPath, overwrite: true);
+        Directory.CreateDirectory(Path.GetDirectoryName(_identityPath)!);
+        File.WriteAllText(_identityPath, JsonSerializer.Serialize(identity));
     }
 
     public DeviceIdentity? Load()
@@ -38,6 +50,9 @@ public sealed class DeviceIdentityStore
         {
             return null;
         }
+        if (!File.Exists(_identityPath)) return null;
+        try { return JsonSerializer.Deserialize<DeviceIdentity>(File.ReadAllText(_identityPath)); }
+        catch (JsonException) { return null; }
     }
 
     public void Clear()
@@ -50,5 +65,6 @@ public sealed class DeviceIdentityStore
         {
             // Another process still has the file; the next Save overwrites.
         }
+        if (File.Exists(_identityPath)) File.Delete(_identityPath);
     }
 }

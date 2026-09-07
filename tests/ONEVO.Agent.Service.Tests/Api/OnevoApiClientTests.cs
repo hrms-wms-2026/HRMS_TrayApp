@@ -305,6 +305,38 @@ public class OnevoApiClientTests
         Assert.Equal(AgentApiRoutes.TrayClockOut, captured!.RequestUri!.AbsolutePath);
     }
 
+    [Fact]
+    public async Task ClockOutAsync_Conflict_ReturnsConflictErrorCodeAndProblemDetailsMessage()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { detail = "Task 'Fix login bug' is still running. Push it before clocking out for the day." })
+        });
+        var client = Build(handler);
+
+        var result = await client.ClockOutAsync("device-jwt", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("CONFLICT", result.ErrorCode);
+        Assert.Equal("Task 'Fix login bug' is still running. Push it before clocking out for the day.", result.Message);
+    }
+
+    [Fact]
+    public async Task ClockOutAsync_ConflictWithUnparsableBody_ReturnsConflictErrorCodeWithNullMessage()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = new StringContent("not json", System.Text.Encoding.UTF8, "application/json")
+        });
+        var client = Build(handler);
+
+        var result = await client.ClockOutAsync("device-jwt", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("CONFLICT", result.ErrorCode);
+        Assert.Null(result.Message);
+    }
+
     private static OnevoApiClient Build(HttpMessageHandler handler) =>
         new(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
 

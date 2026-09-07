@@ -284,6 +284,12 @@ public sealed class OnevoApiClient
         if (response.StatusCode is HttpStatusCode.Forbidden)
             return new ClockActionResult(false, "TRAY_CLOCK_IN_NOT_ALLOWED", null);
 
+        if (response.StatusCode is HttpStatusCode.Conflict)
+        {
+            var detail = await TryReadProblemDetailAsync(response, ct);
+            return new ClockActionResult(false, "CONFLICT", detail);
+        }
+
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning("OnevoApi call to {Route} returned {Status}", route, (int)response.StatusCode);
@@ -291,6 +297,23 @@ public sealed class OnevoApiClient
         }
 
         return new ClockActionResult(true, null, null);
+    }
+
+    /// <summary>Best-effort read of the ProblemDetails "detail" field the backend sends on 409
+    /// Conflict responses (e.g. clock-out blocked by an open break or an active task session).
+    /// Returns null if the body isn't parsable JSON or carries no detail text.</summary>
+    private async Task<string?> TryReadProblemDetailAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var payload = await response.Content.ReadFromJsonAsync<ProblemDetailsPayload>(cancellationToken: ct);
+            return payload?.Detail;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi conflict response could not be parsed for a detail message");
+            return null;
+        }
     }
 
     /// <summary>Polls for pending break/idle notifications. Auth: Bearer Device JWT.</summary>
@@ -551,6 +574,10 @@ public sealed record TrayAttendanceStatusPayload(
 public sealed record AttendanceStatusResult(bool Success, string? ErrorCode, bool IsClockedIn, DateTimeOffset? ClockedInAtUtc);
 
 public sealed record ClockActionResult(bool Success, string? ErrorCode, string? Message);
+
+/// <summary>Wire-format mirror of the subset of ASP.NET Core's ProblemDetails this client reads.</summary>
+public sealed record ProblemDetailsPayload(
+    [property: JsonPropertyName("detail")] string? Detail);
 
 /// <summary>Wire-format mirror of the backend's EnrollmentAttemptResponseDto.</summary>
 public sealed record EnrollmentAttemptPayload(
