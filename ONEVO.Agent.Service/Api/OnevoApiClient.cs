@@ -442,6 +442,159 @@ public sealed class OnevoApiClient
             : new CompleteEnrollmentResult(true, null, payload.Status);
     }
 
+    /// <summary>Submits a "Request location change" action. Auth: Bearer Device JWT.</summary>
+    public async Task<LocationChangeRequestResult> SubmitLocationChangeRequestAsync(
+        string accessToken, double latitude, double longitude, double? accuracyMeters, string reason, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.LocationChangeRequestSubmit)
+        {
+            Content = JsonContent.Create(new LocationChangeRequestBody(latitude, longitude, accuracyMeters, reason))
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.LocationChangeRequestSubmit);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new LocationChangeRequestResult(false, "UNAUTHORIZED", null);
+
+        if (response.StatusCode is HttpStatusCode.Conflict)
+        {
+            var detail = await TryReadProblemDetailAsync(response, ct);
+            return new LocationChangeRequestResult(false, "CONFLICT", null, detail);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", AgentApiRoutes.LocationChangeRequestSubmit, (int)response.StatusCode);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        LocationChangeRequestPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<LocationChangeRequestPayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.LocationChangeRequestSubmit);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        return new LocationChangeRequestResult(true, null, payload);
+    }
+
+    /// <summary>Answers the post-clock-in "save this as your new location?" prompt. Auth: Bearer Device JWT.</summary>
+    public async Task<LocationChangeRequestResult> RespondToLocationChangeRequestAsync(
+        string accessToken, Guid id, bool apply, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        var route = string.Format(AgentApiRoutes.LocationChangeRequestRespond, id);
+        using var request = new HttpRequestMessage(HttpMethod.Post, route)
+        {
+            Content = JsonContent.Create(new RespondToLocationChangeRequestBody(apply))
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new LocationChangeRequestResult(false, "UNAUTHORIZED", null);
+
+        if (response.StatusCode is HttpStatusCode.NotFound)
+            return new LocationChangeRequestResult(false, "NOT_FOUND", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", route, (int)response.StatusCode);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        LocationChangeRequestPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<LocationChangeRequestPayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", route);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        return new LocationChangeRequestResult(true, null, payload);
+    }
+
+    /// <summary>Checks for an approved-but-not-yet-applied location change request. Auth: Bearer Device JWT.</summary>
+    public async Task<LocationChangeRequestResult> GetPendingLocationChangeDecisionAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.LocationChangeRequestPending);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.LocationChangeRequestPending);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new LocationChangeRequestResult(false, "UNAUTHORIZED", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", AgentApiRoutes.LocationChangeRequestPending, (int)response.StatusCode);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        // "No pending decision" comes back as a null Result.Value. ASP.NET Core's
+        // HttpNoContentOutputFormatter turns Ok(null) into 204 with a zero-length body rather than a
+        // literal "null" JSON token — ReadFromJsonAsync throws JsonException on that, so short-circuit
+        // before parsing instead of relying on the catch below to (mis)report it as SERVICE_UNAVAILABLE.
+        if (response.StatusCode is HttpStatusCode.NoContent
+            || response.Content.Headers.ContentLength is 0 or null)
+            return new LocationChangeRequestResult(true, null, null);
+
+        LocationChangeRequestPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<LocationChangeRequestPayload?>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.LocationChangeRequestPending);
+            return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        return new LocationChangeRequestResult(true, null, payload);
+    }
+
+    private sealed record LocationChangeRequestBody(double Latitude, double Longitude, double? AccuracyMeters, string Reason);
+
+    private sealed record RespondToLocationChangeRequestBody(bool Apply);
+
     private async Task<TrayAuthResult> PostAuthAsync(string route, object body, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("OnevoApi");
@@ -599,3 +752,24 @@ public sealed record BiometricProfilePayload(
     [property: JsonPropertyName("enrolled_at")] DateTimeOffset EnrolledAt);
 
 public sealed record CompleteEnrollmentResult(bool Success, string? ErrorCode, string? ProfileStatus);
+
+/// <summary>Wire-format mirror of the backend's LocationChangeRequestResponse (camelCase — ASP.NET
+/// Core's default JSON casing; this DTO has no explicit [JsonPropertyName] overrides on the
+/// backend side, unlike TrayAuthPayload/TrayAgentPolicyPayload which are explicitly snake_case).</summary>
+public sealed record LocationChangeRequestPayload(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("employeeId")] Guid EmployeeId,
+    [property: JsonPropertyName("requesterDisplayName")] string RequesterDisplayName,
+    [property: JsonPropertyName("requestedLatitude")] double RequestedLatitude,
+    [property: JsonPropertyName("requestedLongitude")] double RequestedLongitude,
+    [property: JsonPropertyName("requestedAccuracyMeters")] double? RequestedAccuracyMeters,
+    [property: JsonPropertyName("reason")] string Reason,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("requestedAt")] DateTimeOffset RequestedAt,
+    [property: JsonPropertyName("reviewedById")] Guid? ReviewedById,
+    [property: JsonPropertyName("reviewedAt")] DateTimeOffset? ReviewedAt,
+    [property: JsonPropertyName("reviewComment")] string? ReviewComment,
+    [property: JsonPropertyName("appliedAt")] DateTimeOffset? AppliedAt);
+
+public sealed record LocationChangeRequestResult(
+    bool Success, string? ErrorCode, LocationChangeRequestPayload? Request, string? Detail = null);

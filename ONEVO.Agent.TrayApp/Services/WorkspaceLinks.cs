@@ -9,9 +9,12 @@ namespace ONEVO.Agent.TrayApp.Services;
 /// (redirectIfAuthenticatedGuard), while '/dashboard' sits behind authGuard in MainLayoutComponent
 /// and is what actually sends an unauthenticated visitor to /auth/login or shows the real
 /// dashboard. Update both constants together when a real workspace domain is available.
+/// Dev root domain is onexso.com, not localhost (2026-09-04 switch — see the backend/frontend
+/// appsettings.Development.json and angular.json for the same change) — the local dev TLS cert's
+/// SAN list no longer covers *.localhost, so a stale *.localhost link here fails TLS validation.
 /// </summary>
 public static class WorkspaceLinks
 {
-    public const string PortalUrl = "https://acme.localhost:4200";
-    public const string DashboardUrl = "https://acme.localhost:4200/dashboard";
+    public const string PortalUrl = "https://acme.onexso.com:4200";
+    public const string DashboardUrl = "https://acme.onexso.com:4200/dashboard";
 }

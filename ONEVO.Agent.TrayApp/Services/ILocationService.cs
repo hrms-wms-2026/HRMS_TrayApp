@@ -32,3 +32,15 @@ public interface ILocationService
 {
     Task<LocationCaptureResult> GetCurrentAsync(CancellationToken ct = default);
 }
+
+/// <summary>Always-unavailable stand-in for view-model test constructors that don't exercise location
+/// capture — mirrors the NoOpCollectorLifecycleCoordinator convention.</summary>
+internal sealed class NoOpLocationService : ILocationService
+{
+    public static readonly NoOpLocationService Instance = new();
+
+    private NoOpLocationService() { }
+
+    public Task<LocationCaptureResult> GetCurrentAsync(CancellationToken ct = default) =>
+        Task.FromResult(LocationCaptureResult.Failed(LocationCaptureFailure.Unavailable));
+}

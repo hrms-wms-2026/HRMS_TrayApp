@@ -11,6 +11,11 @@ public sealed class FakeLocationService : ILocationService
         _result = result;
     }
 
-    public Task<LocationCaptureResult> GetCurrentAsync(CancellationToken ct = default) =>
-        Task.FromResult(_result);
+    public int CallCount { get; private set; }
+
+    public Task<LocationCaptureResult> GetCurrentAsync(CancellationToken ct = default)
+    {
+        CallCount++;
+        return Task.FromResult(_result);
+    }
 }

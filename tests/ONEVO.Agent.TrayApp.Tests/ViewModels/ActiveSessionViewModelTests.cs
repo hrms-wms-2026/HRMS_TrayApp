@@ -1,3 +1,4 @@
+using System.Text.Json;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
@@ -352,6 +353,75 @@ public sealed class ActiveSessionViewModelTests
         await vm.ClockOutCommand.ExecuteAsync(null);
 
         Assert.False(coordinator.ResumeCalled);
+    }
+
+    [Fact]
+    public void OnAppearing_ApprovedLocationChangeRequestPending_ShowsPrompt()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLocationChangePendingResult = new LocationChangePendingResultPayload(
+                true, null, new LocationChangeRequestSummaryPayload(Guid.NewGuid(), "approved", DateTimeOffset.UtcNow))
+        };
+        var vm = new ActiveSessionViewModel(pipe);
+
+        vm.OnAppearing();
+
+        Assert.True(vm.IsLocationChangePromptVisible);
+    }
+
+    [Fact]
+    public void OnAppearing_NoPendingLocationChangeRequest_DoesNotShowPrompt()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLocationChangePendingResult = new LocationChangePendingResultPayload(true, null, null)
+        };
+        var vm = new ActiveSessionViewModel(pipe);
+
+        vm.OnAppearing();
+
+        Assert.False(vm.IsLocationChangePromptVisible);
+    }
+
+    [Fact]
+    public async Task DismissLocationChangePrompt_SendsApplyFalse_AndHidesPromptWithoutResolving()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLocationChangePendingResult = new LocationChangePendingResultPayload(
+                true, null, new LocationChangeRequestSummaryPayload(Guid.NewGuid(), "approved", DateTimeOffset.UtcNow))
+        };
+        var vm = new ActiveSessionViewModel(pipe);
+        vm.OnAppearing();
+
+        await vm.DismissLocationChangePromptCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsLocationChangePromptVisible);
+        var sent = Assert.Single(pipe.SentEnvelopes, e => e.Type == IpcMessageTypes.LocationChangeRespond);
+        var payload = sent.Payload!.Value.Deserialize<LocationChangeRespondPayload>();
+        Assert.False(payload!.Apply);
+    }
+
+    [Fact]
+    public async Task ConfirmLocationChangePrompt_SendsApplyTrue_AndHidesPrompt()
+    {
+        var requestId = Guid.NewGuid();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLocationChangePendingResult = new LocationChangePendingResultPayload(
+                true, null, new LocationChangeRequestSummaryPayload(requestId, "approved", DateTimeOffset.UtcNow))
+        };
+        var vm = new ActiveSessionViewModel(pipe);
+        vm.OnAppearing();
+
+        await vm.ConfirmLocationChangePromptCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsLocationChangePromptVisible);
+        var sent = Assert.Single(pipe.SentEnvelopes, e => e.Type == IpcMessageTypes.LocationChangeRespond);
+        var payload = sent.Payload!.Value.Deserialize<LocationChangeRespondPayload>();
+        Assert.True(payload!.Apply);
+        Assert.Equal(requestId, payload.Id);
     }
 
     /// <summary>

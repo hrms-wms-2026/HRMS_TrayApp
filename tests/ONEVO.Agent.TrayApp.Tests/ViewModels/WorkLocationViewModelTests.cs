@@ -1,3 +1,4 @@
+using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
@@ -6,16 +7,23 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 
 public sealed class WorkLocationViewModelTests
 {
+    private static FakeNamedPipeClient LocationTrackingEnabledPipe() =>
+        new() { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = true } };
+
     private static WorkLocationViewModel MakeVm(
         LocationCaptureResult? result = null,
         FakeWorkLocationStore? store = null,
-        FakePreferencesStore? preferences = null)
+        FakePreferencesStore? preferences = null,
+        FakeNamedPipeClient? pipe = null)
     {
         result ??= LocationCaptureResult.Success(new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow));
         return new WorkLocationViewModel(
             new FakeLocationService(result),
             store ?? new FakeWorkLocationStore(),
-            preferences ?? new FakePreferencesStore());
+            preferences ?? new FakePreferencesStore(),
+            // Existing tests assume the always-capture behavior that predates location-tracking
+            // gating, so default the fake pipe's policy to "enabled" unless a test says otherwise.
+            pipe ?? LocationTrackingEnabledPipe());
     }
 
     [Fact]
@@ -152,5 +160,60 @@ public sealed class WorkLocationViewModelTests
         Assert.False(vm.Options[0].IsSelected);
         Assert.True(vm.Options[1].IsSelected);
         Assert.False(vm.Options[2].IsSelected);
+    }
+
+    [Fact]
+    public async Task DetectLocation_TrackingDisabled_NeverCallsLocationServiceAndClearsFix()
+    {
+        var locationService = new FakeLocationService(
+            LocationCaptureResult.Success(new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow)));
+        var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
+        var vm = new WorkLocationViewModel(locationService, new FakeWorkLocationStore(), new FakePreferencesStore(), pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+
+        Assert.Equal(0, locationService.CallCount);
+        Assert.Null(vm.CurrentFix);
+        Assert.False(vm.IsLocationVerified);
+        Assert.False(vm.HasDetectionError);
+        Assert.Equal("Location tracking is off", vm.DetectionTitle);
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_TrackingDisabled_EnabledOnceOptionSelectedWithoutFix()
+    {
+        var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
+        var vm = new WorkLocationViewModel(
+            new FakeLocationService(LocationCaptureResult.Success(new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow))),
+            new FakeWorkLocationStore(), new FakePreferencesStore(), pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        Assert.False(vm.ConfirmLocationCommand.CanExecute(null));
+
+        vm.SelectOptionCommand.Execute(vm.Options.Single(x => x.Code == "OFFICE"));
+        Assert.True(vm.ConfirmLocationCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_TrackingDisabled_SavesCodeAndDisplayButNoReferenceOrLiveCoordinates()
+    {
+        var store = new FakeWorkLocationStore();
+        var preferences = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
+        var vm = new WorkLocationViewModel(
+            new FakeLocationService(LocationCaptureResult.Success(new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow))),
+            store, preferences, pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        vm.SelectOptionCommand.Execute(vm.Options.Single(x => x.Code == "OFFICE"));
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsConfirmed);
+        Assert.Null(store.Value);
+        Assert.Equal("OFFICE", preferences.Get(SessionPreferenceKeys.WorkLocationCode, ""));
+        Assert.Equal("Office", preferences.Get(SessionPreferenceKeys.WorkLocationDisplay, ""));
+        Assert.Equal("", preferences.Get(SessionPreferenceKeys.LiveLatitude, ""));
+        Assert.Equal("", preferences.Get(SessionPreferenceKeys.LiveLongitude, ""));
+        Assert.True(WorkLocationFlow.IsConfirmedToday(preferences));
     }
 }
