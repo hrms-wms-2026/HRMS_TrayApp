@@ -14,6 +14,9 @@ public sealed partial class PrivacyTransparencyViewModel : BaseViewModel
     }
 
     [RelayCommand]
+    private void ToggleAgree() => HasAgreed = !HasAgreed;
+
+    [RelayCommand]
     private static void OpenPrivacyPolicy()
     {
         try

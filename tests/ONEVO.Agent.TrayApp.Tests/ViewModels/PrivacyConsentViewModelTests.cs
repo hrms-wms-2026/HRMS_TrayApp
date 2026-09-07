@@ -17,6 +17,14 @@ public sealed class PrivacyConsentViewModelTests
     }
 
     [Fact]
+    public void ScreenMonitoringEnabled_CannotBeTurnedOff()
+    {
+        var vm = Make();
+        vm.ScreenMonitoringEnabled = false;
+        Assert.True(vm.ScreenMonitoringEnabled);
+    }
+
+    [Fact]
     public void AppTrackingEnabled_DefaultsTrue()
     {
         var vm = Make();
