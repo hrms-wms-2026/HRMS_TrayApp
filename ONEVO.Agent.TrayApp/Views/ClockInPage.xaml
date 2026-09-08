@@ -26,9 +26,7 @@
                     AbsoluteLayout.LayoutBounds="0.04, 0.20, 172, 50"
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
-                <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="#DCFCE7" VerticalOptions="Center">
-                  <Image Source="icon_shield_status.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_shield_status.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Workspace Status" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
                   <Label Text="{Binding WorkspaceStatus}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" LineBreakMode="TailTruncation" MaxLines="1">
@@ -45,9 +43,7 @@
                     AbsoluteLayout.LayoutBounds="0.96, 0.16, 168, 50"
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
-                <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="{StaticResource AccentSoft}" VerticalOptions="Center">
-                  <Image Source="icon_shield_policy.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_shield_policy.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Policies" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
                   <Label Text="{Binding PoliciesStatus}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="TailTruncation" MaxLines="1" />
@@ -58,9 +54,7 @@
                     AbsoluteLayout.LayoutBounds="0.00, 0.38, 164, 50"
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
-                <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="{StaticResource PrimarySoft}" VerticalOptions="Center">
-                  <Image Source="icon_person.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_person.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Profile" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
                   <Label Text="{Binding EmployeeName}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="TailTruncation" MaxLines="1" />
@@ -71,9 +65,7 @@
                     AbsoluteLayout.LayoutBounds="1.00, 0.38, 168, 50"
                     AbsoluteLayout.LayoutFlags="PositionProportional">
               <HorizontalStackLayout Spacing="8">
-                <Border WidthRequest="28" HeightRequest="28" StrokeShape="RoundRectangle 14" StrokeThickness="0" BackgroundColor="{StaticResource PrimarySoft}" VerticalOptions="Center">
-                  <Image Source="icon_laptop.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_laptop.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="0" VerticalOptions="Center">
                   <Label Text="Devices" FontSize="14" TextColor="{StaticResource TextSecondary}" LineBreakMode="TailTruncation" MaxLines="1" />
                   <Label Text="{Binding DeviceType}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="TailTruncation" MaxLines="1" />
@@ -102,60 +94,48 @@
           <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12" Margin="0,0,0,14">
             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,*" RowSpacing="12" ColumnSpacing="12">
               <HorizontalStackLayout Grid.Row="0" Grid.Column="0" Spacing="10">
-                <Border Style="{StaticResource IconTileCircle}">
-                  <Image Source="icon_calendar.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_calendar.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="1">
                   <Label Text="Today's Date" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding CurrentDateDisplay}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="10">
-                <Border Style="{StaticResource IconTileCircle}">
-                  <Image Source="icon_clock.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_clock.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="1">
                   <Label Text="Current Time" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding CurrentTimeDisplay}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="1" Grid.Column="0" Spacing="10">
-                <Border Style="{StaticResource IconTileCircle}">
-                  <Image Source="icon_pin.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center">
-                    <Image.Triggers>
-                      <DataTrigger TargetType="Image" Binding="{Binding WorkLocation}" Value="Work From Home">
-                        <Setter Property="Source" Value="icon_home.png" />
-                      </DataTrigger>
-                    </Image.Triggers>
-                  </Image>
-                </Border>
+                <Image Source="icon_pin.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center">
+                  <Image.Triggers>
+                    <DataTrigger TargetType="Image" Binding="{Binding WorkLocation}" Value="Work From Home">
+                      <Setter Property="Source" Value="icon_home.png" />
+                    </DataTrigger>
+                  </Image.Triggers>
+                </Image>
                 <VerticalStackLayout Spacing="1">
                   <Label Text="Work Location" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding WorkLocation}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="1" Grid.Column="1" Spacing="10">
-                <Border Style="{StaticResource IconTileCircle}">
-                  <Image Source="icon_desktop.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_desktop.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="1">
                   <Label Text="Device" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding DeviceType}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="2" Grid.Column="0" Spacing="10">
-                <Border Style="{StaticResource IconTileCircle}" BackgroundColor="#DCFCE7">
-                  <Image Source="icon_wifi.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_wifi.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="1">
                   <Label Text="Connection" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding InternetStatus}" Style="{StaticResource FieldValue}" TextColor="{StaticResource StatusGreen}" />
                 </VerticalStackLayout>
               </HorizontalStackLayout>
               <HorizontalStackLayout Grid.Row="2" Grid.Column="1" Spacing="10">
-                <Border Style="{StaticResource IconTileCircle}">
-                  <Image Source="icon_schedule.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_schedule.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="1">
                   <Label Text="Today's Schedule" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding ScheduleDisplay}" Style="{StaticResource FieldValue}" />
@@ -212,7 +192,7 @@
           <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
             <Grid ColumnDefinitions="*,*">
               <HorizontalStackLayout Spacing="10">
-                <Image Source="icon_stopwatch.png" WidthRequest="22" HeightRequest="22" VerticalOptions="Center" />
+                <Image Source="icon_stopwatch.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
                 <VerticalStackLayout Spacing="1">
                   <Label Text="Live Timer" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding LiveTimer}" Style="{StaticResource StatValue}" FontSize="18" />
@@ -247,12 +227,12 @@
                                ConfirmText="Clock In Now">
       <controls:GlassConfirmHost.Body>
         <VerticalStackLayout Spacing="0">
-          <controls:PopupInfoRow Icon="{StaticResource IconHome}"
+          <controls:PopupInfoRow IconImage="icon3d_home.png"
                                  Prefix="Today's work location: "
                                  Value="{Binding WorkLocation}" />
-          <controls:PopupInfoRow Icon="{StaticResource IconShield}"
+          <controls:PopupInfoRow IconImage="icon3d_shield.png"
                                  Caption="Identity verification required" />
-          <controls:PopupInfoRow Icon="{StaticResource IconMonitor}"
+          <controls:PopupInfoRow IconImage="icon3d_desktop.png"
                                  Caption="Monitoring starts after clock-in"
                                  ShowDivider="False" />
         </VerticalStackLayout>

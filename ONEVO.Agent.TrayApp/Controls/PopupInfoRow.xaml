@@ -4,13 +4,20 @@
              x:Class="ONEVO.Agent.TrayApp.Controls.PopupInfoRow"
              x:Name="Root">
   <VerticalStackLayout Spacing="0">
-    <Grid ColumnDefinitions="28,*" ColumnSpacing="10" Padding="0,11">
+    <Grid ColumnDefinitions="32,*" ColumnSpacing="10" Padding="0,11">
+      <Image Source="{Binding Source={x:Reference Root}, Path=IconImage}"
+             WidthRequest="28" HeightRequest="28"
+             HorizontalOptions="Center"
+             VerticalOptions="Center"
+             Aspect="AspectFit"
+             IsVisible="{Binding Source={x:Reference Root}, Path=IconImage, Converter={StaticResource IsNotNullConverter}}" />
       <Label Text="{Binding Source={x:Reference Root}, Path=Icon}"
              FontFamily="Segoe MDL2 Assets"
              FontSize="16"
              TextColor="{StaticResource Primary}"
              HorizontalOptions="Center"
-             VerticalOptions="Center" />
+             VerticalOptions="Center"
+             IsVisible="{Binding Source={x:Reference Root}, Path=HasIconImage, Converter={StaticResource InvertBoolConverter}}" />
       <Label x:Name="TextLabel"
              Grid.Column="1"
              Style="{StaticResource ListItem}"

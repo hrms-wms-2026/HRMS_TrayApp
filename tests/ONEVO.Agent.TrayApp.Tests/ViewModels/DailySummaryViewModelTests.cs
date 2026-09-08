@@ -25,6 +25,13 @@ public sealed class DailySummaryViewModelTests
         Assert.Equal("09:00:00", vm.TotalShiftDisplay);
         Assert.NotEqual("—", vm.ClockInDisplay);
         Assert.NotEqual("—", vm.ClockOutDisplay);
+        Assert.Equal("8h 00m", vm.FocusCompactDisplay);
+        Assert.Equal("8h 00m", vm.ActiveCompactDisplay);
+        Assert.Equal("30m", vm.BreakCompactDisplay);
+        Assert.Equal("2 breaks", vm.BreakSessionsCaption);
+        Assert.True(vm.ActiveShareFraction > 0);
+        Assert.Contains("focused", vm.InsightFocus, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("regular breaks", vm.InsightBreaks, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

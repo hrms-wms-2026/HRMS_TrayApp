@@ -6,7 +6,7 @@ using System.Text;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
-public sealed record TopAppItem(string Name, string Duration, ImageSource? IconSource = null);
+public sealed record TopAppItem(string Name, string Duration, ImageSource? IconSource = null, string Percent = "");
 
 /// <summary>No-op icon cache for call sites that don't need real icons (unit tests).</summary>
 public sealed class NullAppIconCache : IAppIconCache

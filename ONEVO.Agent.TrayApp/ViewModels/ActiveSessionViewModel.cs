@@ -38,9 +38,16 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
     [NotifyPropertyChangedFor(nameof(ShowClockOutAction))]
+    [NotifyPropertyChangedFor(nameof(ShowBackToWorkActions))]
     private bool   _isOnBreak;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
+    [NotifyPropertyChangedFor(nameof(ShowClockOutAction))]
+    [NotifyPropertyChangedFor(nameof(ShowBackToWorkActions))]
+    private bool   _isBackToWork;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isEndBreakConfirmVisible;
+    [ObservableProperty] private bool   _isClockOutConfirmVisible;
     [ObservableProperty] private bool   _isBusyAction;
     [ObservableProperty] private string? _syncMessage;
     [ObservableProperty] private string? _errorMessage;
@@ -50,6 +57,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _workStartedCaption = "";
     [ObservableProperty] private string _breakTotalCaption = "Total Break Time: 00:00:00";
     [ObservableProperty] private string _productiveShareCaption = "0% of work duration";
+    [ObservableProperty] private string _breakEndedAtDisplay = "—";
+    [ObservableProperty] private string _lastBreakDurationDisplay = "00:00:00";
+    [ObservableProperty] private string _statusSinceCaption = "";
 
     // "Request location change" (remote work mode only).
     [ObservableProperty] private bool _isRemoteWorkMode;
@@ -77,7 +87,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         _location = location;
     }
 
-    public bool ShowWorkingActions => !IsOnBreak;
+    public bool ShowWorkingActions => !IsOnBreak && !IsBackToWork;
+
+    public bool ShowBackToWorkActions => IsBackToWork && !IsOnBreak;
 
     public bool ShowClockOutAction => ShowWorkingActions && (_pipe.LastKnownPolicy?.TrayClockInEnabled ?? false);
 
@@ -257,6 +269,16 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             HintMessage       = "You'll be notified when your break time is ending.";
             SyncMessage       = null;
         }
+        else if (IsBackToWork)
+        {
+            HeaderTitle       = "Back to Work";
+            HeaderLead        = "Back to";
+            HeaderAccent      = "Work";
+            HeaderSubtitle    = "Your work session has resumed successfully.";
+            StatusText        = "Working";
+            PrimaryTimerLabel = "Live Shift Timer";
+            HintMessage       = "You're doing great! Keep the momentum going.";
+        }
         else
         {
             HeaderTitle       = "You are now Clocked In";
@@ -271,8 +293,15 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
     partial void OnIsOnBreakChanged(bool value)
     {
+        if (value)
+            IsBackToWork = false;
         ApplyModeChrome();
         UpdateTimersCore();
+    }
+
+    partial void OnIsBackToWorkChanged(bool value)
+    {
+        ApplyModeChrome();
     }
 
     /// <summary>Recompute all timer strings from clock-in / break anchors (UTC).</summary>
@@ -331,6 +360,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         WorkStartedCaption = string.IsNullOrWhiteSpace(StartTimeDisplay) || StartTimeDisplay == "—"
             ? string.Empty
             : $"Started at {StartTimeDisplay}";
+        StatusSinceCaption = string.IsNullOrWhiteSpace(StartTimeDisplay) || StartTimeDisplay == "—"
+            ? string.Empty
+            : $"Since {StartTimeDisplay}";
         BreakTotalCaption = $"Total Break Time: {BreakTimeDisplay}";
         var share = wall.TotalSeconds <= 0
             ? 0
@@ -389,9 +421,14 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private async Task EndBreakAsync(CancellationToken ct)
     {
         IsEndBreakConfirmVisible = false;
+        LastBreakDurationDisplay = PrimaryTimer;
+        BreakEndedAtDisplay = DateTime.Now.ToString("hh:mm tt");
+        IsBackToWork = true;
         // EndBreak resumes monitoring rather than pausing it, so it does not go through the
         // pre-stop drain — collectors are already stopped for the break's duration.
         var result = await RunLifecycleAsync(LifecycleAction.EndBreak, ct);
+        if (result is { Success: false })
+            IsBackToWork = false;
         if (IsStaleSessionError(result))
         {
             try { await Shell.Current.GoToAsync("//clockin"); }
@@ -400,8 +437,29 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     }
 
     [RelayCommand]
+    private void ContinueWorking()
+    {
+        IsBackToWork = false;
+    }
+
+    [RelayCommand]
+    private void RequestClockOut()
+    {
+        if (IsOnBreak || IsBusyAction) return;
+        IsClockOutConfirmVisible = true;
+        ErrorMessage = null;
+    }
+
+    [RelayCommand]
+    private void CancelClockOutConfirm()
+    {
+        IsClockOutConfirmVisible = false;
+    }
+
+    [RelayCommand]
     private async Task ClockOutAsync(CancellationToken ct)
     {
+        IsClockOutConfirmVisible = false;
         if (_pipe.LastKnownPolicy?.CameraVerificationEnabled == true)
         {
             try { await Shell.Current.GoToAsync("//photo?context=clockout"); }
