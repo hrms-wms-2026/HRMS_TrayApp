@@ -27,4 +27,8 @@ public static class AgentApiRoutes
 
     public const string BiometricEnrollmentAttemptCreate   = "/api/v1/monitoring/biometrics/enrollment-attempts";
     public const string BiometricEnrollmentAttemptComplete = "/api/v1/monitoring/biometrics/enrollment-attempts/{0}/complete";
+
+    public const string LocationChangeRequestSubmit = "/api/v1/monitoring/location-change-requests";
+    public const string LocationChangeRequestRespond = "/api/v1/monitoring/location-change-requests/{0}/respond";
+    public const string LocationChangeRequestPending = "/api/v1/monitoring/location-change-requests/pending";
 }

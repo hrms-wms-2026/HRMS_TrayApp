@@ -11,6 +11,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private readonly INamedPipeClient _pipe;
     private readonly ISessionDayMetrics _dayMetrics;
     private readonly ICollectorLifecycleCoordinator _lifecycleCoordinator;
+    private readonly ILocationService _location;
     private IDispatcherTimer? _uiTimer;
     private DateTimeOffset? _clockInAt;
     private TimeSpan _accumulatedBreak;
@@ -50,24 +51,44 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _breakTotalCaption = "Total Break Time: 00:00:00";
     [ObservableProperty] private string _productiveShareCaption = "0% of work duration";
 
+    // "Request location change" (remote work mode only).
+    [ObservableProperty] private bool _isRemoteWorkMode;
+    [ObservableProperty] private bool _isRequestLocationChangeFormVisible;
+    [ObservableProperty] private string _locationChangeReason = string.Empty;
+    [ObservableProperty] private bool _isSubmittingLocationChange;
+    [ObservableProperty] private string? _locationChangeError;
+    [ObservableProperty] private string? _locationChangeStatusMessage;
+
+    // Post-clock-in "save this as your new location?" prompt.
+    [ObservableProperty] private bool _isLocationChangePromptVisible;
+    [ObservableProperty] private bool _isRespondingToLocationChangePrompt;
+    private Guid? _pendingLocationChangeRequestId;
+
     public ActiveSessionViewModel(
         INamedPipeClient pipe,
         ISessionDayMetrics dayMetrics,
-        ICollectorLifecycleCoordinator lifecycleCoordinator)
+        ICollectorLifecycleCoordinator lifecycleCoordinator,
+        ILocationService location)
     {
         Title = "Active Session";
         _pipe = pipe;
         _dayMetrics = dayMetrics;
         _lifecycleCoordinator = lifecycleCoordinator;
+        _location = location;
     }
 
     public bool ShowWorkingActions => !IsOnBreak;
 
     public bool ShowClockOutAction => ShowWorkingActions && (_pipe.LastKnownPolicy?.TrayClockInEnabled ?? false);
 
-    /// <summary>Test helper — empty day metrics, no-op collector-lifecycle drain.</summary>
+    /// <summary>Test helper — empty day metrics, no-op collector-lifecycle drain, no-op location capture.</summary>
     public ActiveSessionViewModel(INamedPipeClient pipe)
-        : this(pipe, new SessionDayMetrics(), NoOpCollectorLifecycleCoordinator.Instance) { }
+        : this(pipe, new SessionDayMetrics(), NoOpCollectorLifecycleCoordinator.Instance, NoOpLocationService.Instance) { }
+
+    /// <summary>Test helper — no-op location capture (existing 3-arg call sites keep compiling).</summary>
+    public ActiveSessionViewModel(
+        INamedPipeClient pipe, ISessionDayMetrics dayMetrics, ICollectorLifecycleCoordinator lifecycleCoordinator)
+        : this(pipe, dayMetrics, lifecycleCoordinator, NoOpLocationService.Instance) { }
 
     public void OnAppearing()
     {
@@ -92,8 +113,40 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         }
         catch { /* unit tests */ }
 
+        try
+        {
+            IsRemoteWorkMode = string.Equals(
+                Microsoft.Maui.Storage.Preferences.Get(SessionPreferenceKeys.WorkMode, string.Empty),
+                "Remote", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { IsRemoteWorkMode = false; }
+
+        // Fires after every clock-in (this page is navigated to right after one) — drives the
+        // "save this as your new location?" re-prompt per the approved-but-not-applied contract.
+        // Deliberately unconditional (not gated on IsRemoteWorkMode, which only reflects the label
+        // captured at enrollment/pairing time): the backend is the sole authority on eligibility —
+        // GetPendingLocationChangeDecisionQueryHandler already checks the WorkLocationVerification
+        // monitoring toggle and an approved request, so a Hybrid employee working remote today (per
+        // the backend's own daily IExpectedWorkAreaResolver, not the stale enrollment label) still
+        // gets prompted correctly even though the "Request Location Change" button stays hidden for them.
+        _ = CheckPendingLocationChangeAsync();
+
         EnsureUiTimerRunning();
         UpdateTimersCore();
+    }
+
+    private async Task CheckPendingLocationChangeAsync()
+    {
+        try
+        {
+            var result = await _pipe.SendLocationChangePendingCheckAsync(CancellationToken.None);
+            if (result is { Success: true, Request: not null })
+            {
+                _pendingLocationChangeRequestId = result.Request.Id;
+                IsLocationChangePromptVisible = true;
+            }
+        }
+        catch { /* best-effort — the next appearance/clock-in tries again */ }
     }
 
     public void OnDisappearing()
@@ -415,6 +468,106 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         catch
         {
             // Ignore if browser cannot open.
+        }
+    }
+
+    [RelayCommand]
+    private void RequestLocationChange()
+    {
+        if (!IsRemoteWorkMode) return;
+        LocationChangeReason = string.Empty;
+        LocationChangeError = null;
+        LocationChangeStatusMessage = null;
+        IsRequestLocationChangeFormVisible = true;
+    }
+
+    [RelayCommand]
+    private void CancelRequestLocationChange()
+    {
+        IsRequestLocationChangeFormVisible = false;
+    }
+
+    [RelayCommand]
+    private async Task SubmitLocationChangeAsync(CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(LocationChangeReason))
+        {
+            LocationChangeError = "Please enter a reason for the location change.";
+            return;
+        }
+
+        IsSubmittingLocationChange = true;
+        LocationChangeError = null;
+        try
+        {
+            var fix = await _location.GetCurrentAsync(ct);
+            if (!fix.IsSuccess)
+            {
+                LocationChangeError = "Could not detect your current location. Please retry.";
+                return;
+            }
+
+            var result = await _pipe.SendLocationChangeSubmitAsync(
+                fix.Fix!.Latitude, fix.Fix.Longitude, fix.Fix.AccuracyMeters, LocationChangeReason.Trim(), ct);
+
+            if (result is null)
+            {
+                LocationChangeError = "No response from OneXso Agent Service. Is the service running?";
+                return;
+            }
+
+            if (!result.Success)
+            {
+                LocationChangeError = result.ErrorCode switch
+                {
+                    "CONFLICT" => "You already have a pending or approved location change request.",
+                    "UNENROLLED" => "Device is not enrolled.",
+                    _ => "Could not submit your request. Please try again."
+                };
+                return;
+            }
+
+            IsRequestLocationChangeFormVisible = false;
+            LocationChangeStatusMessage = "Your location change request has been submitted for approval.";
+        }
+        finally
+        {
+            IsSubmittingLocationChange = false;
+        }
+    }
+
+    [RelayCommand]
+    private Task ConfirmLocationChangePromptAsync(CancellationToken ct) =>
+        RespondToLocationChangePromptAsync(apply: true, ct);
+
+    [RelayCommand]
+    private Task DismissLocationChangePromptAsync(CancellationToken ct) =>
+        RespondToLocationChangePromptAsync(apply: false, ct);
+
+    /// <summary>
+    /// "No" is deliberately not terminal — the backend leaves the request Approved either way, so
+    /// the next clock-in's CheckPendingLocationChangeAsync poll re-shows this same prompt until the
+    /// employee says "Yes". This call is best-effort UX/logging, not what makes "no" non-terminal.
+    /// </summary>
+    private async Task RespondToLocationChangePromptAsync(bool apply, CancellationToken ct)
+    {
+        if (_pendingLocationChangeRequestId is not { } id)
+        {
+            IsLocationChangePromptVisible = false;
+            return;
+        }
+
+        IsRespondingToLocationChangePrompt = true;
+        try
+        {
+            await _pipe.SendLocationChangeRespondAsync(id, apply, ct);
+        }
+        catch { /* best-effort — re-prompts next clock-in either way */ }
+        finally
+        {
+            IsRespondingToLocationChangePrompt = false;
+            IsLocationChangePromptVisible = false;
+            _pendingLocationChangeRequestId = null;
         }
     }
 

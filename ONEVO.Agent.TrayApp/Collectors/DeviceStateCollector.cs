@@ -16,6 +16,7 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private bool _running;
+    private int _idleThresholdSeconds = IdleDetector.DefaultIdleThresholdSeconds;
 
     public DeviceStateCollector(
         ILogger<DeviceStateCollector> logger,
@@ -30,10 +31,11 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
     {
         if (_running) return Task.CompletedTask;
+        _idleThresholdSeconds = policy.IdleThresholdMinutes * 60;
         _cts     = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _loop    = SampleLoopAsync(_cts.Token);
         _running = true;
-        _logger.LogInformation("{Name}: started", Name);
+        _logger.LogInformation("{Name}: started (idle threshold {Seconds}s)", Name, _idleThresholdSeconds);
         return Task.CompletedTask;
     }
 
@@ -63,7 +65,7 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
         {
             var now         = DateTimeOffset.UtcNow;
             var idleSeconds = IdleDetector.GetIdleSeconds();
-            var isIdle      = IdleDetector.IsIdle();
+            var isIdle      = IdleDetector.IsIdle(_idleThresholdSeconds);
 
             // No-input has persisted through this whole sample window — attribute it as idle time.
             // (idleSeconds is time-since-last-input, not a per-window delta, so this undercounts the

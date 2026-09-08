@@ -1,6 +1,7 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
 using System.Globalization;
+using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 
 /// <summary>One of the three approved work-location kinds shown on the confirmation screen.</summary>
@@ -37,11 +38,17 @@ public sealed partial class WorkLocationOption : ObservableObject
 /// Home/Other, capture one live GPS fix, and save it as the reference used later to verify
 /// Clock In location. Read-once by design — no background or continuous location tracking.
 /// </summary>
-public sealed partial class WorkLocationViewModel : BaseViewModel
+public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
 {
     private readonly ILocationService _location;
     private readonly IWorkLocationStore _store;
     private readonly IPreferencesStore _preferences;
+    private readonly INamedPipeClient _pipe;
+    private AgentPolicy? _currentPolicy;
+
+    /// <summary>Safe default (off) when no policy has arrived yet, mirroring the backend's own
+    /// "no config row = false" convention for this same WorkLocationVerification capability.</summary>
+    private bool LocationTrackingEnabled => _currentPolicy?.LocationTrackingEnabled ?? false;
 
     public IReadOnlyList<WorkLocationOption> Options { get; } =
     [
@@ -73,13 +80,25 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
 
     private string _afterConfirmRoute = WorkLocationFlow.PrepareRoute;
 
-    public WorkLocationViewModel(ILocationService location, IWorkLocationStore store, IPreferencesStore preferences)
+    public WorkLocationViewModel(
+        ILocationService location, IWorkLocationStore store, IPreferencesStore preferences, INamedPipeClient pipe)
     {
         Title = "Confirm Today's Work Location";
         _location = location;
         _store = store;
         _preferences = preferences;
+        _pipe = pipe;
+        _currentPolicy = pipe.LastKnownPolicy;
+        _pipe.OnPolicyReceived += HandlePolicyReceived;
     }
+
+    private void HandlePolicyReceived(AgentPolicy policy)
+    {
+        _currentPolicy = policy;
+        ConfirmLocationCommand.NotifyCanExecuteChanged();
+    }
+
+    public void Dispose() => _pipe.OnPolicyReceived -= HandlePolicyReceived;
 
     public void SetNextRoute(string? next) =>
         _afterConfirmRoute = WorkLocationFlow.ResolveNextRoute(next);
@@ -94,6 +113,20 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
         DetectionTitle = "Detecting location";
         DetectionDetail = "Finding your current position…";
         StatusText = "Detecting your current location…";
+
+        if (!LocationTrackingEnabled)
+        {
+            // Location tracking is off for this account - do not even request the OS location
+            // permission. The employee can still confirm a work location below without a GPS fix.
+            CurrentFix = null;
+            IsLocationVerified = false;
+            DetectionTitle = "Location tracking is off";
+            DetectionDetail = "Your organization has turned off location tracking. Pick your work location below to continue.";
+            StatusText = "Location tracking is turned off for your account.";
+            IsDetecting = false;
+            return;
+        }
+
         try
         {
             var result = await _location.GetCurrentAsync();
@@ -132,32 +165,40 @@ public sealed partial class WorkLocationViewModel : BaseViewModel
         SelectedOption = option;
     }
 
-    private bool CanConfirmLocation => SelectedOption is not null && CurrentFix is not null;
+    private bool CanConfirmLocation =>
+        SelectedOption is not null && (CurrentFix is not null || !LocationTrackingEnabled);
 
     [RelayCommand(CanExecute = nameof(CanConfirmLocation))]
     private async Task ConfirmLocation()
     {
         var option = SelectedOption!;
-        var fix = CurrentFix!;
-
-        var reference = new WorkLocationReference(
-            option.Kind,
-            option.Code,
-            option.DisplayName,
-            fix.Latitude,
-            fix.Longitude,
-            fix.AccuracyMeters,
-            option.RadiusMeters,
-            DateTimeOffset.UtcNow);
-
-        _store.Save(reference);
+        var fix = CurrentFix;
 
         // Legacy flat keys, still read directly by PhotoCaptureWindowViewModel when it submits
-        // the setup face photo record — keep them in sync alongside the typed reference above.
+        // the setup face photo record — keep them in sync alongside the typed reference below.
         _preferences.Set(SessionPreferenceKeys.WorkLocationCode, option.Code);
         _preferences.Set(SessionPreferenceKeys.WorkLocationDisplay, option.DisplayName);
-        _preferences.Set(SessionPreferenceKeys.LiveLatitude, fix.Latitude.ToString("G17", CultureInfo.InvariantCulture));
-        _preferences.Set(SessionPreferenceKeys.LiveLongitude, fix.Longitude.ToString("G17", CultureInfo.InvariantCulture));
+
+        if (fix is not null)
+        {
+            var reference = new WorkLocationReference(
+                option.Kind,
+                option.Code,
+                option.DisplayName,
+                fix.Latitude,
+                fix.Longitude,
+                fix.AccuracyMeters,
+                option.RadiusMeters,
+                DateTimeOffset.UtcNow);
+
+            _store.Save(reference);
+            _preferences.Set(SessionPreferenceKeys.LiveLatitude, fix.Latitude.ToString("G17", CultureInfo.InvariantCulture));
+            _preferences.Set(SessionPreferenceKeys.LiveLongitude, fix.Longitude.ToString("G17", CultureInfo.InvariantCulture));
+        }
+        // Location tracking is off for this account: no GPS fix was captured, so there is nothing
+        // to save as a WorkLocationReference or Live* coordinates — the code/display keys above are
+        // enough to record which option the employee picked.
+
         WorkLocationFlow.MarkConfirmedToday(_preferences);
 
         IsConfirmed = true;

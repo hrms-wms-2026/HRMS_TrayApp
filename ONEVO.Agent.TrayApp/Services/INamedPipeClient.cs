@@ -71,4 +71,25 @@ public interface INamedPipeClient
     /// <summary>Reports the WebView2 capture outcome and waits for the final BiometricEnrollmentResult (or timeout).</summary>
     Task<BiometricEnrollmentResultPayload?> CompleteBiometricEnrollmentAsync(
         Guid attemptId, bool captureSucceeded, string? clientErrorCode, CancellationToken ct);
+
+    /// <summary>
+    /// Submits a "Request location change" action (remote work mode) and waits for the correlated
+    /// LocationChangeSubmitResult (or timeout).
+    /// </summary>
+    Task<LocationChangeSubmitResultPayload?> SendLocationChangeSubmitAsync(
+        double latitude, double longitude, double? accuracyMeters, string reason, CancellationToken ct);
+
+    /// <summary>
+    /// Checks whether an approved-but-not-yet-applied location change request exists right now,
+    /// waiting for the correlated LocationChangePendingResult (or timeout). Poll this after every
+    /// clock-in to drive the "save this as your new location?" prompt.
+    /// </summary>
+    Task<LocationChangePendingResultPayload?> SendLocationChangePendingCheckAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Answers the "save this as your new location?" prompt and waits for the correlated
+    /// LocationChangeRespondResult (or timeout).
+    /// </summary>
+    Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
+        Guid id, bool apply, CancellationToken ct);
 }

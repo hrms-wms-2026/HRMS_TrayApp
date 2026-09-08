@@ -178,6 +178,29 @@ public class AgentWorkerTests : IDisposable
         Assert.Equal(MonitoringState.Stopped, result.State);
     }
 
+    [Fact]
+    public async Task HandleLocationChangePendingCheck_NoDeviceJwt_ReturnsUnenrolledWithoutCallingBackend()
+    {
+        var handler = new StubHandler(_ => throw new InvalidOperationException("must not call backend without a device JWT"));
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var worker = CreateSut(apiClient: apiClient, storeDeviceJwt: false);
+
+        LocationChangePendingResultPayload? result = null;
+        var envelope = new IpcEnvelope { Type = IpcMessageTypes.LocationChangePendingCheck };
+
+        await worker.HandleLocationChangePendingCheckAsync(envelope, reply =>
+        {
+            if (reply.Type == IpcMessageTypes.LocationChangePendingResult)
+                result = reply.Payload!.Value.Deserialize<LocationChangePendingResultPayload>();
+            return Task.CompletedTask;
+        });
+
+        Assert.NotNull(result);
+        Assert.False(result!.Success);
+        Assert.Equal("UNENROLLED", result.ErrorCode);
+        Assert.Null(result.Request);
+    }
+
     private sealed class StubHttpClientFactory : IHttpClientFactory
     {
         private readonly HttpMessageHandler _handler;

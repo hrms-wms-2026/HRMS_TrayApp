@@ -205,6 +205,60 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public void SimulateDevicePairingResult(DevicePairingResultPayload payload) =>
         OnDevicePairingResult?.Invoke(payload);
 
+    /// <summary>Optional canned result for SendLocationChangeSubmitAsync. Null = auto-success.</summary>
+    public LocationChangeSubmitResultPayload? NextLocationChangeSubmitResult { get; set; }
+
+    public Task<LocationChangeSubmitResultPayload?> SendLocationChangeSubmitAsync(
+        double latitude, double longitude, double? accuracyMeters, string reason, CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LocationChangeSubmit,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new LocationChangeSubmitPayload(latitude, longitude, accuracyMeters, reason))
+        });
+
+        if (NextLocationChangeSubmitResult is not null)
+            return Task.FromResult<LocationChangeSubmitResultPayload?>(NextLocationChangeSubmitResult);
+
+        return Task.FromResult<LocationChangeSubmitResultPayload?>(
+            new LocationChangeSubmitResultPayload(
+                true, null,
+                new LocationChangeRequestSummaryPayload(Guid.NewGuid(), "pending", DateTimeOffset.UtcNow)));
+    }
+
+    /// <summary>Optional canned result for SendLocationChangePendingCheckAsync. Null = auto "nothing pending".</summary>
+    public LocationChangePendingResultPayload? NextLocationChangePendingResult { get; set; }
+
+    public Task<LocationChangePendingResultPayload?> SendLocationChangePendingCheckAsync(CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.LocationChangePendingCheck });
+
+        return Task.FromResult<LocationChangePendingResultPayload?>(
+            NextLocationChangePendingResult ?? new LocationChangePendingResultPayload(true, null, null));
+    }
+
+    /// <summary>Optional canned result for SendLocationChangeRespondAsync. Null = auto-success.</summary>
+    public LocationChangeRespondResultPayload? NextLocationChangeRespondResult { get; set; }
+
+    public Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
+        Guid id, bool apply, CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LocationChangeRespond,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new LocationChangeRespondPayload(id, apply))
+        });
+
+        if (NextLocationChangeRespondResult is not null)
+            return Task.FromResult<LocationChangeRespondResultPayload?>(NextLocationChangeRespondResult);
+
+        return Task.FromResult<LocationChangeRespondResultPayload?>(
+            new LocationChangeRespondResultPayload(
+                true, null, new LocationChangeRequestSummaryPayload(id, apply ? "applied" : "approved", DateTimeOffset.UtcNow)));
+    }
+
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();
     public void SimulateState(MonitoringState s)  => OnStateReceived?.Invoke(s);
     public void SimulateStatus(StatusResponsePayload s)
