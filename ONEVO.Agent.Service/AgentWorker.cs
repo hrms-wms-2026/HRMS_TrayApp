@@ -264,6 +264,18 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 await HandleDevicePairingCancelAsync(envelope, reply);
                 break;
 
+            case IpcMessageTypes.LocationChangeSubmit:
+                await HandleLocationChangeSubmitAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.LocationChangePendingCheck:
+                await HandleLocationChangePendingCheckAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.LocationChangeRespond:
+                await HandleLocationChangeRespondAsync(envelope, reply);
+                break;
+
             case IpcMessageTypes.EvidenceTransferStart:
                 HandleEvidenceTransferStart(envelope);
                 break;
@@ -997,6 +1009,114 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         {
             _logger.LogWarning(ex, "Failed to broadcast device pairing result");
         }
+    }
+
+    private static LocationChangeRequestSummaryPayload? ToSummary(LocationChangeRequestPayload? request) =>
+        request is null ? null : new LocationChangeRequestSummaryPayload(request.Id, request.Status, request.RequestedAt);
+
+    internal async Task HandleLocationChangeSubmitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<LocationChangeSubmitPayload>();
+        if (payload is null)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangeSubmitResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LocationChangeSubmitResultPayload(false, "INVALID_PAYLOAD", null))
+            });
+            return;
+        }
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangeSubmitResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LocationChangeSubmitResultPayload(false, "UNENROLLED", null))
+            });
+            return;
+        }
+
+        var result = await _apiClient.SubmitLocationChangeRequestAsync(
+            jwt, payload.Latitude, payload.Longitude, payload.AccuracyMeters, payload.Reason, CancellationToken.None);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LocationChangeSubmitResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new LocationChangeSubmitResultPayload(result.Success, result.ErrorCode, ToSummary(result.Request)))
+        });
+    }
+
+    internal async Task HandleLocationChangePendingCheckAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangePendingResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LocationChangePendingResultPayload(false, "UNENROLLED", null))
+            });
+            return;
+        }
+
+        var result = await _apiClient.GetPendingLocationChangeDecisionAsync(jwt, CancellationToken.None);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LocationChangePendingResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new LocationChangePendingResultPayload(result.Success, result.ErrorCode, ToSummary(result.Request)))
+        });
+    }
+
+    internal async Task HandleLocationChangeRespondAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<LocationChangeRespondPayload>();
+        if (payload is null)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangeRespondResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LocationChangeRespondResultPayload(false, "INVALID_PAYLOAD", null))
+            });
+            return;
+        }
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangeRespondResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LocationChangeRespondResultPayload(false, "UNENROLLED", null))
+            });
+            return;
+        }
+
+        var result = await _apiClient.RespondToLocationChangeRequestAsync(jwt, payload.Id, payload.Apply, CancellationToken.None);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LocationChangeRespondResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new LocationChangeRespondResultPayload(result.Success, result.ErrorCode, ToSummary(result.Request)))
+        });
     }
 
     private async Task ReplyEnrollmentAsync(

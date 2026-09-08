@@ -209,6 +209,14 @@
             </Grid>
           </Border>
 
+          <HorizontalStackLayout Spacing="6" HorizontalOptions="Center" IsVisible="{Binding IsRemoteWorkMode}">
+            <Button Text="Request Location Change" Command="{Binding RequestLocationChangeCommand}"
+                    Style="{StaticResource OutlineButton}" FontSize="13" Padding="12,6" HeightRequest="34" />
+          </HorizontalStackLayout>
+          <Label Text="{Binding LocationChangeStatusMessage}" TextColor="{StaticResource StatusGreen}" FontSize="13"
+                 HorizontalTextAlignment="Center"
+                 IsVisible="{Binding LocationChangeStatusMessage, Converter={StaticResource IsNotNullConverter}}" />
+
           <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource StatusRed}" FontSize="14"
                  IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
           <ActivityIndicator IsRunning="{Binding IsBusyAction}" IsVisible="{Binding IsBusyAction}" Color="{StaticResource Primary}" />
@@ -298,6 +306,36 @@
                                  Caption="Work session will resume immediately."
                                  ShowDivider="False" />
         </VerticalStackLayout>
+      </controls:GlassConfirmHost.Body>
+    </controls:GlassConfirmHost>
+
+    <controls:GlassConfirmHost IsOpen="{Binding IsRequestLocationChangeFormVisible}"
+                               Title="Request Location Change"
+                               Message="This captures your current location and sends it to your manager for approval. Your saved work location won't change until you accept it on a later clock-in."
+                               CancelCommand="{Binding CancelRequestLocationChangeCommand}"
+                               ConfirmCommand="{Binding SubmitLocationChangeCommand}"
+                               ConfirmText="Submit Request">
+      <controls:GlassConfirmHost.Body>
+        <VerticalStackLayout Spacing="8">
+          <Label Text="Reason" Style="{StaticResource StatLabel}" />
+          <Editor Text="{Binding LocationChangeReason}" Placeholder="Why are you working from a new location?"
+                  HeightRequest="80" AutoSize="TextChanges" />
+          <Label Text="{Binding LocationChangeError}" TextColor="{StaticResource StatusRed}" FontSize="13"
+                 IsVisible="{Binding LocationChangeError, Converter={StaticResource IsNotNullConverter}}" />
+          <ActivityIndicator IsRunning="{Binding IsSubmittingLocationChange}" IsVisible="{Binding IsSubmittingLocationChange}" Color="{StaticResource Primary}" />
+        </VerticalStackLayout>
+      </controls:GlassConfirmHost.Body>
+    </controls:GlassConfirmHost>
+
+    <controls:GlassConfirmHost IsOpen="{Binding IsLocationChangePromptVisible}"
+                               Title="Save This as Your New Location?"
+                               Message="Your location change request was approved. Save it as your new registered work location? If you choose not now, you'll be asked again on your next clock-in."
+                               CancelCommand="{Binding DismissLocationChangePromptCommand}"
+                               CancelText="Not Now"
+                               ConfirmCommand="{Binding ConfirmLocationChangePromptCommand}"
+                               ConfirmText="Save as New Location">
+      <controls:GlassConfirmHost.Body>
+        <ActivityIndicator IsRunning="{Binding IsRespondingToLocationChangePrompt}" IsVisible="{Binding IsRespondingToLocationChangePrompt}" Color="{StaticResource Primary}" />
       </controls:GlassConfirmHost.Body>
     </controls:GlassConfirmHost>
   </Grid>

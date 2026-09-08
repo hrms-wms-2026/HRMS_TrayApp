@@ -74,6 +74,27 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: unsolicited push with the terminal outcome of a device pairing (approved, denied, or expired).</summary>
     public const string DevicePairingResult = "DevicePairingResult";
+
+    /// <summary>Tray → Service: employee submits a "Request location change" action (remote work mode only).</summary>
+    public const string LocationChangeSubmit = "LocationChangeSubmit";
+
+    /// <summary>Service → Tray: result of a LocationChangeSubmit call.</summary>
+    public const string LocationChangeSubmitResult = "LocationChangeSubmitResult";
+
+    /// <summary>Tray → Service: is there an approved-but-not-yet-applied location change request right
+    /// now? Polled from the tray's main clocked-in screen after every clock-in (§ design note on
+    /// GetPendingLocationChangeDecisionQuery: not every clock-in path submits a check-in, so this
+    /// can't be tied to any one specific clock-in reply).</summary>
+    public const string LocationChangePendingCheck = "LocationChangePendingCheck";
+
+    /// <summary>Service → Tray: reply to LocationChangePendingCheck.</summary>
+    public const string LocationChangePendingResult = "LocationChangePendingResult";
+
+    /// <summary>Tray → Service: employee answered the "save this as your new location?" prompt.</summary>
+    public const string LocationChangeRespond = "LocationChangeRespond";
+
+    /// <summary>Service → Tray: result of a LocationChangeRespond call.</summary>
+    public const string LocationChangeRespondResult = "LocationChangeRespondResult";
 }
 
 public enum LifecycleAction
@@ -205,3 +226,28 @@ public sealed record DevicePairingResultPayload
     public string? OfficeName { get; init; }
     public string? OrganizationName { get; init; }
 }
+
+/// <summary>Minimal shape the tray UI needs for a location change request — just enough to drive
+/// the "Request location change" confirmation and the post-clock-in re-prompt. The backend's
+/// richer LocationChangeRequestResponse (reviewer, coordinates, etc.) is not forwarded over IPC;
+/// only OnevoApiClient's wire-format mirror sees that.</summary>
+public sealed record LocationChangeRequestSummaryPayload(
+    Guid Id,
+    string Status, // LocationChangeRequest.StatusPending | StatusApproved | StatusRejected | StatusCancelled | StatusApplied
+    DateTimeOffset RequestedAt);
+
+public sealed record LocationChangeSubmitPayload(
+    double Latitude, double Longitude, double? AccuracyMeters, string Reason);
+
+public sealed record LocationChangeSubmitResultPayload(
+    bool Success, string? ErrorCode, LocationChangeRequestSummaryPayload? Request);
+
+public sealed record LocationChangePendingCheckPayload;
+
+public sealed record LocationChangePendingResultPayload(
+    bool Success, string? ErrorCode, LocationChangeRequestSummaryPayload? Request);
+
+public sealed record LocationChangeRespondPayload(Guid Id, bool Apply);
+
+public sealed record LocationChangeRespondResultPayload(
+    bool Success, string? ErrorCode, LocationChangeRequestSummaryPayload? Request);

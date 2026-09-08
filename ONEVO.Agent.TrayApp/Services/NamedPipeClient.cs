@@ -409,6 +409,129 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public async Task<LocationChangeSubmitResultPayload?> SendLocationChangeSubmitAsync(
+        double latitude, double longitude, double? accuracyMeters, string reason, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangeSubmit,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LocationChangeSubmitPayload(latitude, longitude, accuracyMeters, reason))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Location change request submit timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<LocationChangeSubmitResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
+    public async Task<LocationChangePendingResultPayload?> SendLocationChangePendingCheckAsync(CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangePendingCheck,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(new LocationChangePendingCheckPayload())
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Location change pending check timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<LocationChangePendingResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
+    public async Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
+        Guid id, bool apply, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LocationChangeRespond,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(new LocationChangeRespondPayload(id, apply))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Location change respond timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<LocationChangeRespondResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task SubmitCollectionRecordsAsync(
         IReadOnlyList<CollectionRecord> records,
         CancellationToken ct)
@@ -500,7 +623,10 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         or IpcMessageTypes.LogoutResult
                         or IpcMessageTypes.BiometricEnrollmentSessionReady
                         or IpcMessageTypes.BiometricEnrollmentResult
-                        or IpcMessageTypes.DevicePairingStarted)
+                        or IpcMessageTypes.DevicePairingStarted
+                        or IpcMessageTypes.LocationChangeSubmitResult
+                        or IpcMessageTypes.LocationChangePendingResult
+                        or IpcMessageTypes.LocationChangeRespondResult)
                 {
                     pending.TrySetResult(envelope);
                 }
