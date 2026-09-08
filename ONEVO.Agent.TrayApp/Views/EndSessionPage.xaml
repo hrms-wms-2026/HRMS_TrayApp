@@ -42,42 +42,43 @@
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12">
           <VerticalStackLayout Spacing="12">
             <Grid ColumnDefinitions="36,*" ColumnSpacing="10">
-              <Border Style="{StaticResource IconTileCircle}" BackgroundColor="#DCFCE7">
-                <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource StatusGreen}" HorizontalOptions="Center" VerticalOptions="Center" />
-              </Border>
+              <Image Source="icon_end_check.png" WidthRequest="28" HeightRequest="28" VerticalOptions="Center" />
               <VerticalStackLayout Grid.Column="1">
                 <Label Text="You've Clocked Out Successfully" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
                 <Label Text="{Binding SessionEndedCaption}" FontSize="14" TextColor="{StaticResource TextSecondary}" />
               </VerticalStackLayout>
             </Grid>
-            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="4">
+            <Grid ColumnDefinitions="*,Auto,*,Auto,*,Auto,*">
               <Grid Grid.Column="0" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Border Style="{StaticResource IconTileCircle}" HorizontalOptions="Center">
-                  <Label Text="{StaticResource IconClock}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_clock.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Label Grid.Row="1" Text="Total Shift" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding TotalShiftDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
-              <Grid Grid.Column="1" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
+              <BoxView Grid.Column="1" WidthRequest="1" Color="{StaticResource Separator}" Margin="6,10" />
+              <Grid Grid.Column="2" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Border Style="{StaticResource IconTileCircle}" BackgroundColor="#DCFCE7" HorizontalOptions="Center">
-                  <Label Text="{StaticResource IconWork}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource StatusGreen}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_end_briefcase.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Label Grid.Row="1" Text="Total Work Duration" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding WorkingTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
-              <Grid Grid.Column="2" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
+              <BoxView Grid.Column="3" WidthRequest="1" Color="{StaticResource Separator}" Margin="6,10" />
+              <Grid Grid.Column="4" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Border Style="{StaticResource IconTileCircle}" BackgroundColor="{StaticResource AccentSoft}" HorizontalOptions="Center">
-                  <Label Text="{StaticResource IconCafe}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_end_coffee.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Label Grid.Row="1" Text="Total Break Time" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding BreakTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
-              <Grid Grid.Column="3" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
+              <BoxView Grid.Column="5" WidthRequest="1" Color="{StaticResource Separator}" Margin="6,10" />
+              <Grid Grid.Column="6" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Border Style="{StaticResource IconTileCircle}" HorizontalOptions="Center">
-                  <Label Text="{StaticResource IconChart}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+                  <Image Source="icon_chart_blue.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
                 <Label Grid.Row="1" Text="Productive Time" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding ProductiveTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
@@ -89,9 +90,7 @@
 
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
           <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
-            <Border Style="{StaticResource IconTileCircle}" BackgroundColor="#DCFCE7">
-              <Label Text="{StaticResource IconCheck}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource StatusGreen}" HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
+            <Image Source="icon_end_check.png" WidthRequest="28" HeightRequest="28" VerticalOptions="Center" />
             <VerticalStackLayout Grid.Column="1">
               <Label Text="Your work data has been securely saved." FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
               <Label Text="All logs, activity, and timesheets are recorded." FontSize="14" TextColor="{StaticResource TextSecondary}" />
@@ -102,8 +101,8 @@
 
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
           <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
-            <Border Style="{StaticResource IconTileCircle}" BackgroundColor="{StaticResource PrimarySoft}">
-              <Label Text="{StaticResource IconCloud}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center" />
+            <Border Style="{StaticResource IconTileCircle}" BackgroundColor="{StaticResource AccentSoft}">
+              <Image Source="icon_end_cloud.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <VerticalStackLayout Grid.Column="1">
               <Label Text="Synced to OneXso Cloud" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
@@ -115,12 +114,10 @@
 
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
           <Grid ColumnDefinitions="36,*" ColumnSpacing="10">
-            <Border Style="{StaticResource IconTileCircle}" BackgroundColor="{StaticResource AccentSoft}">
-              <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="14" TextColor="{StaticResource BrandTitle}" HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
+            <Image Source="icon_end_shield.png" WidthRequest="28" HeightRequest="28" VerticalOptions="Center" />
             <VerticalStackLayout Grid.Column="1">
               <Label Text="Thank you for your focus and commitment today." FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-              <Label Text="Consistency builds success. See you tomorrow!" FontSize="14" TextColor="{StaticResource TextSecondary}" />
+              <Label Text="Consistency builds success. See you tomorrow! 💪" FontSize="14" TextColor="{StaticResource TextSecondary}" />
             </VerticalStackLayout>
           </Grid>
         </Border>
@@ -130,26 +127,27 @@
             <Grid>
               <Button Command="{Binding OpenDashboardCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="View Dashboard" />
               <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
-                <Label Text="{StaticResource IconGlobe}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="White" VerticalOptions="Center" />
+                <Image Source="icon_globe_white.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
                 <Label Text="View Dashboard" FontSize="13" FontAttributes="Bold" TextColor="White" LineBreakMode="NoWrap" MaxLines="1" />
               </HorizontalStackLayout>
             </Grid>
           </Border>
           <Border Grid.Column="1" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44">
             <Grid>
-              <Button Command="{Binding ViewSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="View Summary" />
+              <Button Command="{Binding DownloadSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Download Summary" />
               <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
-                <Label Text="{StaticResource IconChart}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
-                <Label Text="View Summary" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="NoWrap" MaxLines="1" />
+                <Image Source="icon_end_download.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Download Summary" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="NoWrap" MaxLines="1" />
               </HorizontalStackLayout>
             </Grid>
           </Border>
           <Border Grid.Column="2" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44">
             <Grid>
-              <Button Command="{Binding BackCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Back" />
-              <Label InputTransparent="True" Text="Back" FontSize="13" FontAttributes="Bold"
-                     TextColor="{StaticResource Primary}" HorizontalOptions="Center" VerticalOptions="Center"
-                     LineBreakMode="NoWrap" MaxLines="1" />
+              <Button Command="{Binding CloseAppCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Close App" />
+              <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
+                <Image Source="icon_end_close.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Close App" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="NoWrap" MaxLines="1" />
+              </HorizontalStackLayout>
             </Grid>
           </Border>
         </Grid>
