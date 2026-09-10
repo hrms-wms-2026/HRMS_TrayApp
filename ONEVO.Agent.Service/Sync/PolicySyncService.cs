@@ -3,6 +3,7 @@ namespace ONEVO.Agent.Service.Sync;
 using System.Text.Json;
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.IPC;
+using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 
 using ONEVO.Agent.Service.Security;
@@ -36,19 +37,22 @@ public sealed class PolicySyncService : BackgroundService
     private readonly CredentialStore _credentials;
     private readonly PolicyCache _policyCache;
     private readonly IIpcBroadcaster _broadcaster;
+    private readonly PresenceSession _presenceSession;
 
     public PolicySyncService(
         ILogger<PolicySyncService> logger,
         OnevoApiClient apiClient,
         CredentialStore credentials,
         PolicyCache policyCache,
-        IIpcBroadcaster broadcaster)
+        IIpcBroadcaster broadcaster,
+        PresenceSession presenceSession)
     {
         _logger = logger;
         _apiClient = apiClient;
         _credentials = credentials;
         _policyCache = policyCache;
         _broadcaster = broadcaster;
+        _presenceSession = presenceSession;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -119,6 +123,10 @@ public sealed class PolicySyncService : BackgroundService
 
         var previousVersion = _policyCache.Current.Version;
         _policyCache.Set(policy);
+        // Applied unconditionally (not only when the version changes below) so the tray's
+        // Today's Schedule reflects the legal entity's configured Default work hours as soon as
+        // the first policy fetch completes, not only on the next detected version bump.
+        _presenceSession.SetScheduleDisplay(policy.ScheduleDisplay);
 
         if (string.Equals(previousVersion, policy.Version, StringComparison.Ordinal))
         {

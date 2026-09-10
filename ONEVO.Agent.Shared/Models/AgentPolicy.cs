@@ -26,5 +26,23 @@ public sealed record AgentPolicy
     /// </summary>
     public int IdleThresholdMinutes { get; init; } = 2;
 
+    /// <summary>
+    /// Legal-entity-local scheduled work start/end (from General Settings' Default work hours).
+    /// Null when the legal entity has no schedule configured — the tray must not fall back to a
+    /// hardcoded display in that case.
+    /// </summary>
+    public TimeOnly? ScheduleStart { get; init; }
+    public TimeOnly? ScheduleEnd { get; init; }
+
     public DateTimeOffset ValidUntil { get; init; }
+
+    /// <summary>
+    /// Human-readable "hh:mm tt – hh:mm tt" rendering of <see cref="ScheduleStart"/>/
+    /// <see cref="ScheduleEnd"/>, or an honest "not configured" label when the legal entity has
+    /// no Default work hours set — never a guessed/hardcoded time range.
+    /// </summary>
+    public string ScheduleDisplay =>
+        ScheduleStart is { } start && ScheduleEnd is { } end
+            ? $"{start:hh:mm tt} – {end:hh:mm tt}"
+            : "Not configured";
 }
