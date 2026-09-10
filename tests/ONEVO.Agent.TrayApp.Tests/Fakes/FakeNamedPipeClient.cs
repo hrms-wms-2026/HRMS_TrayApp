@@ -259,6 +259,29 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
                 true, null, new LocationChangeRequestSummaryPayload(id, apply ? "applied" : "approved", DateTimeOffset.UtcNow)));
     }
 
+    /// <summary>Optional canned result for SendWorkLocationConfirmAsync. Null = auto-success.</summary>
+    public WorkLocationConfirmResultPayload? WorkLocationConfirmResult { get; set; }
+
+    public List<(string LocationType, double? Latitude, double? Longitude, double? AccuracyMeters)> WorkLocationConfirmCalls { get; } = [];
+
+    public Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
+        string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct)
+    {
+        WorkLocationConfirmCalls.Add((locationType, latitude, longitude, accuracyMeters));
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.WorkLocationConfirm,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new WorkLocationConfirmPayload(locationType, latitude, longitude, accuracyMeters))
+        });
+
+        if (WorkLocationConfirmResult is not null)
+            return Task.FromResult<WorkLocationConfirmResultPayload?>(WorkLocationConfirmResult);
+
+        return Task.FromResult<WorkLocationConfirmResultPayload?>(
+            new WorkLocationConfirmResultPayload(true, null));
+    }
+
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();
     public void SimulateState(MonitoringState s)  => OnStateReceived?.Invoke(s);
     public void SimulateStatus(StatusResponsePayload s)

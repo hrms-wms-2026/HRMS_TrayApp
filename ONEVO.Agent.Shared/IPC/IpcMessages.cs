@@ -95,6 +95,12 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: result of a LocationChangeRespond call.</summary>
     public const string LocationChangeRespondResult = "LocationChangeRespondResult";
+
+    /// <summary>Tray → Service: employee confirmed today's work location on the daily screen.</summary>
+    public const string WorkLocationConfirm = "WorkLocationConfirm";
+
+    /// <summary>Service → Tray: result of a WorkLocationConfirm call.</summary>
+    public const string WorkLocationConfirmResult = "WorkLocationConfirmResult";
 }
 
 public enum LifecycleAction
@@ -251,3 +257,8 @@ public sealed record LocationChangeRespondPayload(Guid Id, bool Apply);
 
 public sealed record LocationChangeRespondResultPayload(
     bool Success, string? ErrorCode, LocationChangeRequestSummaryPayload? Request);
+
+public sealed record WorkLocationConfirmPayload(
+    string LocationType, double? Latitude, double? Longitude, double? AccuracyMeters);
+
+public sealed record WorkLocationConfirmResultPayload(bool Success, string? ErrorCode);

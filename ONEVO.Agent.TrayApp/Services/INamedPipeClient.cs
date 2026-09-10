@@ -92,4 +92,11 @@ public interface INamedPipeClient
     /// </summary>
     Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
         Guid id, bool apply, CancellationToken ct);
+
+    /// <summary>
+    /// Confirms today's work location on the daily screen and waits for the correlated
+    /// WorkLocationConfirmResult (or timeout).
+    /// </summary>
+    Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
+        string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct);
 }

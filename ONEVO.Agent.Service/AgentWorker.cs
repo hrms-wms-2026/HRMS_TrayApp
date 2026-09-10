@@ -276,6 +276,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 await HandleLocationChangeRespondAsync(envelope, reply);
                 break;
 
+            case IpcMessageTypes.WorkLocationConfirm:
+                await HandleWorkLocationConfirmAsync(envelope, reply);
+                break;
+
             case IpcMessageTypes.EvidenceTransferStart:
                 HandleEvidenceTransferStart(envelope);
                 break;
@@ -394,8 +398,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         var (success, errorCode, message, state) = payload.Action switch
         {
             LifecycleAction.ClockIn    => await ExecuteClockInAsync(now, CancellationToken.None),
-            LifecycleAction.StartBreak => ExecuteStartBreak(now),
-            LifecycleAction.EndBreak   => ExecuteEndBreak(now),
+            LifecycleAction.StartBreak => await ExecuteStartBreakAsync(now, CancellationToken.None),
+            LifecycleAction.EndBreak   => await ExecuteEndBreakAsync(now, CancellationToken.None),
             LifecycleAction.ClockOut   => await ExecuteClockOutAsync(now, CancellationToken.None),
             _ => (false, "UNKNOWN_ACTION", "Unknown lifecycle action.", _stateMachine.CurrentState)
         };
@@ -468,12 +472,20 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         return true;
     }
 
-    private (bool Success, string? ErrorCode, string? Message, MonitoringState State) ExecuteStartBreak(
-        DateTimeOffset now)
+    private async Task<(bool Success, string? ErrorCode, string? Message, MonitoringState State)> ExecuteStartBreakAsync(
+        DateTimeOffset now, CancellationToken ct)
     {
         var current = _stateMachine.CurrentState;
         if (current != MonitoringState.Active)
             return (false, "INVALID_STATE", "Break is only available while working.", current);
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+            return (false, "UNENROLLED", "Device is not enrolled.", current);
+
+        var backendResult = await _apiClient.StartBreakAsync(jwt, ct);
+        if (!backendResult.Success)
+            return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
 
         if (!_stateMachine.TryTransition(MonitoringState.Paused, out _))
             return (false, "INVALID_STATE", "Cannot start break.", current);
@@ -483,8 +495,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         return (true, null, "Break started.", MonitoringState.Paused);
     }
 
-    private (bool Success, string? ErrorCode, string? Message, MonitoringState State) ExecuteEndBreak(
-        DateTimeOffset now)
+    private async Task<(bool Success, string? ErrorCode, string? Message, MonitoringState State)> ExecuteEndBreakAsync(
+        DateTimeOffset now, CancellationToken ct)
     {
         var current = _stateMachine.CurrentState;
         if (current != MonitoringState.Paused)
@@ -499,8 +511,25 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return (false, "GATES_CLOSED", "Cannot resume — gates not satisfied.", current);
         }
 
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            _lifecycleGate.SetNotOnBreak(false);
+            return (false, "UNENROLLED", "Device is not enrolled.", current);
+        }
+
+        var backendResult = await _apiClient.EndBreakAsync(jwt, ct);
+        if (!backendResult.Success)
+        {
+            _lifecycleGate.SetNotOnBreak(false);
+            return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
+        }
+
         if (!_stateMachine.TryTransition(MonitoringState.Active, out _))
+        {
+            _lifecycleGate.SetNotOnBreak(false);
             return (false, "INVALID_STATE", "Cannot end break.", current);
+        }
 
         _presenceSession.EndBreak(now);
         return (true, null, "Break ended. Welcome back.", MonitoringState.Active);
@@ -572,6 +601,56 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             _logger.LogWarning(ex, "Failed to persist session_history to SQLite");
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Poll-detected counterpart to <see cref="ExecuteStartBreak"/> — reconciles local state to
+    /// Paused when <see cref="Sync.AttendanceStatusSyncService"/> observes an open break created via
+    /// another channel (web today). The backend already durably recorded the break, so this only
+    /// updates local state/collectors — it never calls the backend itself.
+    /// </summary>
+    public bool ApplyPresenceBreakStarted(DateTimeOffset startedAt)
+    {
+        var current = _stateMachine.CurrentState;
+        if (current == MonitoringState.Paused)
+            return true; // already paused — nothing to do
+        if (current != MonitoringState.Active)
+            return false; // not in an active local session to pause
+
+        _lifecycleGate.SetNotOnBreak(false);
+
+        if (!_stateMachine.TryTransition(MonitoringState.Paused, out _))
+            return false;
+
+        _presenceSession.StartBreak(startedAt);
+        return true;
+    }
+
+    /// <summary>
+    /// Poll-detected counterpart to <see cref="ExecuteEndBreak"/> — reconciles local state back to
+    /// Active when the backend no longer reports an open break.
+    /// </summary>
+    public bool ApplyPresenceBreakEnded(DateTimeOffset now)
+    {
+        var current = _stateMachine.CurrentState;
+        if (current == MonitoringState.Active)
+            return true; // already active — nothing to do
+        if (current != MonitoringState.Paused)
+            return false; // not locally paused for a break
+
+        _lifecycleGate.SetNotOnBreak(true);
+
+        if (!_options.AllowLocalLifecycleWithoutFullGates && !_lifecycleGate.CanActivate)
+        {
+            _lifecycleGate.SetNotOnBreak(false);
+            return false;
+        }
+
+        if (!_stateMachine.TryTransition(MonitoringState.Active, out _))
+            return false;
+
+        _presenceSession.EndBreak(now);
         return true;
     }
 
@@ -1116,6 +1195,46 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             CorrelationId = envelope.CorrelationId,
             Payload = JsonSerializer.SerializeToElement(
                 new LocationChangeRespondResultPayload(result.Success, result.ErrorCode, ToSummary(result.Request)))
+        });
+    }
+
+    internal async Task HandleWorkLocationConfirmAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<WorkLocationConfirmPayload>();
+        if (payload is null)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.WorkLocationConfirmResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new WorkLocationConfirmResultPayload(false, "INVALID_PAYLOAD"))
+            });
+            return;
+        }
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.WorkLocationConfirmResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new WorkLocationConfirmResultPayload(false, "UNENROLLED"))
+            });
+            return;
+        }
+
+        var result = await _apiClient.ConfirmWorkLocationAsync(
+            jwt, payload.LocationType, payload.Latitude, payload.Longitude, payload.AccuracyMeters, CancellationToken.None);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.WorkLocationConfirmResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new WorkLocationConfirmResultPayload(result.Success, result.ErrorCode))
         });
     }
 

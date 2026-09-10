@@ -532,6 +532,48 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public async Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
+        string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.WorkLocationConfirm,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new WorkLocationConfirmPayload(locationType, latitude, longitude, accuracyMeters))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("WorkLocationConfirm timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<WorkLocationConfirmResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task SubmitCollectionRecordsAsync(
         IReadOnlyList<CollectionRecord> records,
         CancellationToken ct)
@@ -626,7 +668,8 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         or IpcMessageTypes.DevicePairingStarted
                         or IpcMessageTypes.LocationChangeSubmitResult
                         or IpcMessageTypes.LocationChangePendingResult
-                        or IpcMessageTypes.LocationChangeRespondResult)
+                        or IpcMessageTypes.LocationChangeRespondResult
+                        or IpcMessageTypes.WorkLocationConfirmResult)
                 {
                     pending.TrySetResult(envelope);
                 }

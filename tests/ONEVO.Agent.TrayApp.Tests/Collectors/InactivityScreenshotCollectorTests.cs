@@ -473,6 +473,10 @@ internal sealed class RecordingPipeClient : INamedPipeClient
         Guid id, bool apply, CancellationToken ct) =>
         Task.FromResult<LocationChangeRespondResultPayload?>(null);
 
+    public Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
+        string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct) =>
+        Task.FromResult<WorkLocationConfirmResultPayload?>(null);
+
     // Unused by these tests — kept so the fake can raise pipe events if a future test needs it.
     internal void RaiseDisconnected() => OnDisconnected?.Invoke();
     internal void RaiseState(MonitoringState s) => OnStateReceived?.Invoke(s);
