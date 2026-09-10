@@ -69,6 +69,15 @@ public sealed class DeviceStateIngestItem
 
     [JsonPropertyName("is_idle")]
     public bool IsIdle { get; set; }
+
+    [JsonPropertyName("latitude")]
+    public double? Latitude { get; set; }
+
+    [JsonPropertyName("longitude")]
+    public double? Longitude { get; set; }
+
+    [JsonPropertyName("accuracy_meters")]
+    public double? AccuracyMeters { get; set; }
 }
 
 /// <summary>Wire format for POST /api/v1/monitoring/meetings/signals.</summary>
