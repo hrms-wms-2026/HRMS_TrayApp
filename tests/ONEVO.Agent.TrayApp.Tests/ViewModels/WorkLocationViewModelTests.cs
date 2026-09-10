@@ -216,4 +216,38 @@ public sealed class WorkLocationViewModelTests
         Assert.Equal("", preferences.Get(SessionPreferenceKeys.LiveLongitude, ""));
         Assert.True(WorkLocationFlow.IsConfirmedToday(preferences));
     }
+
+    [Fact]
+    public async Task ConfirmLocation_WithFix_SendsWorkLocationConfirmOverPipe()
+    {
+        var pipe = LocationTrackingEnabledPipe();
+        var fix = new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow);
+        var vm = MakeVm(LocationCaptureResult.Success(fix), pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        vm.SelectOptionCommand.Execute(vm.Options[1]); // "Work From Home"
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.Single(pipe.WorkLocationConfirmCalls);
+        var call = pipe.WorkLocationConfirmCalls[0];
+        Assert.Equal("home", call.LocationType);
+        Assert.Equal(6.9271, call.Latitude);
+        Assert.Equal(79.8612, call.Longitude);
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_TrackingDisabledNoFix_SendsWorkLocationConfirmWithNullCoordinates()
+    {
+        var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
+        var vm = MakeVm(store: new FakeWorkLocationStore(), pipe: pipe);
+
+        vm.SelectOptionCommand.Execute(vm.Options[0]); // "Office"
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.Single(pipe.WorkLocationConfirmCalls);
+        var call = pipe.WorkLocationConfirmCalls[0];
+        Assert.Equal("office", call.LocationType);
+        Assert.Null(call.Latitude);
+        Assert.Null(call.Longitude);
+    }
 }

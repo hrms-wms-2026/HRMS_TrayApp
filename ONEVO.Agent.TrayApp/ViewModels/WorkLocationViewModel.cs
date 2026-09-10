@@ -201,6 +201,15 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
 
         WorkLocationFlow.MarkConfirmedToday(_preferences);
 
+        var locationType = ToBackendLocationType(option.Code);
+        _ = _pipe.SendWorkLocationConfirmAsync(
+                locationType, fix?.Latitude, fix?.Longitude, fix?.AccuracyMeters, CancellationToken.None)
+            .ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                    System.Diagnostics.Debug.WriteLine($"WorkLocationConfirm send failed: {t.Exception?.GetBaseException().Message}");
+            }, TaskScheduler.Default);
+
         IsConfirmed = true;
 
         try { await Shell.Current.GoToAsync(_afterConfirmRoute); }
@@ -233,5 +242,13 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
         LocationCaptureFailure.TimedOut =>
             "Location detection timed out. Please retry.",
         _ => "Could not detect your location. Please retry."
+    };
+
+    private static string ToBackendLocationType(string code) => code switch
+    {
+        "OFFICE" => "office",
+        "WFH" => "home",
+        "OTHER" => "other",
+        _ => "other"
     };
 }
