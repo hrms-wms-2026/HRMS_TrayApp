@@ -26,6 +26,20 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     [ObservableProperty] private string _excellentDayCaption = "Excellent day!";
     [ObservableProperty] private string? _message;
     [ObservableProperty] private string? _errorMessage;
+    [ObservableProperty] private string _focusCompactDisplay = "0m";
+    [ObservableProperty] private string _activeCompactDisplay = "0m";
+    [ObservableProperty] private string _idleCompactDisplay = "0m";
+    [ObservableProperty] private string _breakCompactDisplay = "0m";
+    [ObservableProperty] private string _activeShareCaption = "0%";
+    [ObservableProperty] private string _idleShareCaption = "0%";
+    [ObservableProperty] private double _activeShareFraction = 1;
+    [ObservableProperty] private string _insightFocus = "Stay focused — every hour counts.";
+    [ObservableProperty] private string _insightIdle = "Idle time is tracked so you can improve tomorrow.";
+    [ObservableProperty] private string _insightBreaks = "Regular breaks help you recharge.";
+    [ObservableProperty] private string _highlightProgress = "You stayed focused and made meaningful progress.";
+    [ObservableProperty] private string _highlightFocus = "Keep building consistent focus time.";
+    [ObservableProperty] private string _highlightWindow = "";
+    [ObservableProperty] private string _breakSessionsCaption = "0 sessions";
 
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
 
@@ -80,6 +94,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         ExcellentDayCaption = string.IsNullOrWhiteSpace(EmployeeName)
             ? "Excellent day!"
             : $"Excellent day, {EmployeeName}!";
+        ApplyDerived();
     }
 
     public void LoadFromSnapshot(SessionSnapshot session)
@@ -98,6 +113,82 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         TopApps.Clear();
         foreach (var app in source.TopApps)
             TopApps.Add(app);
+        ApplyDerived();
+    }
+
+    private void ApplyDerived()
+    {
+        var work = Parse(WorkingTimeDisplay);
+        var idle = Parse(IdleTimeDisplay);
+        var brk = Parse(BreakTimeDisplay);
+        var focus = Parse(ProductiveTimeDisplay);
+        if (focus <= TimeSpan.Zero)
+            focus = work;
+
+        FocusCompactDisplay = Compact(focus);
+        ActiveCompactDisplay = Compact(work);
+        IdleCompactDisplay = Compact(idle);
+        BreakCompactDisplay = Compact(brk);
+
+        var tracked = work + idle;
+        var activeShare = tracked.TotalSeconds <= 0 ? 100 : (int)Math.Round(100.0 * work.TotalSeconds / tracked.TotalSeconds);
+        activeShare = Math.Clamp(activeShare, 0, 100);
+        ActiveShareCaption = $"{activeShare}%";
+        IdleShareCaption = $"{100 - activeShare}%";
+        ActiveShareFraction = activeShare / 100.0;
+        BreakSessionsCaption = int.TryParse(BreakSessionsDisplay, out var n)
+            ? $"{n} break{(n == 1 ? "" : "s")}"
+            : BreakSessionsDisplay;
+
+        InsightFocus = work.TotalMinutes >= 1
+            ? $"You were focused for {Compact(work)} today."
+            : "Stay focused — every hour counts.";
+        InsightIdle = idle.TotalMinutes >= 1
+            ? $"Idle time was {Compact(idle)}. A short stretch can help you reset."
+            : "Very little idle time — great concentration.";
+        InsightBreaks = n > 0
+            ? "Great job taking regular breaks."
+            : "A short break can help you recharge tomorrow.";
+
+        HighlightProgress = activeShare >= 80
+            ? $"Great Progress. You stayed focused {activeShare}% of tracked time."
+            : $"You stayed focused {activeShare}% of tracked time.";
+        HighlightFocus = $"Focus time {Compact(focus)}.";
+        HighlightWindow = ClockInDisplay != "—" && ClockOutDisplay != "—"
+            ? $"Most Productive  {ClockInDisplay} – {ClockOutDisplay}"
+            : string.Empty;
+
+        var totalApp = TimeSpan.Zero;
+        foreach (var app in TopApps)
+        {
+            if (TimeSpan.TryParse(app.Duration, out var d))
+                totalApp += d;
+        }
+
+        if (totalApp > TimeSpan.Zero)
+        {
+            var withShare = TopApps.Select(app =>
+            {
+                var dur = TimeSpan.TryParse(app.Duration, out var d) ? d : TimeSpan.Zero;
+                var pct = (int)Math.Round(100.0 * dur.TotalSeconds / totalApp.TotalSeconds);
+                return app with { Percent = $"{pct}%" };
+            }).ToList();
+            TopApps.Clear();
+            foreach (var app in withShare)
+                TopApps.Add(app);
+        }
+    }
+
+    private static TimeSpan Parse(string value) =>
+        TimeSpan.TryParse(value, out var t) ? t : TimeSpan.Zero;
+
+    private static string Compact(TimeSpan t)
+    {
+        if (t.TotalHours >= 1)
+            return $"{(int)t.TotalHours}h {t.Minutes:00}m";
+        if (t.Minutes > 0)
+            return $"{t.Minutes}m";
+        return $"{Math.Max(0, t.Seconds)}s";
     }
 
     [RelayCommand]
@@ -130,5 +221,19 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     {
         try { await Shell.Current.GoToAsync(SetupFlow.ClockIn); }
         catch { /* unit tests */ }
+    }
+
+    [RelayCommand]
+    private static void ViewInsights()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = WorkspaceLinks.DashboardUrl,
+                UseShellExecute = true
+            });
+        }
+        catch { /* browser unavailable */ }
     }
 }

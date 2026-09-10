@@ -5,6 +5,10 @@ public partial class PopupInfoRow : ContentView
     public static readonly BindableProperty IconProperty =
         BindableProperty.Create(nameof(Icon), typeof(string), typeof(PopupInfoRow), string.Empty);
 
+    public static readonly BindableProperty IconImageProperty =
+        BindableProperty.Create(nameof(IconImage), typeof(string), typeof(PopupInfoRow), string.Empty,
+            propertyChanged: OnIconImageChanged);
+
     public static readonly BindableProperty PrefixProperty =
         BindableProperty.Create(nameof(Prefix), typeof(string), typeof(PopupInfoRow), string.Empty,
             propertyChanged: OnTextChanged);
@@ -28,6 +32,20 @@ public partial class PopupInfoRow : ContentView
     {
         get => (string)GetValue(IconProperty);
         set => SetValue(IconProperty, value);
+    }
+
+    public string IconImage
+    {
+        get => (string)GetValue(IconImageProperty);
+        set => SetValue(IconImageProperty, value);
+    }
+
+    public bool HasIconImage => !string.IsNullOrWhiteSpace(IconImage);
+
+    private static void OnIconImageChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is PopupInfoRow row)
+            row.OnPropertyChanged(nameof(HasIconImage));
     }
 
     public string Prefix
@@ -63,7 +81,11 @@ public partial class PopupInfoRow : ContentView
     public PopupInfoRow()
     {
         InitializeComponent();
-        Loaded += (_, _) => RebuildText();
+        Loaded += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasIconImage));
+            RebuildText();
+        };
     }
 
     private static void OnTextChanged(BindableObject bindable, object oldValue, object newValue)

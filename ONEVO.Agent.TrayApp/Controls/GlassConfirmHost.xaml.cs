@@ -29,6 +29,15 @@ public partial class GlassConfirmHost : ContentView
         BindableProperty.Create(nameof(Body), typeof(View), typeof(GlassConfirmHost),
             propertyChanged: OnBodyChanged);
 
+    public static readonly BindableProperty BadgeImageProperty =
+        BindableProperty.Create(nameof(BadgeImage), typeof(string), typeof(GlassConfirmHost), "icon3d_clock.png");
+
+    public static readonly BindableProperty ShowBadgeProperty =
+        BindableProperty.Create(nameof(ShowBadge), typeof(bool), typeof(GlassConfirmHost), true);
+
+    public static readonly BindableProperty CardWidthProperty =
+        BindableProperty.Create(nameof(CardWidth), typeof(double), typeof(GlassConfirmHost), 420d);
+
     public bool IsOpen
     {
         get => (bool)GetValue(IsOpenProperty);
@@ -75,6 +84,24 @@ public partial class GlassConfirmHost : ContentView
     {
         get => (View?)GetValue(BodyProperty);
         set => SetValue(BodyProperty, value);
+    }
+
+    public string BadgeImage
+    {
+        get => (string)GetValue(BadgeImageProperty);
+        set => SetValue(BadgeImageProperty, value);
+    }
+
+    public bool ShowBadge
+    {
+        get => (bool)GetValue(ShowBadgeProperty);
+        set => SetValue(ShowBadgeProperty, value);
+    }
+
+    public double CardWidth
+    {
+        get => (double)GetValue(CardWidthProperty);
+        set => SetValue(CardWidthProperty, value);
     }
 
     public GlassConfirmHost()

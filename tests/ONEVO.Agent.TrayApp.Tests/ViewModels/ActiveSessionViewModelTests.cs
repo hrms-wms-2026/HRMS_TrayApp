@@ -87,8 +87,33 @@ public sealed class ActiveSessionViewModelTests
         await vm.EndBreakCommand.ExecuteAsync(null);
         Assert.Contains(LifecycleAction.EndBreak, pipe.LifecycleActions);
         Assert.False(vm.IsOnBreak);
+        Assert.True(vm.IsBackToWork);
+        Assert.Equal("Back to Work", vm.HeaderTitle);
+        Assert.True(vm.ShowBackToWorkActions);
+        Assert.False(vm.ShowWorkingActions);
+        vm.ContinueWorkingCommand.Execute(null);
+        Assert.False(vm.IsBackToWork);
         Assert.Equal("You are now Clocked In", vm.HeaderTitle);
         Assert.True(vm.ShowWorkingActions);
+    }
+
+    [Fact]
+    public void RequestClockOut_ShowsConfirmOverlay()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm = new ActiveSessionViewModel(pipe);
+        vm.RequestClockOutCommand.Execute(null);
+        Assert.True(vm.IsClockOutConfirmVisible);
+        Assert.DoesNotContain(LifecycleAction.ClockOut, pipe.LifecycleActions);
+    }
+
+    [Fact]
+    public void CancelClockOutConfirm_HidesOverlay()
+    {
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());
+        vm.RequestClockOutCommand.Execute(null);
+        vm.CancelClockOutConfirmCommand.Execute(null);
+        Assert.False(vm.IsClockOutConfirmVisible);
     }
 
     [Fact]
@@ -98,6 +123,7 @@ public sealed class ActiveSessionViewModelTests
         var vm = new ActiveSessionViewModel(pipe);
         await vm.ClockOutCommand.ExecuteAsync(null);
         Assert.Contains(LifecycleAction.ClockOut, pipe.LifecycleActions);
+        Assert.False(vm.IsClockOutConfirmVisible);
     }
 
     [Fact]

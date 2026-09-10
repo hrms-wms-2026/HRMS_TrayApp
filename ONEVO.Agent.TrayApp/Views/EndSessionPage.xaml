@@ -42,7 +42,7 @@
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="16,12">
           <VerticalStackLayout Spacing="12">
             <Grid ColumnDefinitions="36,*" ColumnSpacing="10">
-              <Image Source="icon_end_check.png" WidthRequest="28" HeightRequest="28" VerticalOptions="Center" />
+              <Image Source="icon_end_check.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
               <VerticalStackLayout Grid.Column="1">
                 <Label Text="You've Clocked Out Successfully" FontAttributes="Bold" FontSize="14" TextColor="{StaticResource TextPrimary}" />
                 <Label Text="{Binding SessionEndedCaption}" FontSize="14" TextColor="{StaticResource TextSecondary}" />
@@ -50,36 +50,28 @@
             </Grid>
             <Grid ColumnDefinitions="*,Auto,*,Auto,*,Auto,*">
               <Grid Grid.Column="0" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
-                <Border Style="{StaticResource IconTileCircle}" HorizontalOptions="Center">
-                  <Image Source="icon_clock.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_clock.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" />
                 <Label Grid.Row="1" Text="Total Shift" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding TotalShiftDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
               <BoxView Grid.Column="1" WidthRequest="1" Color="{StaticResource Separator}" Margin="6,10" />
               <Grid Grid.Column="2" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
-                <Border Style="{StaticResource IconTileCircle}" BackgroundColor="#DCFCE7" HorizontalOptions="Center">
-                  <Image Source="icon_end_briefcase.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_end_briefcase.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" />
                 <Label Grid.Row="1" Text="Total Work Duration" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding WorkingTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
               <BoxView Grid.Column="3" WidthRequest="1" Color="{StaticResource Separator}" Margin="6,10" />
               <Grid Grid.Column="4" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
-                <Border Style="{StaticResource IconTileCircle}" BackgroundColor="{StaticResource AccentSoft}" HorizontalOptions="Center">
-                  <Image Source="icon_end_coffee.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_end_coffee.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" />
                 <Label Grid.Row="1" Text="Total Break Time" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding BreakTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
               <BoxView Grid.Column="5" WidthRequest="1" Color="{StaticResource Separator}" Margin="6,10" />
               <Grid Grid.Column="6" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
-                <Border Style="{StaticResource IconTileCircle}" HorizontalOptions="Center">
-                  <Image Source="icon_chart_blue.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
+                <Image Source="icon_chart_blue.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" />
                 <Label Grid.Row="1" Text="Productive Time" Style="{StaticResource EndSessionMetricLabel}" />
                 <Label Grid.Row="2" Text="{Binding ProductiveTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
@@ -90,7 +82,7 @@
 
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
           <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
-            <Image Source="icon_end_check.png" WidthRequest="28" HeightRequest="28" VerticalOptions="Center" />
+            <Image Source="icon_end_check.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
             <VerticalStackLayout Grid.Column="1">
               <Label Text="Your work data has been securely saved." FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
               <Label Text="All logs, activity, and timesheets are recorded." FontSize="14" TextColor="{StaticResource TextSecondary}" />
@@ -101,9 +93,7 @@
 
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
           <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
-            <Border Style="{StaticResource IconTileCircle}" BackgroundColor="{StaticResource AccentSoft}">
-              <Image Source="icon_end_cloud.png" WidthRequest="16" HeightRequest="16" HorizontalOptions="Center" VerticalOptions="Center" />
-            </Border>
+            <Image Source="icon_end_cloud.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
             <VerticalStackLayout Grid.Column="1">
               <Label Text="Synced to OneXso Cloud" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
               <Label Text="Your data is backed up and available across your devices." FontSize="14" TextColor="{StaticResource TextSecondary}" />
@@ -114,7 +104,7 @@
 
         <Border Style="{StaticResource TrayCompactGlassCard}" Padding="14,10">
           <Grid ColumnDefinitions="36,*" ColumnSpacing="10">
-            <Image Source="icon_end_shield.png" WidthRequest="28" HeightRequest="28" VerticalOptions="Center" />
+            <Image Source="icon_end_shield.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
             <VerticalStackLayout Grid.Column="1">
               <Label Text="Thank you for your focus and commitment today." FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
               <Label Text="Consistency builds success. See you tomorrow! 💪" FontSize="14" TextColor="{StaticResource TextSecondary}" />

@@ -19,7 +19,7 @@ public sealed class TrayScreenLayoutContractTests
         yield return ["ONEVO.Agent.TrayApp/Views/IdentityVerificationPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml"];
-        yield return ["ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml"];
+        // Daily Summary is the original dense dashboard and uses a page-level ScrollView.
     }
 
     [Fact]
@@ -217,9 +217,15 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Start your workday?", clockIn, StringComparison.Ordinal);
         Assert.Contains("Clock In Now", clockIn, StringComparison.Ordinal);
         Assert.Contains("PopupInfoRow", clockIn, StringComparison.Ordinal);
+        Assert.Contains("icon3d_home.png", clockIn, StringComparison.Ordinal);
+        Assert.Contains("icon3d_shield.png", clockIn, StringComparison.Ordinal);
         Assert.Contains("Start Break?", active, StringComparison.Ordinal);
         Assert.Contains("End Break?", active, StringComparison.Ordinal);
         Assert.Contains("Work session will resume immediately.", active, StringComparison.Ordinal);
+        Assert.Contains("Current status:", active, StringComparison.Ordinal);
+        Assert.Contains("Break tracking will start now.", active, StringComparison.Ordinal);
+        Assert.Contains("icon3d_coffee.png", active, StringComparison.Ordinal);
+        Assert.Contains("Clock Out?", active, StringComparison.Ordinal);
         Assert.Contains("PopupGlassCard", host, StringComparison.Ordinal);
         Assert.Contains("PopupScrim", host, StringComparison.Ordinal);
         Assert.Contains("PopupClockBadge", host, StringComparison.Ordinal);
@@ -266,18 +272,22 @@ public sealed class TrayScreenLayoutContractTests
         Assert.DoesNotContain("BackgroundColor=\"Transparent\" TextColor=\"{StaticResource StatusRed}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"1\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("IconStopwatch", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon_stopwatch.png", xaml, StringComparison.Ordinal);
         Assert.Contains("IconGlobe", xaml, StringComparison.Ordinal);
         Assert.Contains("HeaderAccent", xaml, StringComparison.Ordinal);
-        Assert.Contains("IconInfo", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_info.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_coffee.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsClockOutConfirmVisible", xaml, StringComparison.Ordinal);
+        Assert.Contains("Clock Out?", xaml, StringComparison.Ordinal);
         Assert.Contains("End Break", xaml, StringComparison.Ordinal);
         Assert.Contains("WorkStartedCaption", xaml, StringComparison.Ordinal);
         Assert.Contains("BreakTotalCaption", xaml, StringComparison.Ordinal);
         Assert.Contains("ProductiveShareCaption", xaml, StringComparison.Ordinal);
         Assert.Contains("break_hero.png", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Back to Work", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Continue Working", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Break ended at", xaml, StringComparison.Ordinal);
+        Assert.Contains("ShowBackToWorkActions", xaml, StringComparison.Ordinal);
+        Assert.Contains("Continue Working", xaml, StringComparison.Ordinal);
+        Assert.Contains("Break ended at", xaml, StringComparison.Ordinal);
+        Assert.Contains("Break duration", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -311,8 +321,18 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Summary", xaml, StringComparison.Ordinal);
         Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
         Assert.Contains("Top Applications", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Back\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<ScrollView", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Text=\"Done\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("View My Insights", xaml, StringComparison.Ordinal);
+        Assert.Contains("Focus vs Idle Time", xaml, StringComparison.Ordinal);
+        Assert.Contains("Break Sessions", xaml, StringComparison.Ordinal);
+        Assert.Contains("Personal Highlights", xaml, StringComparison.Ordinal);
+        Assert.Contains("Reflection &amp; Wellbeing", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_clock.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_monitor.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_coffee.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_stopwatch.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_trophy.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("<ScrollView", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
