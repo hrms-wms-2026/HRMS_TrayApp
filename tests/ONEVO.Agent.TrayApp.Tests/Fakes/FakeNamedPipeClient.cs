@@ -2,6 +2,7 @@
 
 namespace ONEVO.Agent.TrayApp.Tests.Fakes;
 
+using System.Text.Json;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
@@ -19,6 +20,14 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public AgentPolicy? LastKnownPolicy { get; set; }
 
     public List<IReadOnlyList<CollectionRecord>> Submitted { get; } = [];
+
+    /// <summary>Convenience view over <see cref="Submitted"/> for tests asserting on device-state
+    /// snapshot payloads specifically (e.g. GPS-fix sampling in DeviceStateCollector).</summary>
+    public IReadOnlyList<DeviceStateSnapshotPayload> SubmittedDeviceStateSnapshots =>
+        Submitted.SelectMany(batch => batch)
+                 .Where(r => r.RecordType == CollectionRecordTypes.DeviceStateSnapshot)
+                 .Select(r => r.Payload.Deserialize<DeviceStateSnapshotPayload>()!)
+                 .ToList();
     public List<IpcEnvelope> SentEnvelopes { get; } = [];
     public List<LifecycleAction> LifecycleActions { get; } = [];
 

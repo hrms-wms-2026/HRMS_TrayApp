@@ -8,4 +8,7 @@ public sealed record DeviceStateSnapshotPayload
     public required DateTimeOffset CapturedAt { get; init; }
     public required int IdleSeconds { get; init; }
     public required bool IsIdle { get; init; }
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
+    public double? AccuracyMeters { get; init; }
 }
