@@ -67,8 +67,17 @@ public sealed class AttendanceStatusSyncService : BackgroundService
 
         var now = DateTimeOffset.UtcNow;
         if (result.IsClockedIn)
+        {
             _reconciler.ApplyPresenceActive(result.ClockedInAtUtc ?? now);
+
+            if (result.IsOnBreak)
+                _reconciler.ApplyPresenceBreakStarted(result.BreakStartedAtUtc ?? now);
+            else
+                _reconciler.ApplyPresenceBreakEnded(now);
+        }
         else
+        {
             _reconciler.ApplyPresenceStopped(now);
+        }
     }
 }

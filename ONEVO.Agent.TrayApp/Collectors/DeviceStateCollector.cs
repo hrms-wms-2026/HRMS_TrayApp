@@ -9,29 +9,40 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
     public string Name => "DeviceState";
 
     private static readonly TimeSpan SampleWindow = TimeSpan.FromSeconds(60);
+    // A fresh GPS fix is comparatively expensive (location-service wakeups, battery) compared to
+    // the idle/active read every tick already does - only pull one on every 15th tick (~15
+    // minutes at the 60s SampleWindow above), matching the interval decided for this feature.
+    private const int LocationFixEveryNthTick = 15;
 
     private readonly ILogger<DeviceStateCollector> _logger;
     private readonly INamedPipeClient _pipe;
     private readonly ISessionDayMetrics _dayMetrics;
+    private readonly ILocationService _location;
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private bool _running;
     private int _idleThresholdSeconds = IdleDetector.DefaultIdleThresholdSeconds;
+    private bool _locationTrackingEnabled;
+    private int _tickCount;
 
     public DeviceStateCollector(
         ILogger<DeviceStateCollector> logger,
         INamedPipeClient pipe,
-        ISessionDayMetrics dayMetrics)
+        ISessionDayMetrics dayMetrics,
+        ILocationService location)
     {
         _logger     = logger;
         _pipe       = pipe;
         _dayMetrics = dayMetrics;
+        _location   = location;
     }
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
     {
         if (_running) return Task.CompletedTask;
         _idleThresholdSeconds = policy.IdleThresholdMinutes * 60;
+        _locationTrackingEnabled = policy.LocationTrackingEnabled;
+        _tickCount = 0;
         _cts     = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _loop    = SampleLoopAsync(_cts.Token);
         _running = true;
@@ -59,6 +70,9 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
         catch (OperationCanceledException) { }
     }
 
+    /// <summary>Test-only synchronous hook into one sample tick, bypassing the real PeriodicTimer.</summary>
+    internal Task EmitSampleForTestAsync(CancellationToken ct) => EmitSampleAsync(ct);
+
     private async Task EmitSampleAsync(CancellationToken ct)
     {
         try
@@ -73,6 +87,29 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
             if (isIdle)
                 _dayMetrics.AddIdleSample(SampleWindow);
 
+            double? latitude = null, longitude = null, accuracyMeters = null;
+            _tickCount++;
+            if (_locationTrackingEnabled && _tickCount % LocationFixEveryNthTick == 0)
+            {
+                // Isolated from the outer try: a location fix is a best-effort add-on to this
+                // sample. If ILocationService throws (rather than returning a failure result), the
+                // idle/active telemetry for this tick must still be submitted below.
+                try
+                {
+                    var result = await _location.GetCurrentAsync(ct);
+                    if (result.IsSuccess)
+                    {
+                        latitude = result.Fix!.Latitude;
+                        longitude = result.Fix.Longitude;
+                        accuracyMeters = result.Fix.AccuracyMeters;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(ex, "{Name}: location fix failed, submitting snapshot without coordinates", Name);
+                }
+            }
+
             var record = new CollectionRecord
             {
                 EventId          = Guid.NewGuid().ToString("N"),
@@ -82,9 +119,12 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
                 DeviceId         = Environment.MachineName,
                 Payload          = JsonSerializer.SerializeToElement(new DeviceStateSnapshotPayload
                 {
-                    CapturedAt  = now,
-                    IdleSeconds = idleSeconds,
-                    IsIdle      = isIdle
+                    CapturedAt     = now,
+                    IdleSeconds    = idleSeconds,
+                    IsIdle         = isIdle,
+                    Latitude       = latitude,
+                    Longitude      = longitude,
+                    AccuracyMeters = accuracyMeters
                 })
             };
             await _pipe.SubmitCollectionRecordsAsync([record], ct);

@@ -1,3 +1,4 @@
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
@@ -215,5 +216,73 @@ public sealed class WorkLocationViewModelTests
         Assert.Equal("", preferences.Get(SessionPreferenceKeys.LiveLatitude, ""));
         Assert.Equal("", preferences.Get(SessionPreferenceKeys.LiveLongitude, ""));
         Assert.True(WorkLocationFlow.IsConfirmedToday(preferences));
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_WithFix_SendsWorkLocationConfirmOverPipe()
+    {
+        var pipe = LocationTrackingEnabledPipe();
+        var fix = new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow);
+        var vm = MakeVm(LocationCaptureResult.Success(fix), pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        vm.SelectOptionCommand.Execute(vm.Options[1]); // "Work From Home"
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.Single(pipe.WorkLocationConfirmCalls);
+        var call = pipe.WorkLocationConfirmCalls[0];
+        Assert.Equal("home", call.LocationType);
+        Assert.Equal(6.9271, call.Latitude);
+        Assert.Equal(79.8612, call.Longitude);
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_BackendRejectsSend_DoesNotMarkDayConfirmed()
+    {
+        var preferences = new FakePreferencesStore();
+        var pipe = LocationTrackingEnabledPipe();
+        pipe.WorkLocationConfirmResult = new WorkLocationConfirmResultPayload(false, "UNAUTHORIZED");
+        var vm = MakeVm(preferences: preferences, pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        vm.SelectOptionCommand.Execute(vm.Options.Single(x => x.Code == "WFH"));
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.Single(pipe.WorkLocationConfirmCalls);
+        Assert.False(WorkLocationFlow.IsConfirmedToday(preferences));
+        // Navigation still proceeds so the employee isn't stuck; the day just isn't locked in,
+        // so the confirm screen re-prompts next time.
+        Assert.True(vm.IsConfirmed);
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_PipeReturnsNull_DoesNotMarkDayConfirmed()
+    {
+        var preferences = new FakePreferencesStore();
+        var pipe = LocationTrackingEnabledPipe();
+        pipe.WorkLocationConfirmReturnsNull = true;
+        var vm = MakeVm(preferences: preferences, pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        vm.SelectOptionCommand.Execute(vm.Options.Single(x => x.Code == "WFH"));
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.False(WorkLocationFlow.IsConfirmedToday(preferences));
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_TrackingDisabledNoFix_SendsWorkLocationConfirmWithNullCoordinates()
+    {
+        var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
+        var vm = MakeVm(store: new FakeWorkLocationStore(), pipe: pipe);
+
+        vm.SelectOptionCommand.Execute(vm.Options[0]); // "Office"
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.Single(pipe.WorkLocationConfirmCalls);
+        var call = pipe.WorkLocationConfirmCalls[0];
+        Assert.Equal("office", call.LocationType);
+        Assert.Null(call.Latitude);
+        Assert.Null(call.Longitude);
     }
 }

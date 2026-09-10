@@ -203,7 +203,9 @@ public sealed class OnevoApiClient
             IdleThresholdMinutes = payload.IdleThresholdMinutes,
             EffectiveScope = payload.EffectiveScope ?? "employee",
             ValidUntil = payload.ValidUntil,
-            TrayClockInEnabled = payload.TrayClockInEnabled
+            TrayClockInEnabled = payload.TrayClockInEnabled,
+            ScheduleStart = payload.ScheduleStart,
+            ScheduleEnd = payload.ScheduleEnd
         };
 
         return new PolicyResult(true, null, policy);
@@ -250,7 +252,9 @@ public sealed class OnevoApiClient
         if (payload is null)
             return new AttendanceStatusResult(false, "SERVICE_UNAVAILABLE", false, null);
 
-        return new AttendanceStatusResult(true, null, payload.IsClockedIn, payload.ClockedInAtUtc);
+        return new AttendanceStatusResult(
+            true, null, payload.IsClockedIn, payload.ClockedInAtUtc,
+            payload.IsOnBreak, payload.BreakStartedAtUtc);
     }
 
     /// <summary>Clocks in via the tray, backend-enforced. Auth: Bearer Device JWT.</summary>
@@ -260,6 +264,14 @@ public sealed class OnevoApiClient
     /// <summary>Clocks out via the tray. Auth: Bearer Device JWT.</summary>
     public Task<ClockActionResult> ClockOutAsync(string accessToken, CancellationToken ct) =>
         PostClockActionAsync(AgentApiRoutes.TrayClockOut, accessToken, ct);
+
+    /// <summary>Starts a break via the tray, backend-enforced. Auth: Bearer Device JWT.</summary>
+    public Task<ClockActionResult> StartBreakAsync(string accessToken, CancellationToken ct) =>
+        PostClockActionAsync(AgentApiRoutes.TrayBreakStart, accessToken, ct);
+
+    /// <summary>Ends a break via the tray. Auth: Bearer Device JWT.</summary>
+    public Task<ClockActionResult> EndBreakAsync(string accessToken, CancellationToken ct) =>
+        PostClockActionAsync(AgentApiRoutes.TrayBreakEnd, accessToken, ct);
 
     private async Task<ClockActionResult> PostClockActionAsync(string route, string accessToken, CancellationToken ct)
     {
@@ -493,6 +505,40 @@ public sealed class OnevoApiClient
         return new LocationChangeRequestResult(true, null, payload);
     }
 
+    /// <summary>Submits today's confirmed work location. Auth: Bearer Device JWT.</summary>
+    public async Task<WorkLocationConfirmResult> ConfirmWorkLocationAsync(
+        string accessToken, string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.WorkLocationConfirmSubmit)
+        {
+            Content = JsonContent.Create(new WorkLocationConfirmBody(locationType, latitude, longitude, accuracyMeters))
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.WorkLocationConfirmSubmit);
+            return new WorkLocationConfirmResult(false, "SERVICE_UNAVAILABLE");
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new WorkLocationConfirmResult(false, "UNAUTHORIZED");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", AgentApiRoutes.WorkLocationConfirmSubmit, (int)response.StatusCode);
+            return new WorkLocationConfirmResult(false, "SERVICE_UNAVAILABLE");
+        }
+
+        return new WorkLocationConfirmResult(true, null);
+    }
+
     /// <summary>Answers the post-clock-in "save this as your new location?" prompt. Auth: Bearer Device JWT.</summary>
     public async Task<LocationChangeRequestResult> RespondToLocationChangeRequestAsync(
         string accessToken, Guid id, bool apply, CancellationToken ct)
@@ -594,6 +640,12 @@ public sealed class OnevoApiClient
     private sealed record LocationChangeRequestBody(double Latitude, double Longitude, double? AccuracyMeters, string Reason);
 
     private sealed record RespondToLocationChangeRequestBody(bool Apply);
+
+    private sealed record WorkLocationConfirmBody(
+        [property: JsonPropertyName("location_type")] string LocationType,
+        [property: JsonPropertyName("latitude")] double? Latitude,
+        [property: JsonPropertyName("longitude")] double? Longitude,
+        [property: JsonPropertyName("accuracy_meters")] double? AccuracyMeters);
 
     private async Task<TrayAuthResult> PostAuthAsync(string route, object body, CancellationToken ct)
     {
@@ -715,16 +767,26 @@ public sealed record TrayAgentPolicyPayload(
     [property: JsonPropertyName("valid_until")] DateTimeOffset ValidUntil,
     [property: JsonPropertyName("effective_scope")] string EffectiveScope = "employee",
     [property: JsonPropertyName("location_tracking_enabled")] bool LocationTrackingEnabled = false,
-    [property: JsonPropertyName("tray_clock_in_enabled")] bool TrayClockInEnabled = false);
+    [property: JsonPropertyName("tray_clock_in_enabled")] bool TrayClockInEnabled = false,
+    [property: JsonPropertyName("schedule_start")] TimeOnly? ScheduleStart = null,
+    [property: JsonPropertyName("schedule_end")] TimeOnly? ScheduleEnd = null);
 
 public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);
 
 /// <summary>Wire-format mirror of the backend's TrayAttendanceStatusDto.</summary>
 public sealed record TrayAttendanceStatusPayload(
     [property: JsonPropertyName("is_clocked_in")] bool IsClockedIn,
-    [property: JsonPropertyName("clocked_in_at_utc")] DateTimeOffset? ClockedInAtUtc);
+    [property: JsonPropertyName("clocked_in_at_utc")] DateTimeOffset? ClockedInAtUtc,
+    [property: JsonPropertyName("is_on_break")] bool IsOnBreak = false,
+    [property: JsonPropertyName("break_started_at_utc")] DateTimeOffset? BreakStartedAtUtc = null);
 
-public sealed record AttendanceStatusResult(bool Success, string? ErrorCode, bool IsClockedIn, DateTimeOffset? ClockedInAtUtc);
+public sealed record AttendanceStatusResult(
+    bool Success,
+    string? ErrorCode,
+    bool IsClockedIn,
+    DateTimeOffset? ClockedInAtUtc,
+    bool IsOnBreak = false,
+    DateTimeOffset? BreakStartedAtUtc = null);
 
 public sealed record ClockActionResult(bool Success, string? ErrorCode, string? Message);
 
@@ -773,3 +835,5 @@ public sealed record LocationChangeRequestPayload(
 
 public sealed record LocationChangeRequestResult(
     bool Success, string? ErrorCode, LocationChangeRequestPayload? Request, string? Detail = null);
+
+public sealed record WorkLocationConfirmResult(bool Success, string? ErrorCode);

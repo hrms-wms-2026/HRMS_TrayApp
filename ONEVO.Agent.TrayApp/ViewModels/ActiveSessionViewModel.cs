@@ -29,7 +29,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _primaryTimerLabel = "Live Shift Timer";
     [ObservableProperty] private string _primaryTimer      = "00:00:00";
     [ObservableProperty] private string _startTimeDisplay  = "—";
-    [ObservableProperty] private string _scheduleDisplay   = "09:00 AM – 06:00 PM";
+    [ObservableProperty] private string _scheduleDisplay   = "Not configured";
     [ObservableProperty] private string _workDurationDisplay = "00:00:00";
     [ObservableProperty] private string _breakTimeDisplay  = "00:00:00";
     [ObservableProperty] private string _idleTimeDisplay = "00:00:00";

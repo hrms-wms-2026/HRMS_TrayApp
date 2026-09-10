@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.IPC;
+using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 
 using ONEVO.Agent.Service.Security;
@@ -34,13 +35,15 @@ public class PolicySyncServiceTests
     private static PolicySyncService Build(
         HttpMessageHandler handler,
         PolicyCache? cache = null,
-        RecordingBroadcaster? broadcaster = null) =>
+        RecordingBroadcaster? broadcaster = null,
+        PresenceSession? presenceSession = null) =>
         new(
             NullLogger<PolicySyncService>.Instance,
             new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance),
             new CredentialStore(), // never touched by RefreshOnceAsync(jwt, ct) — jwt passed explicitly
             cache ?? new PolicyCache(),
-            broadcaster ?? new RecordingBroadcaster());
+            broadcaster ?? new RecordingBroadcaster(),
+            presenceSession ?? new PresenceSession());
 
     [Fact]
     public void RefreshInterval_LeavesMarginBeforeBackendPolicyValidity()
@@ -82,6 +85,47 @@ public class PolicySyncServiceTests
         Assert.Equal(IpcMessageTypes.PolicyPush, pushed.Type);
         var payload = pushed.Payload!.Value.Deserialize<PolicyPushPayload>();
         Assert.Equal("policy-v2", payload!.Policy.Version);
+    }
+
+    [Fact]
+    public async Task RefreshOnceAsync_Success_AppliesScheduleToPresenceSession()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                version = "policy-v3",
+                activity_signal_enabled = true,
+                app_usage_enabled = true,
+                screenshot_enabled = true,
+                inactivity_screenshot_enabled = true,
+                camera_verification_enabled = false,
+                valid_until = DateTimeOffset.UtcNow.AddHours(2),
+                schedule_start = "06:46:00",
+                schedule_end = "12:46:00"
+            })
+        });
+        var presenceSession = new PresenceSession();
+        var svc = Build(handler, presenceSession: presenceSession);
+
+        await svc.RefreshOnceAsync("device-jwt", CancellationToken.None);
+
+        Assert.Equal("06:46 AM – 12:46 PM", presenceSession.Snapshot(DateTimeOffset.UtcNow).ScheduleDisplay);
+    }
+
+    [Fact]
+    public async Task RefreshOnceAsync_ScheduleNotConfigured_AppliesNotConfiguredToPresenceSession()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(ValidPolicyBody)
+        });
+        var presenceSession = new PresenceSession();
+        var svc = Build(handler, presenceSession: presenceSession);
+
+        await svc.RefreshOnceAsync("device-jwt", CancellationToken.None);
+
+        Assert.Equal("Not configured", presenceSession.Snapshot(DateTimeOffset.UtcNow).ScheduleDisplay);
     }
 
     [Fact]
@@ -167,7 +211,8 @@ public class PolicySyncServiceTests
             new OnevoApiClient(factory, NullLogger<OnevoApiClient>.Instance),
             new CredentialStore(),
             new PolicyCache(),
-            new RecordingBroadcaster());
+            new RecordingBroadcaster(),
+            new PresenceSession());
 
         await svc.RefreshOnceAsync(null, CancellationToken.None);
         await svc.RefreshOnceAsync("   ", CancellationToken.None);

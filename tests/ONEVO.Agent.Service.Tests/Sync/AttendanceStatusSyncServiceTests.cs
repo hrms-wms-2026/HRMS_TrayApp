@@ -33,7 +33,34 @@ public class AttendanceStatusSyncServiceTests
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
 
         Assert.True(applyActiveCalled);
-        Assert.Equal(["Active"], reconciler.Calls);
+        Assert.Equal(["Active", "BreakEnded"], reconciler.Calls);
+    }
+
+    [Fact]
+    public async Task PollOnceAsync_BackendReportsOpenBreak_CallsApplyPresenceBreakStarted()
+    {
+        var breakStart = DateTimeOffset.UtcNow.AddMinutes(-5);
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                is_clocked_in = true,
+                clocked_in_at_utc = DateTimeOffset.UtcNow.AddHours(-2),
+                is_on_break = true,
+                break_started_at_utc = breakStart
+            })
+        });
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var reconciler = new RecordingPresenceReconciler();
+        var sut = new AttendanceStatusSyncService(
+            NullLogger<AttendanceStatusSyncService>.Instance,
+            apiClient,
+            new CredentialStore(),
+            reconciler);
+
+        await sut.PollOnceAsync("device-jwt", CancellationToken.None);
+
+        Assert.Equal(["Active", "BreakStarted"], reconciler.Calls);
     }
 
     [Fact]

@@ -22,4 +22,16 @@ public sealed class RecordingPresenceReconciler : IPresenceReconciler
         Calls.Add("Stopped");
         return true;
     }
+
+    public bool ApplyPresenceBreakStarted(DateTimeOffset startedAt)
+    {
+        Calls.Add("BreakStarted");
+        return true;
+    }
+
+    public bool ApplyPresenceBreakEnded(DateTimeOffset now)
+    {
+        Calls.Add("BreakEnded");
+        return true;
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace ONEVO.Agent.TrayApp.Tests.Fakes;
 
+using System.Text.Json;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
@@ -19,6 +20,14 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public AgentPolicy? LastKnownPolicy { get; set; }
 
     public List<IReadOnlyList<CollectionRecord>> Submitted { get; } = [];
+
+    /// <summary>Convenience view over <see cref="Submitted"/> for tests asserting on device-state
+    /// snapshot payloads specifically (e.g. GPS-fix sampling in DeviceStateCollector).</summary>
+    public IReadOnlyList<DeviceStateSnapshotPayload> SubmittedDeviceStateSnapshots =>
+        Submitted.SelectMany(batch => batch)
+                 .Where(r => r.RecordType == CollectionRecordTypes.DeviceStateSnapshot)
+                 .Select(r => r.Payload.Deserialize<DeviceStateSnapshotPayload>()!)
+                 .ToList();
     public List<IpcEnvelope> SentEnvelopes { get; } = [];
     public List<LifecycleAction> LifecycleActions { get; } = [];
 
@@ -257,6 +266,36 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
         return Task.FromResult<LocationChangeRespondResultPayload?>(
             new LocationChangeRespondResultPayload(
                 true, null, new LocationChangeRequestSummaryPayload(id, apply ? "applied" : "approved", DateTimeOffset.UtcNow)));
+    }
+
+    /// <summary>Optional canned result for SendWorkLocationConfirmAsync. Null = auto-success.</summary>
+    public WorkLocationConfirmResultPayload? WorkLocationConfirmResult { get; set; }
+
+    /// <summary>When true, SendWorkLocationConfirmAsync resolves to null - the shape the real client
+    /// returns on a pipe timeout / no WorkLocationConfirmResult reply.</summary>
+    public bool WorkLocationConfirmReturnsNull { get; set; }
+
+    public List<(string LocationType, double? Latitude, double? Longitude, double? AccuracyMeters)> WorkLocationConfirmCalls { get; } = [];
+
+    public Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
+        string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct)
+    {
+        WorkLocationConfirmCalls.Add((locationType, latitude, longitude, accuracyMeters));
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.WorkLocationConfirm,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new WorkLocationConfirmPayload(locationType, latitude, longitude, accuracyMeters))
+        });
+
+        if (WorkLocationConfirmReturnsNull)
+            return Task.FromResult<WorkLocationConfirmResultPayload?>(null);
+
+        if (WorkLocationConfirmResult is not null)
+            return Task.FromResult<WorkLocationConfirmResultPayload?>(WorkLocationConfirmResult);
+
+        return Task.FromResult<WorkLocationConfirmResultPayload?>(
+            new WorkLocationConfirmResultPayload(true, null));
     }
 
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();

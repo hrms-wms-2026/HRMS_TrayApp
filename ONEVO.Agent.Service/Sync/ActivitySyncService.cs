@@ -772,9 +772,12 @@ public sealed class ActivitySyncService : BackgroundService
 
                 items.Add(new DeviceStateIngestItem
                 {
-                    CapturedAt  = snap.CapturedAt,
-                    IdleSeconds = snap.IdleSeconds,
-                    IsIdle      = snap.IsIdle
+                    CapturedAt     = snap.CapturedAt,
+                    IdleSeconds    = snap.IdleSeconds,
+                    IsIdle         = snap.IsIdle,
+                    Latitude       = snap.Latitude,
+                    Longitude      = snap.Longitude,
+                    AccuracyMeters = snap.AccuracyMeters
                 });
                 used.Add(record);
             }

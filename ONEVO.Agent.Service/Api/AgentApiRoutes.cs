@@ -15,6 +15,8 @@ public static class AgentApiRoutes
     public const string TrayAttendanceStatus = "/api/v1/monitoring/tray/attendance-status";
     public const string TrayClockIn          = "/api/v1/monitoring/tray/clock-in";
     public const string TrayClockOut         = "/api/v1/monitoring/tray/clock-out";
+    public const string TrayBreakStart       = "/api/v1/monitoring/tray/break/start";
+    public const string TrayBreakEnd         = "/api/v1/monitoring/tray/break/end";
     public const string PendingTrayNotifications = "/api/v1/monitoring/tray/notifications/pending";
     public const string AckTrayNotification = "/api/v1/monitoring/tray/notifications/{0}/ack";
 
@@ -31,4 +33,6 @@ public static class AgentApiRoutes
     public const string LocationChangeRequestSubmit = "/api/v1/monitoring/location-change-requests";
     public const string LocationChangeRequestRespond = "/api/v1/monitoring/location-change-requests/{0}/respond";
     public const string LocationChangeRequestPending = "/api/v1/monitoring/location-change-requests/pending";
+
+    public const string WorkLocationConfirmSubmit = "/api/v1/monitoring/tray/work-location/confirm";
 }

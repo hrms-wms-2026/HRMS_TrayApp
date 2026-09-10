@@ -19,7 +19,7 @@ public sealed class PresenceSession
     private TimeSpan _accumulatedBreak;
     private TimeSpan _accumulatedIdle;
     private int _breakSessionCount;
-    private string _scheduleDisplay = "09:00 AM – 06:00 PM";
+    private string _scheduleDisplay = "Not configured";
     private Guid _sessionId;
     private DateTimeOffset _lastKnownActivityAt;
     private DateTimeOffset? _idleWatermark;
@@ -133,7 +133,7 @@ public sealed class PresenceSession
     {
         lock (_lock)
             _scheduleDisplay = string.IsNullOrWhiteSpace(schedule)
-                ? "09:00 AM – 06:00 PM"
+                ? "Not configured"
                 : schedule.Trim();
     }
 

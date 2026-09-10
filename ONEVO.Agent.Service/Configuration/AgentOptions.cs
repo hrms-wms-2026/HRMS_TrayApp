@@ -34,6 +34,9 @@ public sealed class AgentOptions
     public int[] PortalDevelopmentPorts { get; set; } = [4200];
     public string[] PortalDevelopmentOrigins { get; set; } = [];
 
-    /// <summary>Default schedule label shown on Active Session UI.</summary>
-    public string DefaultScheduleDisplay { get; set; } = "09:00 AM – 06:00 PM";
+    /// <summary>
+    /// Startup placeholder shown on Active Session UI only until the first real policy fetch
+    /// (with the legal entity's configured schedule) completes — never a stand-in for it.
+    /// </summary>
+    public string DefaultScheduleDisplay { get; set; } = "Not configured";
 }

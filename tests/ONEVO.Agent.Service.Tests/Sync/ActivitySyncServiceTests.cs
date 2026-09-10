@@ -442,6 +442,48 @@ public class ActivitySyncServiceTests
     }
 
     [Fact]
+    public async Task FlushDeviceStateSnapshotsAsync_RecordWithLocation_IncludesCoordinatesInPostedBody()
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.DeviceStateSnapshot,
+            CollectionSchemaVersions.DeviceStateSnapshotV1,
+            new DeviceStateSnapshotPayload
+            {
+                CapturedAt     = DateTimeOffset.UtcNow,
+                IdleSeconds    = 30,
+                IsIdle         = false,
+                Latitude       = 6.9271,
+                Longitude      = 79.8612,
+                AccuracyMeters = 15
+            }));
+
+        DeviceStateIngestRequest? capturedRequest = null;
+        var factory = new CapturingHttpClientFactory(req =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith(AgentApiRoutes.DeviceStateSnapshots, StringComparison.Ordinal))
+            {
+                var json = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                capturedRequest = JsonSerializer.Deserialize<DeviceStateIngestRequest>(json);
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.NotNull(capturedRequest);
+        var snapshot = Assert.Single(capturedRequest!.Snapshots);
+        Assert.Equal(6.9271, snapshot.Latitude);
+        Assert.Equal(79.8612, snapshot.Longitude);
+        Assert.Equal(15, snapshot.AccuracyMeters);
+        Assert.Equal(0, buffer.Count);
+    }
+
+    [Fact]
     public async Task FlushAsync_FacePhotoRecord_PostsCheckInThenFaceScan()
     {
         var imageBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xD9 };

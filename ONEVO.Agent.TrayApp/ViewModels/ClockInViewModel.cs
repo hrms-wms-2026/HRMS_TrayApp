@@ -26,7 +26,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     [ObservableProperty] private string _workspaceStatus  = "Secure";
     [ObservableProperty] private string _policiesStatus   = "All policies active";
 
-    [ObservableProperty] private string _scheduleDisplay  = "09:00 AM – 06:00 PM";
+    [ObservableProperty] private string _scheduleDisplay  = "Not configured";
     [ObservableProperty] private bool _isStartConfirmVisible;
     [ObservableProperty] private bool _isClockinIn;
     [ObservableProperty] private bool _isSigningOut;
@@ -41,6 +41,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         _preferences = preferences;
         Greeting    = GetGreeting();
         _currentPolicy = pipe.LastKnownPolicy;
+        if (_currentPolicy is not null)
+            ScheduleDisplay = _currentPolicy.ScheduleDisplay;
         _pipe.OnPolicyReceived += HandlePolicyReceived;
         LoadEmployeeName();
 
@@ -130,7 +132,12 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         }
     }
 
-    private void HandlePolicyReceived(AgentPolicy policy) => _currentPolicy = policy;
+    private void HandlePolicyReceived(AgentPolicy policy)
+    {
+        _currentPolicy = policy;
+        try { MainThread.BeginInvokeOnMainThread(() => ScheduleDisplay = policy.ScheduleDisplay); }
+        catch { ScheduleDisplay = policy.ScheduleDisplay; }
+    }
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
     {
