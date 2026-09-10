@@ -1,3 +1,4 @@
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
@@ -233,6 +234,40 @@ public sealed class WorkLocationViewModelTests
         Assert.Equal("home", call.LocationType);
         Assert.Equal(6.9271, call.Latitude);
         Assert.Equal(79.8612, call.Longitude);
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_BackendRejectsSend_DoesNotMarkDayConfirmed()
+    {
+        var preferences = new FakePreferencesStore();
+        var pipe = LocationTrackingEnabledPipe();
+        pipe.WorkLocationConfirmResult = new WorkLocationConfirmResultPayload(false, "UNAUTHORIZED");
+        var vm = MakeVm(preferences: preferences, pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        vm.SelectOptionCommand.Execute(vm.Options.Single(x => x.Code == "WFH"));
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.Single(pipe.WorkLocationConfirmCalls);
+        Assert.False(WorkLocationFlow.IsConfirmedToday(preferences));
+        // Navigation still proceeds so the employee isn't stuck; the day just isn't locked in,
+        // so the confirm screen re-prompts next time.
+        Assert.True(vm.IsConfirmed);
+    }
+
+    [Fact]
+    public async Task ConfirmLocation_PipeReturnsNull_DoesNotMarkDayConfirmed()
+    {
+        var preferences = new FakePreferencesStore();
+        var pipe = LocationTrackingEnabledPipe();
+        pipe.WorkLocationConfirmReturnsNull = true;
+        var vm = MakeVm(preferences: preferences, pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+        vm.SelectOptionCommand.Execute(vm.Options.Single(x => x.Code == "WFH"));
+        await vm.ConfirmLocationCommand.ExecuteAsync(null);
+
+        Assert.False(WorkLocationFlow.IsConfirmedToday(preferences));
     }
 
     [Fact]

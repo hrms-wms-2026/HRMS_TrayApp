@@ -271,6 +271,10 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     /// <summary>Optional canned result for SendWorkLocationConfirmAsync. Null = auto-success.</summary>
     public WorkLocationConfirmResultPayload? WorkLocationConfirmResult { get; set; }
 
+    /// <summary>When true, SendWorkLocationConfirmAsync resolves to null - the shape the real client
+    /// returns on a pipe timeout / no WorkLocationConfirmResult reply.</summary>
+    public bool WorkLocationConfirmReturnsNull { get; set; }
+
     public List<(string LocationType, double? Latitude, double? Longitude, double? AccuracyMeters)> WorkLocationConfirmCalls { get; } = [];
 
     public Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
@@ -283,6 +287,9 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             Payload = System.Text.Json.JsonSerializer.SerializeToElement(
                 new WorkLocationConfirmPayload(locationType, latitude, longitude, accuracyMeters))
         });
+
+        if (WorkLocationConfirmReturnsNull)
+            return Task.FromResult<WorkLocationConfirmResultPayload?>(null);
 
         if (WorkLocationConfirmResult is not null)
             return Task.FromResult<WorkLocationConfirmResultPayload?>(WorkLocationConfirmResult);

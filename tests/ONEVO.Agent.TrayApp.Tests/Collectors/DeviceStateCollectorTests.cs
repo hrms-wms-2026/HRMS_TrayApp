@@ -52,4 +52,21 @@ public class DeviceStateCollectorTests
         Assert.Equal(6.9271, located.Latitude);
         Assert.Equal(14, pipe.SubmittedDeviceStateSnapshots.Count(s => s.Latitude is null));
     }
+
+    [Fact]
+    public async Task EmitSampleAsync_LocationServiceThrows_StillSubmitsSnapshotWithoutCoordinates()
+    {
+        var location = FakeLocationService.Throwing();
+        var pipe = new FakeNamedPipeClient();
+        var collector = new DeviceStateCollector(
+            NullLogger<DeviceStateCollector>.Instance, pipe, new FakeSessionDayMetrics(), location);
+
+        await collector.StartAsync(Policy(locationTrackingEnabled: true), CancellationToken.None);
+        for (var i = 0; i < 15; i++)
+            await collector.EmitSampleForTestAsync(CancellationToken.None);
+
+        Assert.Equal(1, location.CallCount);
+        Assert.Equal(15, pipe.SubmittedDeviceStateSnapshots.Count);
+        Assert.All(pipe.SubmittedDeviceStateSnapshots, s => Assert.Null(s.Latitude));
+    }
 }

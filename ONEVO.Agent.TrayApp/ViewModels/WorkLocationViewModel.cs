@@ -199,16 +199,17 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
         // to save as a WorkLocationReference or Live* coordinates — the code/display keys above are
         // enough to record which option the employee picked.
 
-        WorkLocationFlow.MarkConfirmedToday(_preferences);
-
         var locationType = ToBackendLocationType(option.Code);
-        _ = _pipe.SendWorkLocationConfirmAsync(
-                locationType, fix?.Latitude, fix?.Longitude, fix?.AccuracyMeters, CancellationToken.None)
-            .ContinueWith(t =>
-            {
-                if (t.IsFaulted)
-                    System.Diagnostics.Debug.WriteLine($"WorkLocationConfirm send failed: {t.Exception?.GetBaseException().Message}");
-            }, TaskScheduler.Default);
+        var backendAccepted = await TrySendConfirmationAsync(locationType, fix);
+
+        if (backendAccepted)
+        {
+            // Only record the day as confirmed once the backend has actually accepted it. A failed
+            // or timed-out pipe send leaves the day unmarked so the screen re-prompts next time,
+            // rather than silently skipping backend registration - which would leave the backend's
+            // LocationRuleEvaluatorJob treating the employee as never having confirmed today.
+            WorkLocationFlow.MarkConfirmedToday(_preferences);
+        }
 
         IsConfirmed = true;
 
@@ -251,4 +252,22 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
         "OTHER" => "other",
         _ => "other"
     };
+
+    /// <summary>Sends today's confirmation to the Service process and reports whether the backend
+    /// accepted it. A null result (pipe timeout / no response) or Success=false counts as not
+    /// accepted, and any transport exception is swallowed the same way.</summary>
+    private async Task<bool> TrySendConfirmationAsync(string locationType, GeoLocationFix? fix)
+    {
+        try
+        {
+            var result = await _pipe.SendWorkLocationConfirmAsync(
+                locationType, fix?.Latitude, fix?.Longitude, fix?.AccuracyMeters, CancellationToken.None);
+            return result is { Success: true };
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"WorkLocationConfirm send failed: {ex.Message}");
+            return false;
+        }
+    }
 }

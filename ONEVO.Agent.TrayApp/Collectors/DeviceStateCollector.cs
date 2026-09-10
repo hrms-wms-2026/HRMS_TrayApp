@@ -91,12 +91,22 @@ public sealed class DeviceStateCollector : IAgentCollector, IAsyncDisposable
             _tickCount++;
             if (_locationTrackingEnabled && _tickCount % LocationFixEveryNthTick == 0)
             {
-                var result = await _location.GetCurrentAsync(ct);
-                if (result.IsSuccess)
+                // Isolated from the outer try: a location fix is a best-effort add-on to this
+                // sample. If ILocationService throws (rather than returning a failure result), the
+                // idle/active telemetry for this tick must still be submitted below.
+                try
                 {
-                    latitude = result.Fix!.Latitude;
-                    longitude = result.Fix.Longitude;
-                    accuracyMeters = result.Fix.AccuracyMeters;
+                    var result = await _location.GetCurrentAsync(ct);
+                    if (result.IsSuccess)
+                    {
+                        latitude = result.Fix!.Latitude;
+                        longitude = result.Fix.Longitude;
+                        accuracyMeters = result.Fix.AccuracyMeters;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogDebug(ex, "{Name}: location fix failed, submitting snapshot without coordinates", Name);
                 }
             }
 
