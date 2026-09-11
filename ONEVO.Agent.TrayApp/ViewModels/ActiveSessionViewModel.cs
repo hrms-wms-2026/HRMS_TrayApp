@@ -38,13 +38,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
     [NotifyPropertyChangedFor(nameof(ShowClockOutAction))]
-    [NotifyPropertyChangedFor(nameof(ShowBackToWorkActions))]
     private bool   _isOnBreak;
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
-    [NotifyPropertyChangedFor(nameof(ShowClockOutAction))]
-    [NotifyPropertyChangedFor(nameof(ShowBackToWorkActions))]
-    private bool   _isBackToWork;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isEndBreakConfirmVisible;
     [ObservableProperty] private bool   _isClockOutConfirmVisible;
@@ -57,8 +51,6 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _workStartedCaption = "";
     [ObservableProperty] private string _breakTotalCaption = "Total Break Time: 00:00:00";
     [ObservableProperty] private string _productiveShareCaption = "0% of work duration";
-    [ObservableProperty] private string _breakEndedAtDisplay = "—";
-    [ObservableProperty] private string _lastBreakDurationDisplay = "00:00:00";
     [ObservableProperty] private string _statusSinceCaption = "";
 
     // "Request location change" (remote work mode only).
@@ -87,9 +79,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         _location = location;
     }
 
-    public bool ShowWorkingActions => !IsOnBreak && !IsBackToWork;
-
-    public bool ShowBackToWorkActions => IsBackToWork && !IsOnBreak;
+    public bool ShowWorkingActions => !IsOnBreak;
 
     public bool ShowClockOutAction => ShowWorkingActions && (_pipe.LastKnownPolicy?.TrayClockInEnabled ?? false);
 
@@ -269,16 +259,6 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             HintMessage       = "You'll be notified when your break time is ending.";
             SyncMessage       = null;
         }
-        else if (IsBackToWork)
-        {
-            HeaderTitle       = "Back to Work";
-            HeaderLead        = "Back to";
-            HeaderAccent      = "Work";
-            HeaderSubtitle    = "Your work session has resumed successfully.";
-            StatusText        = "Working";
-            PrimaryTimerLabel = "Live Shift Timer";
-            HintMessage       = "You're doing great! Keep the momentum going.";
-        }
         else
         {
             HeaderTitle       = "You are now Clocked In";
@@ -293,15 +273,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
     partial void OnIsOnBreakChanged(bool value)
     {
-        if (value)
-            IsBackToWork = false;
         ApplyModeChrome();
         UpdateTimersCore();
-    }
-
-    partial void OnIsBackToWorkChanged(bool value)
-    {
-        ApplyModeChrome();
     }
 
     /// <summary>Recompute all timer strings from clock-in / break anchors (UTC).</summary>
@@ -421,25 +394,16 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private async Task EndBreakAsync(CancellationToken ct)
     {
         IsEndBreakConfirmVisible = false;
-        LastBreakDurationDisplay = PrimaryTimer;
-        BreakEndedAtDisplay = DateTime.Now.ToString("hh:mm tt");
-        IsBackToWork = true;
         // EndBreak resumes monitoring rather than pausing it, so it does not go through the
-        // pre-stop drain — collectors are already stopped for the break's duration.
+        // pre-stop drain — collectors are already stopped for the break's duration. On success
+        // the lifecycle result's session snapshot clears IsOnBreak, dropping the view straight
+        // back to the working state (no "Back to Work" confirmation step).
         var result = await RunLifecycleAsync(LifecycleAction.EndBreak, ct);
-        if (result is { Success: false })
-            IsBackToWork = false;
         if (IsStaleSessionError(result))
         {
             try { await Shell.Current.GoToAsync("//clockin"); }
             catch { }
         }
-    }
-
-    [RelayCommand]
-    private void ContinueWorking()
-    {
-        IsBackToWork = false;
     }
 
     [RelayCommand]
