@@ -86,13 +86,9 @@ public sealed class ActiveSessionViewModelTests
         await vm.ConfirmStartBreakCommand.ExecuteAsync(null);
         await vm.EndBreakCommand.ExecuteAsync(null);
         Assert.Contains(LifecycleAction.EndBreak, pipe.LifecycleActions);
+        // Ending a break returns straight to the working view — no "Back to Work"
+        // confirmation step / "Continue Working" button in between.
         Assert.False(vm.IsOnBreak);
-        Assert.True(vm.IsBackToWork);
-        Assert.Equal("Back to Work", vm.HeaderTitle);
-        Assert.True(vm.ShowBackToWorkActions);
-        Assert.False(vm.ShowWorkingActions);
-        vm.ContinueWorkingCommand.Execute(null);
-        Assert.False(vm.IsBackToWork);
         Assert.Equal("You are now Clocked In", vm.HeaderTitle);
         Assert.True(vm.ShowWorkingActions);
     }

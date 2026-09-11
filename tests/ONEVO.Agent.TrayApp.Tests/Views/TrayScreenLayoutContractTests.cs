@@ -284,10 +284,10 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("BreakTotalCaption", xaml, StringComparison.Ordinal);
         Assert.Contains("ProductiveShareCaption", xaml, StringComparison.Ordinal);
         Assert.Contains("break_hero.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("ShowBackToWorkActions", xaml, StringComparison.Ordinal);
-        Assert.Contains("Continue Working", xaml, StringComparison.Ordinal);
-        Assert.Contains("Break ended at", xaml, StringComparison.Ordinal);
-        Assert.Contains("Break duration", xaml, StringComparison.Ordinal);
+        // Ending a break returns straight to the working view — the intermediate
+        // "Back to Work" / "Continue Working" step has been removed.
+        Assert.DoesNotContain("ShowBackToWorkActions", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Continue Working", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

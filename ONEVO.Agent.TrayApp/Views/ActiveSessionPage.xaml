@@ -37,9 +37,6 @@
                 <DataTrigger TargetType="Label" Binding="{Binding IsOnBreak}" Value="True">
                   <Setter Property="TextColor" Value="{StaticResource BreakAccent}" />
                 </DataTrigger>
-                <DataTrigger TargetType="Label" Binding="{Binding IsBackToWork}" Value="True">
-                  <Setter Property="TextColor" Value="{StaticResource Primary}" />
-                </DataTrigger>
               </Label.Triggers>
             </Label>
           </HorizontalStackLayout>
@@ -78,22 +75,6 @@
                 </VerticalStackLayout>
               </Grid>
               <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" IsVisible="{Binding ShowWorkingActions}" />
-              <Grid ColumnDefinitions="36,*" Padding="0,10" ColumnSpacing="10" IsVisible="{Binding ShowBackToWorkActions}">
-                <Image Source="icon_clock.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" VerticalOptions="Center" />
-                <VerticalStackLayout Grid.Column="1">
-                  <Label Text="Break ended at" Style="{StaticResource StatLabel}" />
-                  <Label Text="{Binding BreakEndedAtDisplay}" Style="{StaticResource FieldValue}" />
-                </VerticalStackLayout>
-              </Grid>
-              <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" IsVisible="{Binding ShowBackToWorkActions}" />
-              <Grid ColumnDefinitions="36,*" Padding="0,10" ColumnSpacing="10" IsVisible="{Binding ShowBackToWorkActions}">
-                <Image Source="icon3d_coffee.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" VerticalOptions="Center" />
-                <VerticalStackLayout Grid.Column="1">
-                  <Label Text="Break duration" Style="{StaticResource StatLabel}" />
-                  <Label Text="{Binding LastBreakDurationDisplay}" Style="{StaticResource FieldValue}" />
-                </VerticalStackLayout>
-              </Grid>
-              <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" IsVisible="{Binding ShowBackToWorkActions}" />
               <Grid ColumnDefinitions="36,*" Padding="0,10" ColumnSpacing="10">
                 <Image Source="icon_stopwatch.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" VerticalOptions="Center">
                   <Image.Triggers>
@@ -150,34 +131,6 @@
             <Image Source="icon3d_info.png" WidthRequest="16" HeightRequest="16" Aspect="AspectFit" VerticalOptions="Center" />
             <Label Text="{Binding HintMessage}" FontSize="14" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
           </HorizontalStackLayout>
-
-          <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding ShowBackToWorkActions}">
-            <Border Grid.Column="0" Style="{StaticResource TrayPrimaryActionBorder}" StrokeShape="RoundRectangle 16">
-              <Border.Background>
-                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                  <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
-                  <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
-                  <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
-                </LinearGradientBrush>
-              </Border.Background>
-              <Grid>
-                <Button Command="{Binding OpenDashboardCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Open Dashboard" />
-                <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-                  <Label Text="{StaticResource IconGlobe}" FontFamily="Segoe MDL2 Assets" FontSize="15" TextColor="White" VerticalOptions="Center" />
-                  <Label Text="Open Dashboard" FontSize="15" FontAttributes="Bold" TextColor="White" />
-                </HorizontalStackLayout>
-              </Grid>
-            </Border>
-            <Border Grid.Column="1" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16">
-              <Grid>
-                <Button Command="{Binding ContinueWorkingCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Continue Working" />
-                <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-                  <Image Source="icon3d_play.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
-                  <Label Text="Continue Working" Style="{StaticResource ButtonLabelOutline}" />
-                </HorizontalStackLayout>
-              </Grid>
-            </Border>
-          </Grid>
 
           <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsVisible="{Binding ShowWorkingActions}">
             <Border Grid.Column="0" Style="{StaticResource TrayPrimaryActionBorder}" StrokeShape="RoundRectangle 16">
