@@ -50,15 +50,25 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
     /// "no config row = false" convention for this same WorkLocationVerification capability.</summary>
     private bool LocationTrackingEnabled => _currentPolicy?.LocationTrackingEnabled ?? false;
 
-    public IReadOnlyList<WorkLocationOption> Options { get; } =
-    [
-        new(WorkLocationKind.Office, "OFFICE", "Office", "At your registered office", 300,
-            "icon_office_building.png"),
-        new(WorkLocationKind.WorkFromHome, "WFH", "Work From Home", "Remote location", 250,
-            "icon_home_house.png"),
-        new(WorkLocationKind.OtherApprovedLocation, "OTHER", "Other Approved Location",
-            "Client site or approved external workplace", 250, "icon_office_building.png"),
-    ];
+    [ObservableProperty] private IReadOnlyList<WorkLocationOption> _options = BuildOptions(null);
+
+    /// <summary>Builds the three work-location options, sourcing the geofence radius from the
+    /// server policy's AllowedRadiusMeters when available and falling back to the historical
+    /// hardcoded literals (Office 300m, WFH/Other 250m) when no policy has loaded yet.</summary>
+    private static IReadOnlyList<WorkLocationOption> BuildOptions(AgentPolicy? policy)
+    {
+        var officeRadius = policy?.AllowedRadiusMeters ?? 300;
+        var otherRadius = policy?.AllowedRadiusMeters ?? 250;
+        return
+        [
+            new(WorkLocationKind.Office, "OFFICE", "Office", "At your registered office", officeRadius,
+                "icon_office_building.png"),
+            new(WorkLocationKind.WorkFromHome, "WFH", "Work From Home", "Remote location", otherRadius,
+                "icon_home_house.png"),
+            new(WorkLocationKind.OtherApprovedLocation, "OTHER", "Other Approved Location",
+                "Client site or approved external workplace", otherRadius, "icon_office_building.png"),
+        ];
+    }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConfirmLocationCommand))]
@@ -89,12 +99,14 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
         _preferences = preferences;
         _pipe = pipe;
         _currentPolicy = pipe.LastKnownPolicy;
+        Options = BuildOptions(_currentPolicy);
         _pipe.OnPolicyReceived += HandlePolicyReceived;
     }
 
     private void HandlePolicyReceived(AgentPolicy policy)
     {
         _currentPolicy = policy;
+        Options = BuildOptions(policy);
         ConfirmLocationCommand.NotifyCanExecuteChanged();
     }
 

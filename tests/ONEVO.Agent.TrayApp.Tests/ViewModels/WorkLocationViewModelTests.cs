@@ -271,6 +271,32 @@ public sealed class WorkLocationViewModelTests
     }
 
     [Fact]
+    public void Options_WhenPolicyHasAllowedRadiusMeters_UsesPolicyRadiusForEveryOption()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = true, AllowedRadiusMeters = 175 }
+        };
+        var vm = MakeVm(pipe: pipe);
+
+        Assert.All(vm.Options, option => Assert.Equal(175, option.RadiusMeters));
+    }
+
+    [Fact]
+    public void Options_WhenPolicyHasNoAllowedRadiusMeters_FallsBackToHardcodedDefaults()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = true, AllowedRadiusMeters = null }
+        };
+        var vm = MakeVm(pipe: pipe);
+
+        Assert.Equal(300, vm.Options.Single(x => x.Code == "OFFICE").RadiusMeters);
+        Assert.Equal(250, vm.Options.Single(x => x.Code == "WFH").RadiusMeters);
+        Assert.Equal(250, vm.Options.Single(x => x.Code == "OTHER").RadiusMeters);
+    }
+
+    [Fact]
     public async Task ConfirmLocation_TrackingDisabledNoFix_SendsWorkLocationConfirmWithNullCoordinates()
     {
         var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };

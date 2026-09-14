@@ -45,6 +45,10 @@ public sealed class PolicyCache
         InactivityScreenshotEnabled = false,
         CameraVerificationEnabled = false,
         TrayClockInEnabled = false,
+        BiometricEnabled = false,
+        WebEnabled = false,
+        PhotoRequiredEnabled = false,
+        AllowedRadiusMeters = null,
         IdleThresholdMinutes = 2,
         // "none" (not "employee") — no server policy is in effect, so there is no active
         // scope to report. Defaulting to "employee" here would misleadingly imply a live,

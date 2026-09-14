@@ -11,6 +11,17 @@ public sealed record AgentPolicy
     public bool CameraVerificationEnabled { get; init; }
     public bool InactivityScreenshotEnabled { get; init; }
     public bool TrayClockInEnabled { get; init; }
+    public bool BiometricEnabled { get; init; }
+    public bool WebEnabled { get; init; }
+    public bool PhotoRequiredEnabled { get; init; }
+
+    /// <summary>
+    /// Effective geofence radius in meters for clock-in location checks, resolved server-side
+    /// from Monitoring config (employee -> work mode -> role -> position -> department -> legal
+    /// entity). Null when no tier configures a radius - callers keep their own hardcoded fallback
+    /// for that case, same as every other fail-safe field on this record.
+    /// </summary>
+    public int? AllowedRadiusMeters { get; init; }
 
     /// <summary>
     /// The scope the server evaluated this policy against (e.g. "employee"). Mirrors the
