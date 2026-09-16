@@ -21,7 +21,17 @@ public static class SetupFlow
 
     public static string AfterActivation => ConfirmDetails;
     public static string AfterConfirmDetails => FaceEnrollment;
-    public static string AfterFaceEnrollment => LocationThenPrivacy;
+
+    /// <summary>
+    /// Work modes without "Let employee choose daily" never need the office/home/other screen -
+    /// not daily, and not this one-time capture during first setup either. Their location behavior
+    /// is already fixed by the work mode (office-checked, or self-registered from their first real
+    /// clock-in/check-in) - see WorkLocationFlow.RouteToStartWork for the equivalent daily-return
+    /// skip.
+    /// </summary>
+    public static string AfterFaceEnrollment(bool allowsDailyLocationChoice) =>
+        allowsDailyLocationChoice ? LocationThenPrivacy : Privacy;
+
     public static string AfterPrivacy => Permissions;
     public static string AfterPermissions => Prepare;
     public static string AfterWorkspaceReady => ClockIn;

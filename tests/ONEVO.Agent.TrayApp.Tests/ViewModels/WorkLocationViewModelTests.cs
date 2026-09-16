@@ -24,7 +24,9 @@ public sealed class WorkLocationViewModelTests
             preferences ?? new FakePreferencesStore(),
             // Existing tests assume the always-capture behavior that predates location-tracking
             // gating, so default the fake pipe's policy to "enabled" unless a test says otherwise.
-            pipe ?? LocationTrackingEnabledPipe());
+            pipe ?? LocationTrackingEnabledPipe(),
+            // The real evaluator is pure Haversine math - no need to fake it out.
+            new GeofenceEvaluator());
     }
 
     [Fact]
@@ -47,8 +49,71 @@ public sealed class WorkLocationViewModelTests
         Assert.Null(vm.ErrorMessage);
         Assert.True(vm.IsLocationVerified);
         Assert.Equal("Detected location", vm.DetectionTitle);
-        Assert.Contains("outside your registered office", vm.DetectionDetail);
         Assert.DoesNotContain("9.66557", vm.DetectionDetail);
+    }
+
+    /// <summary>
+    /// The bug this covers: DetectionDetail used to unconditionally claim "outside your registered
+    /// office" regardless of the actual fix, because no comparison against the office point ever
+    /// ran. These three tests pin the real behavior: no configured office, a fix far from a
+    /// configured office, and a fix within range of one.
+    /// </summary>
+    [Fact]
+    public async Task DetectLocation_NoOfficeConfigured_DoesNotClaimInsideOrOutside()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1", LocationTrackingEnabled = true, OfficeLatitude = null, OfficeLongitude = null
+            }
+        };
+        var vm = MakeVm(pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+
+        Assert.DoesNotContain("outside", vm.DetectionDetail);
+        Assert.DoesNotContain("within", vm.DetectionDetail);
+    }
+
+    [Fact]
+    public async Task DetectLocation_FarFromConfiguredOffice_SaysOutsideOffice()
+    {
+        // Colombo office, fix from ~150km away (Kandy) - well past any sane geofence radius.
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1", LocationTrackingEnabled = true, OfficeLatitude = 6.9271, OfficeLongitude = 79.8612
+            }
+        };
+        var farFix = new GeoLocationFix(7.2906, 80.6337, 15, DateTimeOffset.UtcNow);
+        var vm = MakeVm(LocationCaptureResult.Success(farFix), pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+
+        Assert.Contains("outside your registered office", vm.DetectionDetail);
+    }
+
+    [Fact]
+    public async Task DetectLocation_WithinConfiguredOfficeRadius_SaysInsideOffice()
+    {
+        var officeLat = 6.9271;
+        var officeLng = 79.8612;
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1", LocationTrackingEnabled = true, OfficeLatitude = officeLat, OfficeLongitude = officeLng
+            }
+        };
+        // A few meters off the exact office point - well within the 300m default office radius.
+        var nearFix = new GeoLocationFix(officeLat + 0.0001, officeLng, 15, DateTimeOffset.UtcNow);
+        var vm = MakeVm(LocationCaptureResult.Success(nearFix), pipe: pipe);
+
+        await vm.DetectLocationCommand.ExecuteAsync(null);
+
+        Assert.Contains("within your registered office", vm.DetectionDetail);
     }
 
     [Fact]
@@ -169,7 +234,8 @@ public sealed class WorkLocationViewModelTests
         var locationService = new FakeLocationService(
             LocationCaptureResult.Success(new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow)));
         var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
-        var vm = new WorkLocationViewModel(locationService, new FakeWorkLocationStore(), new FakePreferencesStore(), pipe);
+        var vm = new WorkLocationViewModel(
+            locationService, new FakeWorkLocationStore(), new FakePreferencesStore(), pipe, new GeofenceEvaluator());
 
         await vm.DetectLocationCommand.ExecuteAsync(null);
 
@@ -186,7 +252,7 @@ public sealed class WorkLocationViewModelTests
         var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
         var vm = new WorkLocationViewModel(
             new FakeLocationService(LocationCaptureResult.Success(new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow))),
-            new FakeWorkLocationStore(), new FakePreferencesStore(), pipe);
+            new FakeWorkLocationStore(), new FakePreferencesStore(), pipe, new GeofenceEvaluator());
 
         await vm.DetectLocationCommand.ExecuteAsync(null);
         Assert.False(vm.ConfirmLocationCommand.CanExecute(null));
@@ -203,7 +269,7 @@ public sealed class WorkLocationViewModelTests
         var pipe = new FakeNamedPipeClient { LastKnownPolicy = new AgentPolicy { Version = "v1", LocationTrackingEnabled = false } };
         var vm = new WorkLocationViewModel(
             new FakeLocationService(LocationCaptureResult.Success(new GeoLocationFix(6.9271, 79.8612, 15, DateTimeOffset.UtcNow))),
-            store, preferences, pipe);
+            store, preferences, pipe, new GeofenceEvaluator());
 
         await vm.DetectLocationCommand.ExecuteAsync(null);
         vm.SelectOptionCommand.Execute(vm.Options.Single(x => x.Code == "OFFICE"));

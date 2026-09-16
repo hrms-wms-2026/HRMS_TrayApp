@@ -378,6 +378,53 @@ public sealed class ActiveSessionViewModelTests
     }
 
     [Fact]
+    public void OnAppearing_NoSavedDisplayAndFixedOfficeWorkMode_ShowsOffice()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1", AllowsDailyLocationChoice = false, SelfRegistersLocation = false,
+                ValidUntil = DateTimeOffset.UtcNow.AddHours(1)
+            }
+        };
+        var vm = new ActiveSessionViewModel(pipe);
+
+        vm.OnAppearing();
+
+        Assert.Equal("Office", vm.WorkLocationDisplay);
+    }
+
+    [Fact]
+    public void OnAppearing_NoSavedDisplayAndFixedSelfRegisteredWorkMode_ShowsWorkFromHome()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1", AllowsDailyLocationChoice = false, SelfRegistersLocation = true,
+                ValidUntil = DateTimeOffset.UtcNow.AddHours(1)
+            }
+        };
+        var vm = new ActiveSessionViewModel(pipe);
+
+        vm.OnAppearing();
+
+        Assert.Equal("Work From Home", vm.WorkLocationDisplay);
+    }
+
+    [Fact]
+    public void OnAppearing_NoSavedDisplayAndNoPolicyYet_ShowsDash()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm = new ActiveSessionViewModel(pipe);
+
+        vm.OnAppearing();
+
+        Assert.Equal("—", vm.WorkLocationDisplay);
+    }
+
+    [Fact]
     public void OnAppearing_ApprovedLocationChangeRequestPending_ShowsPrompt()
     {
         var pipe = new FakeNamedPipeClient

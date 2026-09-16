@@ -210,7 +210,11 @@ public sealed class OnevoApiClient
             BiometricEnabled = payload.BiometricEnabled,
             WebEnabled = payload.WebEnabled,
             PhotoRequiredEnabled = payload.PhotoRequiredEnabled,
-            AllowedRadiusMeters = payload.AllowedRadiusMeters
+            AllowedRadiusMeters = payload.AllowedRadiusMeters,
+            AllowsDailyLocationChoice = payload.AllowsDailyLocationChoice,
+            SelfRegistersLocation = payload.SelfRegistersLocation,
+            OfficeLatitude = payload.OfficeLatitude,
+            OfficeLongitude = payload.OfficeLongitude
         };
 
         return new PolicyResult(true, null, policy);
@@ -782,7 +786,11 @@ public sealed record TrayAgentPolicyPayload(
     [property: JsonPropertyName("biometric_enabled")] bool BiometricEnabled = false,
     [property: JsonPropertyName("web_enabled")] bool WebEnabled = false,
     [property: JsonPropertyName("photo_required_enabled")] bool PhotoRequiredEnabled = false,
-    [property: JsonPropertyName("allowed_radius_meters")] int? AllowedRadiusMeters = null);
+    [property: JsonPropertyName("allowed_radius_meters")] int? AllowedRadiusMeters = null,
+    [property: JsonPropertyName("allows_daily_location_choice")] bool AllowsDailyLocationChoice = false,
+    [property: JsonPropertyName("self_registers_location")] bool SelfRegistersLocation = false,
+    [property: JsonPropertyName("office_latitude")] double? OfficeLatitude = null,
+    [property: JsonPropertyName("office_longitude")] double? OfficeLongitude = null);
 
 public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);
 

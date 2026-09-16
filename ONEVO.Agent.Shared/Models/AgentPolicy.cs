@@ -24,6 +24,31 @@ public sealed record AgentPolicy
     public int? AllowedRadiusMeters { get; init; }
 
     /// <summary>
+    /// Whether the employee's current work mode has "Employee registers their own location"
+    /// enabled — their first clock-in/check-in becomes their permanent reference point instead of
+    /// being checked against the legal entity's office point. Drives whether "Request Location
+    /// Change" makes sense to offer them (a fixed office-checked employee has no personal point to
+    /// change).
+    /// </summary>
+    public bool SelfRegistersLocation { get; init; }
+
+    /// <summary>
+    /// Whether the employee's current work mode has "Let employee choose daily" enabled — the tray
+    /// must still show the daily office/home/other confirmation screen before clock-in for them.
+    /// False (the common case) means that screen is skipped entirely: their work mode already
+    /// decides whether they're office- or self-registered-location-checked.
+    /// </summary>
+    public bool AllowsDailyLocationChoice { get; init; }
+
+    /// <summary>
+    /// The legal entity's configured office coordinates (General Settings → Office location).
+    /// Null when the legal entity has no office location configured — callers must not draw any
+    /// distance conclusion in that case, not just fall back to a guessed default.
+    /// </summary>
+    public double? OfficeLatitude { get; init; }
+    public double? OfficeLongitude { get; init; }
+
+    /// <summary>
     /// The scope the server evaluated this policy against (e.g. "employee"). Mirrors the
     /// backend's effective_scope field; wire format only, not itself an enforcement flag.
     /// </summary>

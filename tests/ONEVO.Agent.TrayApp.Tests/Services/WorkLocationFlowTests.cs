@@ -12,7 +12,7 @@ public sealed class WorkLocationFlowTests
     public void RouteWhenStopped_DuringSetup_DoesNotNavigate()
     {
         var prefs = new FakePreferencesStore();
-        Assert.Equal(string.Empty, WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, Today));
+        Assert.Equal(string.Empty, WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, allowsDailyLocationChoice: true, Today));
     }
 
     [Fact]
@@ -21,7 +21,7 @@ public sealed class WorkLocationFlowTests
         var prefs = new FakePreferencesStore();
         WorkLocationFlow.MarkSetupComplete(prefs);
 
-        Assert.Equal(WorkLocationFlow.LocationThenClockIn, WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, Today));
+        Assert.Equal(WorkLocationFlow.LocationThenClockIn, WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, allowsDailyLocationChoice: true, Today));
     }
 
     [Fact]
@@ -31,7 +31,7 @@ public sealed class WorkLocationFlowTests
         WorkLocationFlow.MarkSetupComplete(prefs);
         WorkLocationFlow.MarkConfirmedToday(prefs, Today);
 
-        Assert.Equal(SetupFlow.WelcomeBack, WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, Today));
+        Assert.Equal(SetupFlow.WelcomeBack, WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, allowsDailyLocationChoice: true, Today));
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class WorkLocationFlowTests
         var prefs = new FakePreferencesStore();
         WorkLocationFlow.MarkSetupComplete(prefs);
 
-        var route = WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: false, Today);
+        var route = WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: false, allowsDailyLocationChoice: true, Today);
 
         Assert.Equal(WorkLocationFlow.AwaitingClockInRoute, route);
     }
@@ -51,9 +51,20 @@ public sealed class WorkLocationFlowTests
         var prefs = new FakePreferencesStore();
         WorkLocationFlow.MarkSetupComplete(prefs);
 
-        var route = WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, Today);
+        var route = WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, allowsDailyLocationChoice: true, Today);
 
         Assert.Equal(WorkLocationFlow.LocationThenClockIn, route);
+    }
+
+    [Fact]
+    public void RouteWhenStopped_WorkModeDoesNotAllowDailyChoice_SkipsLocationScreenEntirely()
+    {
+        var prefs = new FakePreferencesStore();
+        WorkLocationFlow.MarkSetupComplete(prefs);
+
+        var route = WorkLocationFlow.RouteWhenStopped(prefs, trayClockInEnabled: true, allowsDailyLocationChoice: false, Today);
+
+        Assert.Equal(WorkLocationFlow.ClockInRoute, route);
     }
 
     [Fact]
@@ -62,7 +73,15 @@ public sealed class WorkLocationFlowTests
         var prefs = new FakePreferencesStore();
         WorkLocationFlow.MarkConfirmedToday(prefs, Yesterday);
 
-        Assert.Equal(WorkLocationFlow.LocationThenClockIn, WorkLocationFlow.RouteToStartWork(prefs, Today));
+        Assert.Equal(WorkLocationFlow.LocationThenClockIn, WorkLocationFlow.RouteToStartWork(prefs, allowsDailyLocationChoice: true, Today));
+    }
+
+    [Fact]
+    public void RouteToStartWork_DailyChoiceNotAllowed_SkipsPromptEvenWithoutTodayConfirmation()
+    {
+        var prefs = new FakePreferencesStore();
+
+        Assert.Equal(WorkLocationFlow.ClockInRoute, WorkLocationFlow.RouteToStartWork(prefs, allowsDailyLocationChoice: false, Today));
     }
 
     [Fact]
@@ -86,7 +105,7 @@ public sealed class WorkLocationFlowTests
     {
         var prefs = new FakePreferencesStore();
         WorkLocationFlow.MarkConfirmedToday(prefs, Today);
-        Assert.Equal(SetupFlow.WelcomeBack, WorkLocationFlow.RouteToStartWork(prefs, Today));
+        Assert.Equal(SetupFlow.WelcomeBack, WorkLocationFlow.RouteToStartWork(prefs, allowsDailyLocationChoice: true, Today));
     }
 
     [Fact]

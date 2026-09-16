@@ -9,10 +9,16 @@ public sealed class SetupFlowTests
     {
         Assert.Equal("//review", SetupFlow.AfterActivation);
         Assert.Equal("//photo", SetupFlow.AfterConfirmDetails);
-        Assert.Equal("//location?next=privacy", SetupFlow.AfterFaceEnrollment);
+        Assert.Equal("//location?next=privacy", SetupFlow.AfterFaceEnrollment(allowsDailyLocationChoice: true));
         Assert.Equal("//policy", SetupFlow.AfterPrivacy);
         Assert.Equal("//prepare", SetupFlow.AfterPermissions);
         Assert.Equal("//clockin", SetupFlow.AfterWorkspaceReady);
+    }
+
+    [Fact]
+    public void AfterFaceEnrollment_WorkModeDoesNotAllowDailyChoice_SkipsLocationStep()
+    {
+        Assert.Equal("//privacy", SetupFlow.AfterFaceEnrollment(allowsDailyLocationChoice: false));
     }
 
     [Fact]

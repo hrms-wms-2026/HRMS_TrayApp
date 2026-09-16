@@ -100,8 +100,8 @@
           </VerticalStackLayout>
         </Border>
 
-        <HorizontalStackLayout Spacing="8" Margin="4,0,0,12" HorizontalOptions="Start">
-          <CheckBox IsChecked="{Binding HasAgreed}" Color="{StaticResource Primary}" VerticalOptions="Center" />
+        <HorizontalStackLayout Spacing="0" Margin="4,0,0,12" HorizontalOptions="Start">
+          <CheckBox IsChecked="{Binding HasAgreed}" Color="{StaticResource Primary}" VerticalOptions="Center" Margin="-10,0,-4,0" />
           <Label Text="I understand and agree" FontSize="15" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center">
             <Label.GestureRecognizers>
               <TapGestureRecognizer Command="{Binding ToggleAgreeCommand}" />

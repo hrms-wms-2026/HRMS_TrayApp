@@ -44,6 +44,7 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
     private readonly IWorkLocationStore _store;
     private readonly IPreferencesStore _preferences;
     private readonly INamedPipeClient _pipe;
+    private readonly IGeofenceEvaluator _geofence;
     private AgentPolicy? _currentPolicy;
 
     /// <summary>Safe default (off) when no policy has arrived yet, mirroring the backend's own
@@ -91,13 +92,15 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
     private string _afterConfirmRoute = WorkLocationFlow.PrepareRoute;
 
     public WorkLocationViewModel(
-        ILocationService location, IWorkLocationStore store, IPreferencesStore preferences, INamedPipeClient pipe)
+        ILocationService location, IWorkLocationStore store, IPreferencesStore preferences, INamedPipeClient pipe,
+        IGeofenceEvaluator geofence)
     {
         Title = "Confirm Today's Work Location";
         _location = location;
         _store = store;
         _preferences = preferences;
         _pipe = pipe;
+        _geofence = geofence;
         _currentPolicy = pipe.LastKnownPolicy;
         Options = BuildOptions(_currentPolicy);
         _pipe.OnPolicyReceived += HandlePolicyReceived;
@@ -147,8 +150,7 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
                 CurrentFix = result.Fix;
                 StatusText = FormatFixText(result.Fix!);
                 DetectionTitle = "Detected location";
-                DetectionDetail =
-                    "You are outside your registered office location. Remote work is available based on your policy.";
+                DetectionDetail = DescribeOfficeProximity(result.Fix!);
                 IsLocationVerified = true;
             }
             else
@@ -242,6 +244,42 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
         if (fix.AccuracyMeters is { } accuracy)
             text += $" (±{accuracy:F0} m)";
         return text;
+    }
+
+    /// <summary>
+    /// Compares the captured fix against the legal entity's configured office point via
+    /// <see cref="IGeofenceEvaluator"/> - previously this always claimed "outside your office"
+    /// regardless of the actual fix, since no comparison ever ran. The office point has no GPS
+    /// accuracy of its own (it's an admin-entered address, not a device fix), so its
+    /// AccuracyMeters is null; the evaluator still expands the effective radius by the captured
+    /// fix's own accuracy.
+    /// </summary>
+    private string DescribeOfficeProximity(GeoLocationFix fix)
+    {
+        if (_currentPolicy?.OfficeLatitude is not { } officeLatitude
+            || _currentPolicy.OfficeLongitude is not { } officeLongitude)
+        {
+            // No office location configured for this legal entity - there is nothing to compare
+            // against, so do not guess either way.
+            return "Location captured. Choose where you're working from today.";
+        }
+
+        var officeRadiusMeters = Options.FirstOrDefault(o => o.Kind == WorkLocationKind.Office)?.RadiusMeters ?? 300;
+        var officeReference = new WorkLocationReference(
+            WorkLocationKind.Office, "OFFICE", "Office", officeLatitude, officeLongitude,
+            AccuracyMeters: null, officeRadiusMeters, DateTimeOffset.UtcNow);
+
+        var verification = _geofence.Evaluate(Guid.NewGuid(), fix, officeReference);
+
+        return verification.Verdict switch
+        {
+            LocationVerificationVerdict.Match =>
+                "You are within your registered office location.",
+            LocationVerificationVerdict.Inaccurate =>
+                "Your location accuracy is too low to confirm proximity to the office. Choose where you're working from today.",
+            _ =>
+                "You are outside your registered office location. Remote work is available based on your policy."
+        };
     }
 
     private static string DescribeFailure(LocationCaptureFailure failure) => failure switch

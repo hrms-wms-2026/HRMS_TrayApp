@@ -84,7 +84,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         // cycles, so the employee name must be re-read here, not only at
         // construction, or the previous employee's name survives sign-out.
         LoadEmployeeName();
-        WorkLocation = EmployeeSession.WorkLocation(_preferences);
+        WorkLocation = EmployeeSession.WorkLocation(_preferences, _currentPolicy);
         DeviceType = "Windows Desktop";
     }
 
