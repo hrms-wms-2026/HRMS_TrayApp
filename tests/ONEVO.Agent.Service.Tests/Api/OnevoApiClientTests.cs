@@ -109,6 +109,60 @@ public class OnevoApiClientTests
     }
 
     [Fact]
+    public async Task ExchangeActivationCodeAsync_DeserializesLegalAcceptanceFields()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                access_token = "access",
+                expires_in_seconds = 3600,
+                refresh_token = "refresh",
+                refresh_expires_in_seconds = 7_776_000,
+                legal_acceptance_required = true,
+                pending_legal_documents = new[]
+                {
+                    new
+                    {
+                        document_type = "privacy_policy",
+                        version = "2.0",
+                        title = "Privacy Policy",
+                        content_endpoint = "/api/v1/legal/documents/privacy_policy/2.0",
+                    }
+                }
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC123", "DESKTOP-1", "Windows 11", "fingerprint", CancellationToken.None);
+
+        Assert.True(result.Auth!.RequiresLegalAcceptance);
+        Assert.Single(result.Auth.PendingLegalDocuments!);
+        Assert.Equal("privacy_policy", result.Auth.PendingLegalDocuments![0].DocumentType);
+    }
+
+    [Fact]
+    public async Task ExchangeActivationCodeAsync_WhenLegalAcceptanceFieldsAbsent_DefaultsToNotRequired()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                access_token = "access",
+                expires_in_seconds = 3600,
+                refresh_token = "refresh",
+                refresh_expires_in_seconds = 7_776_000,
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC123", "DESKTOP-1", "Windows 11", "fingerprint", CancellationToken.None);
+
+        Assert.False(result.Auth!.RequiresLegalAcceptance);
+        Assert.Null(result.Auth.PendingLegalDocuments);
+    }
+
+    [Fact]
     public async Task SendHeartbeatAsync_SendsBearerTokenAndReturnsSuccess()
     {
         HttpRequestMessage? captured = null;

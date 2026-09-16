@@ -745,6 +745,16 @@ public sealed record PendingNotificationPayload(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("message")] string Message);
 
+/// <summary>Wire-format mirror of the backend's PendingLegalDocumentDto.</summary>
+public sealed record PendingLegalDocument(
+    [property: JsonPropertyName("document_type")] string DocumentType,
+    [property: JsonPropertyName("version")] string Version,
+    [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("effective_at")] DateTimeOffset? EffectiveAt,
+    [property: JsonPropertyName("content_url")] string? ContentUrl,
+    [property: JsonPropertyName("content_endpoint")] string ContentEndpoint,
+    [property: JsonPropertyName("content_hash")] string? ContentHash);
+
 /// <summary>Wire-format mirror of the backend's TrayAuthResponseDto.</summary>
 public sealed record TrayAuthPayload(
     [property: JsonPropertyName("access_token")] string AccessToken,
@@ -759,7 +769,9 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("work_mode_label")] string? WorkModeLabel = null,
     [property: JsonPropertyName("office_name")] string? OfficeName = null,
     [property: JsonPropertyName("organization_name")] string? OrganizationName = null,
-    [property: JsonPropertyName("tenant_slug")] string? TenantSlug = null);
+    [property: JsonPropertyName("tenant_slug")] string? TenantSlug = null,
+    [property: JsonPropertyName("legal_acceptance_required")] bool RequiresLegalAcceptance = false,
+    [property: JsonPropertyName("pending_legal_documents")] IReadOnlyList<PendingLegalDocument>? PendingLegalDocuments = null);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
 
