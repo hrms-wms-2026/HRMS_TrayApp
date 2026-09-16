@@ -99,6 +99,7 @@ public sealed class OnevoApiClient
                 "slow_down" => new(DeviceAuthorizationPollState.SlowDown, null),
                 "expired_token" => new(DeviceAuthorizationPollState.ExpiredToken, null),
                 "access_denied" => new(DeviceAuthorizationPollState.AccessDenied, null),
+                "device_change_pending" => new(DeviceAuthorizationPollState.DeviceChangePending, null),
                 _ => new(DeviceAuthorizationPollState.ServiceUnavailable, null),
             };
         }
@@ -675,6 +676,10 @@ public sealed class OnevoApiClient
 
         if (!response.IsSuccessStatusCode)
         {
+            var code = await ReadProblemCodeAsync(response, ct);
+            if (code == "device_change_pending")
+                return new TrayAuthResult(false, "DEVICE_CHANGE_PENDING", null);
+
             _logger.LogWarning("OnevoApi call to {Route} returned {Status}", route, (int)response.StatusCode);
             return new TrayAuthResult(false, "SERVICE_UNAVAILABLE", null);
         }

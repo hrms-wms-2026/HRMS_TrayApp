@@ -74,6 +74,20 @@ public class OnevoApiClientTests
     }
 
     [Fact]
+    public async Task PollDeviceAuthorizationAsync_WhenServerReturnsDeviceChangePending_MapsToDeviceChangePendingState()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { code = "device_change_pending" })
+        });
+        var client = Build(handler);
+
+        var result = await client.PollDeviceAuthorizationAsync("device-secret", "fingerprint", CancellationToken.None);
+
+        Assert.Equal(DeviceAuthorizationPollState.DeviceChangePending, result.State);
+    }
+
+    [Fact]
     public async Task PollDeviceAuthorizationAsync_AuthorizedParsesTrayAuthPayload()
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -156,6 +170,21 @@ public class OnevoApiClientTests
         Assert.False(result.Success);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
         Assert.Null(result.Auth);
+    }
+
+    [Fact]
+    public async Task ExchangeActivationCodeAsync_DeviceChangePending_ReturnsDeviceChangePendingErrorCode()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { code = "device_change_pending" })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC12345", "Laptop", "Windows", "fp-1", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("DEVICE_CHANGE_PENDING", result.ErrorCode);
     }
 
     [Fact]
