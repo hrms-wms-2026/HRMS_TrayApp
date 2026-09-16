@@ -105,6 +105,25 @@ public sealed class ConnectWorkspaceViewModelTests
     }
 
     [Fact]
+    public async Task VerifyAndConnectCommand_WhenDeviceChangePending_ShowsApprovalMessage()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextEnrollmentResult = new ONEVO.Agent.Shared.IPC.EnrollmentResultPayload
+            {
+                Success = false,
+                ErrorCode = "DEVICE_CHANGE_PENDING"
+            }
+        };
+        var vm = new ConnectWorkspaceViewModel(pipe, new FakePreferencesStore());
+        vm.ActivationCode = "ABC123";
+
+        await vm.VerifyAndConnectCommand.ExecuteAsync(null);
+
+        Assert.Contains("device-change request", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task VerifyAndConnectCommand_OnSuccess_CachesEmployeeEmailAndId()
     {
         var pipe = new FakeNamedPipeClient
@@ -212,6 +231,21 @@ public sealed class ConnectWorkspaceViewModelTests
         Assert.False(vm.IsWaitingForBrowserApproval);
         Assert.False(vm.IsConnected);
         Assert.Equal("Request denied in the browser.", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task OnDevicePairingResult_WhenDeviceChangePending_ShowsApprovalMessage()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        pipe.SimulateDevicePairingResult(new ONEVO.Agent.Shared.IPC.DevicePairingResultPayload { Success = false, ErrorCode = "DEVICE_CHANGE_PENDING" });
+
+        Assert.False(vm.IsWaitingForBrowserApproval);
+        Assert.False(vm.IsConnected);
+        Assert.Contains("device-change request", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
