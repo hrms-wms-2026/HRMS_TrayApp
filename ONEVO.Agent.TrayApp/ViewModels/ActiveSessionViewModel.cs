@@ -54,7 +54,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private string _statusSinceCaption = "";
 
     // "Request location change" (remote work mode only).
-    [ObservableProperty] private bool _isRemoteWorkMode;
+    [ObservableProperty] private bool _canRequestLocationChange;
     [ObservableProperty] private bool _isRequestLocationChangeFormVisible;
     [ObservableProperty] private string _locationChangeReason = string.Empty;
     [ObservableProperty] private bool _isSubmittingLocationChange;
@@ -98,6 +98,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         {
             _pipe.OnStatusReceived += OnStatus;
             _pipe.OnPolicyReceived += OnPolicyReceivedForClockOutVisibility;
+            _pipe.OnPolicyReceived += OnPolicyReceivedForLocationChangeVisibility;
             _subscribed = true;
         }
 
@@ -108,29 +109,23 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             new IpcEnvelope { Type = IpcMessageTypes.StatusRequest },
             CancellationToken.None);
 
+        var savedWorkLocationDisplay = string.Empty;
         try
         {
-            WorkLocationDisplay = EmployeeSession.FirstNonEmpty(
-                Microsoft.Maui.Storage.Preferences.Get("onevo.work_location_display", string.Empty), "—");
+            savedWorkLocationDisplay = Microsoft.Maui.Storage.Preferences.Get("onevo.work_location_display", string.Empty);
         }
         catch { /* unit tests */ }
+        WorkLocationDisplay = EmployeeSession.ResolveWorkLocationDisplay(savedWorkLocationDisplay, _pipe.LastKnownPolicy);
 
-        try
-        {
-            IsRemoteWorkMode = string.Equals(
-                Microsoft.Maui.Storage.Preferences.Get(SessionPreferenceKeys.WorkMode, string.Empty),
-                "Remote", StringComparison.OrdinalIgnoreCase);
-        }
-        catch { IsRemoteWorkMode = false; }
+        CanRequestLocationChange = HasOwnRegisteredLocation(_pipe.LastKnownPolicy);
 
         // Fires after every clock-in (this page is navigated to right after one) — drives the
         // "save this as your new location?" re-prompt per the approved-but-not-applied contract.
-        // Deliberately unconditional (not gated on IsRemoteWorkMode, which only reflects the label
-        // captured at enrollment/pairing time): the backend is the sole authority on eligibility —
-        // GetPendingLocationChangeDecisionQueryHandler already checks the WorkLocationVerification
-        // monitoring toggle and an approved request, so a Hybrid employee working remote today (per
-        // the backend's own daily IExpectedWorkAreaResolver, not the stale enrollment label) still
-        // gets prompted correctly even though the "Request Location Change" button stays hidden for them.
+        // Deliberately unconditional (not gated on CanRequestLocationChange): the backend is the
+        // sole authority on eligibility — GetPendingLocationChangeDecisionQueryHandler already
+        // checks the WorkLocationVerification monitoring toggle and an approved request, so an
+        // employee on a "let me choose daily" work mode who picked home/other today still gets
+        // prompted correctly even on a day the button itself stays hidden.
         _ = CheckPendingLocationChangeAsync();
 
         EnsureUiTimerRunning();
@@ -496,7 +491,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [RelayCommand]
     private void RequestLocationChange()
     {
-        if (!IsRemoteWorkMode) return;
+        if (!CanRequestLocationChange) return;
         LocationChangeReason = string.Empty;
         LocationChangeError = null;
         LocationChangeStatusMessage = null;
@@ -643,12 +638,25 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
     private void OnPolicyReceivedForClockOutVisibility(AgentPolicy _) => OnPropertyChanged(nameof(ShowClockOutAction));
 
+    private void OnPolicyReceivedForLocationChangeVisibility(AgentPolicy policy) =>
+        CanRequestLocationChange = HasOwnRegisteredLocation(policy);
+
+    /// <summary>
+    /// True only for work modes that give the employee a personal registered reference point to
+    /// change — a fixed self-registering mode, or a "let employee choose daily" mode (they may have
+    /// picked home/other today). A fixed office-checked employee has nothing personal to request a
+    /// change to, so the button stays hidden for them.
+    /// </summary>
+    private static bool HasOwnRegisteredLocation(AgentPolicy? policy) =>
+        policy is { } p && (p.SelfRegistersLocation || p.AllowsDailyLocationChoice);
+
     public async ValueTask DisposeAsync()
     {
         if (_subscribed)
         {
             _pipe.OnStatusReceived -= OnStatus;
             _pipe.OnPolicyReceived -= OnPolicyReceivedForClockOutVisibility;
+            _pipe.OnPolicyReceived -= OnPolicyReceivedForLocationChangeVisibility;
             _subscribed = false;
         }
 

@@ -133,10 +133,10 @@
           </Border>
           <Border Grid.Column="2" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44">
             <Grid>
-              <Button Command="{Binding CloseAppCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Close App" />
+              <Button Command="{Binding BackCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Back" />
               <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
-                <Image Source="icon_end_close.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                <Label Text="Close App" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="NoWrap" MaxLines="1" />
+                <Image Source="icon_home.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="Back" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="NoWrap" MaxLines="1" />
               </HorizontalStackLayout>
             </Grid>
           </Border>

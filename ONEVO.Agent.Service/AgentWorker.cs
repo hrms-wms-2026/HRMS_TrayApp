@@ -1068,6 +1068,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 case DeviceAuthorizationPollState.ServiceUnavailable:
                     await pushResult(new DevicePairingResultPayload { Success = false, ErrorCode = "SERVICE_UNAVAILABLE" });
                     return;
+
+                case DeviceAuthorizationPollState.DeviceChangePending:
+                    await pushResult(new DevicePairingResultPayload { Success = false, ErrorCode = "DEVICE_CHANGE_PENDING" });
+                    return;
             }
         }
 

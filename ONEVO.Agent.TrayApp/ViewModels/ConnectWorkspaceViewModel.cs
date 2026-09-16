@@ -95,6 +95,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                     "LOCKED" => "The tray is locked. Restart the ONEVO service and try again.",
                     "ALREADY_ENROLLED" => "This tray is already connected. Use the existing connected session.",
                     "SERVICE_UNAVAILABLE" => "Can't reach the ONEVO backend right now. Check your connection and try again.",
+                    "DEVICE_CHANGE_PENDING" => "A different device is already approved for your account. We've sent a device-change request to your approver — you'll be notified once it's approved.",
                     _ => result.ErrorCode ?? "Activation failed."
                 };
                 IsConnected = false;
@@ -199,6 +200,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 "ACCESS_DENIED" => "Request denied in the browser.",
                 "EXPIRED" => "The browser request expired — try again.",
                 "SERVICE_UNAVAILABLE" => "Can't reach the ONEVO backend right now. Check your connection and try again.",
+                "DEVICE_CHANGE_PENDING" => "A different device is already approved for your account. We've sent a device-change request to your approver — you'll be notified once it's approved.",
                 _ => result.ErrorCode ?? "Browser connect failed."
             };
             IsConnected = false;

@@ -105,4 +105,40 @@ public sealed class ClockInViewModelTests
 
         Assert.Equal("Bob", vm.EmployeeName);
     }
+
+    [Fact]
+    public void WorkLocation_NoSavedDisplayAndFixedOfficeWorkMode_ShowsOffice()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1", AllowsDailyLocationChoice = false, SelfRegistersLocation = false,
+                ValidUntil = DateTimeOffset.UtcNow.AddHours(1)
+            }
+        };
+        var vm = Make(pipe: pipe);
+
+        vm.OnAppearing();
+
+        Assert.Equal("Office", vm.WorkLocation);
+    }
+
+    [Fact]
+    public void WorkLocation_NoSavedDisplayAndFixedSelfRegisteredWorkMode_ShowsWorkFromHome()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1", AllowsDailyLocationChoice = false, SelfRegistersLocation = true,
+                ValidUntil = DateTimeOffset.UtcNow.AddHours(1)
+            }
+        };
+        var vm = Make(pipe: pipe);
+
+        vm.OnAppearing();
+
+        Assert.Equal("Work From Home", vm.WorkLocation);
+    }
 }

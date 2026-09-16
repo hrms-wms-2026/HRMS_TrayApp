@@ -69,9 +69,18 @@ public partial class App : Microsoft.Maui.Controls.Application
         _pipeClient.OnStatusReceived += status =>
         {
             if (status.State == MonitoringState.Stopped
-                && status.Session?.ClockOutAt is not null
+                && status.Session?.ClockOutAt is { } clockOutAt
                 && status.Session.ClockInAt is not null)
             {
+                // A Stopped+ClockOutAt status can legitimately arrive more than once for the
+                // SAME clock-out (reconnect resync, periodic status poll while the user is
+                // sitting on //end) - and it also arrives again, still carrying YESTERDAY's
+                // ClockOutAt, during the transient pre-Active handshake of a brand NEW clock-in
+                // (e.g. after Back → Clock In). Only (re)arm the one-shot //end route when the
+                // ClockOutAt is genuinely new, or the stale rebroadcast re-triggers //end and
+                // strands the user on yesterday's summary instead of today's active session.
+                var alreadyShown = _dayMetrics.LastCompletedSession?.ClockOutAt == clockOutAt;
+
                 // Record the completed session HERE — synchronously, on this same
                 // thread, before the OnStateReceived below can trigger navigation to
                 // //end. ActiveSessionViewModel.RunLifecycleAsync also calls
@@ -79,7 +88,8 @@ public partial class App : Microsoft.Maui.Controls.Application
                 // continuation racing against this exact navigation — this call is the
                 // one guaranteed to land first.
                 _dayMetrics.RememberCompletedSession(status.Session);
-                showEndAfterClockOut = true;
+                if (!alreadyShown)
+                    showEndAfterClockOut = true;
             }
             if (status.State == MonitoringState.Active)
                 showEndAfterClockOut = false;
@@ -98,11 +108,15 @@ public partial class App : Microsoft.Maui.Controls.Application
                     MonitoringState.Paused     => "//active", // On-break mode of ActiveSessionPage
                     MonitoringState.Stopped when showEndAfterClockOut => "//end",
                     MonitoringState.Stopped    => WorkLocationFlow.RouteWhenStopped(
-                        _preferences, _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false),
+                        _preferences,
+                        _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false,
+                        _pipeClient.LastKnownPolicy?.AllowsDailyLocationChoice ?? false),
                     MonitoringState.Unenrolled => "//connect",
                     MonitoringState.Locked     => "//connect",
                     _                          => WorkLocationFlow.RouteWhenStopped(
-                        _preferences, _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false)
+                        _preferences,
+                        _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false,
+                        _pipeClient.LastKnownPolicy?.AllowsDailyLocationChoice ?? false)
                 };
                 if (!string.IsNullOrEmpty(route))
                     Shell.Current?.GoToAsync(route);
@@ -117,7 +131,9 @@ public partial class App : Microsoft.Maui.Controls.Application
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 var route = WorkLocationFlow.RouteWhenStopped(
-                    _preferences, _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false);
+                    _preferences,
+                    _pipeClient.LastKnownPolicy?.TrayClockInEnabled ?? false,
+                    _pipeClient.LastKnownPolicy?.AllowsDailyLocationChoice ?? false);
                 if (!string.IsNullOrEmpty(route))
                     Shell.Current?.GoToAsync(route);
             });

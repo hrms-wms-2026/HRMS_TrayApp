@@ -99,6 +99,7 @@ public sealed class OnevoApiClient
                 "slow_down" => new(DeviceAuthorizationPollState.SlowDown, null),
                 "expired_token" => new(DeviceAuthorizationPollState.ExpiredToken, null),
                 "access_denied" => new(DeviceAuthorizationPollState.AccessDenied, null),
+                "device_change_pending" => new(DeviceAuthorizationPollState.DeviceChangePending, null),
                 _ => new(DeviceAuthorizationPollState.ServiceUnavailable, null),
             };
         }
@@ -205,7 +206,15 @@ public sealed class OnevoApiClient
             ValidUntil = payload.ValidUntil,
             TrayClockInEnabled = payload.TrayClockInEnabled,
             ScheduleStart = payload.ScheduleStart,
-            ScheduleEnd = payload.ScheduleEnd
+            ScheduleEnd = payload.ScheduleEnd,
+            BiometricEnabled = payload.BiometricEnabled,
+            WebEnabled = payload.WebEnabled,
+            PhotoRequiredEnabled = payload.PhotoRequiredEnabled,
+            AllowedRadiusMeters = payload.AllowedRadiusMeters,
+            AllowsDailyLocationChoice = payload.AllowsDailyLocationChoice,
+            SelfRegistersLocation = payload.SelfRegistersLocation,
+            OfficeLatitude = payload.OfficeLatitude,
+            OfficeLongitude = payload.OfficeLongitude
         };
 
         return new PolicyResult(true, null, policy);
@@ -671,6 +680,10 @@ public sealed class OnevoApiClient
 
         if (!response.IsSuccessStatusCode)
         {
+            var code = await ReadProblemCodeAsync(response, ct);
+            if (code == "device_change_pending")
+                return new TrayAuthResult(false, "DEVICE_CHANGE_PENDING", null);
+
             _logger.LogWarning("OnevoApi call to {Route} returned {Status}", route, (int)response.StatusCode);
             return new TrayAuthResult(false, "SERVICE_UNAVAILABLE", null);
         }
@@ -769,7 +782,15 @@ public sealed record TrayAgentPolicyPayload(
     [property: JsonPropertyName("location_tracking_enabled")] bool LocationTrackingEnabled = false,
     [property: JsonPropertyName("tray_clock_in_enabled")] bool TrayClockInEnabled = false,
     [property: JsonPropertyName("schedule_start")] TimeOnly? ScheduleStart = null,
-    [property: JsonPropertyName("schedule_end")] TimeOnly? ScheduleEnd = null);
+    [property: JsonPropertyName("schedule_end")] TimeOnly? ScheduleEnd = null,
+    [property: JsonPropertyName("biometric_enabled")] bool BiometricEnabled = false,
+    [property: JsonPropertyName("web_enabled")] bool WebEnabled = false,
+    [property: JsonPropertyName("photo_required_enabled")] bool PhotoRequiredEnabled = false,
+    [property: JsonPropertyName("allowed_radius_meters")] int? AllowedRadiusMeters = null,
+    [property: JsonPropertyName("allows_daily_location_choice")] bool AllowsDailyLocationChoice = false,
+    [property: JsonPropertyName("self_registers_location")] bool SelfRegistersLocation = false,
+    [property: JsonPropertyName("office_latitude")] double? OfficeLatitude = null,
+    [property: JsonPropertyName("office_longitude")] double? OfficeLongitude = null);
 
 public sealed record PolicyResult(bool Success, string? ErrorCode, AgentPolicy? Policy);
 

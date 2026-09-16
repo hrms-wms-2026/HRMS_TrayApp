@@ -10,6 +10,7 @@ public enum DeviceAuthorizationPollState
     AccessDenied,
     Authorized,
     ServiceUnavailable,
+    DeviceChangePending,
 }
 
 public sealed record DeviceAuthorizationStartResult(

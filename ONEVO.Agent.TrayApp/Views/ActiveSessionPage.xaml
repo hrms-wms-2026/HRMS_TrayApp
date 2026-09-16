@@ -193,7 +193,7 @@
             </Grid>
           </Border>
 
-          <HorizontalStackLayout Spacing="6" HorizontalOptions="Center" IsVisible="{Binding IsRemoteWorkMode}">
+          <HorizontalStackLayout Spacing="6" HorizontalOptions="Center" IsVisible="{Binding CanRequestLocationChange}">
             <Button Text="Request Location Change" Command="{Binding RequestLocationChangeCommand}"
                     Style="{StaticResource OutlineButton}" FontSize="13" Padding="12,6" HeightRequest="34" />
           </HorizontalStackLayout>

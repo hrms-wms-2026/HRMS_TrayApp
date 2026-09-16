@@ -74,6 +74,20 @@ public class OnevoApiClientTests
     }
 
     [Fact]
+    public async Task PollDeviceAuthorizationAsync_WhenServerReturnsDeviceChangePending_MapsToDeviceChangePendingState()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { code = "device_change_pending" })
+        });
+        var client = Build(handler);
+
+        var result = await client.PollDeviceAuthorizationAsync("device-secret", "fingerprint", CancellationToken.None);
+
+        Assert.Equal(DeviceAuthorizationPollState.DeviceChangePending, result.State);
+    }
+
+    [Fact]
     public async Task PollDeviceAuthorizationAsync_AuthorizedParsesTrayAuthPayload()
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -156,6 +170,21 @@ public class OnevoApiClientTests
         Assert.False(result.Success);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
         Assert.Null(result.Auth);
+    }
+
+    [Fact]
+    public async Task ExchangeActivationCodeAsync_DeviceChangePending_ReturnsDeviceChangePendingErrorCode()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { code = "device_change_pending" })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC12345", "Laptop", "Windows", "fp-1", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("DEVICE_CHANGE_PENDING", result.ErrorCode);
     }
 
     [Fact]
@@ -335,6 +364,67 @@ public class OnevoApiClientTests
         Assert.False(result.Success);
         Assert.Equal("CONFLICT", result.ErrorCode);
         Assert.Null(result.Message);
+    }
+
+    [Fact]
+    public async Task GetEffectivePolicyAsync_Success_MapsWorkModeMethodFlagsAndAllowedRadiusMeters()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                version = "v1",
+                activity_signal_enabled = true,
+                app_usage_enabled = true,
+                screenshot_enabled = true,
+                inactivity_screenshot_enabled = true,
+                camera_verification_enabled = true,
+                idle_threshold_minutes = 2,
+                valid_until = DateTimeOffset.UtcNow.AddHours(1),
+                tray_clock_in_enabled = true,
+                biometric_enabled = true,
+                web_enabled = false,
+                photo_required_enabled = true,
+                allowed_radius_meters = 175
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.GetEffectivePolicyAsync("device-jwt", CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(result.Policy!.BiometricEnabled);
+        Assert.False(result.Policy.WebEnabled);
+        Assert.True(result.Policy.PhotoRequiredEnabled);
+        Assert.Equal(175, result.Policy.AllowedRadiusMeters);
+    }
+
+    [Fact]
+    public async Task GetEffectivePolicyAsync_MissingNewFields_DefaultsToDisabledAndNullRadius()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                version = "v1",
+                activity_signal_enabled = true,
+                app_usage_enabled = true,
+                screenshot_enabled = true,
+                inactivity_screenshot_enabled = true,
+                camera_verification_enabled = true,
+                idle_threshold_minutes = 2,
+                valid_until = DateTimeOffset.UtcNow.AddHours(1)
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.GetEffectivePolicyAsync("device-jwt", CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.False(result.Policy!.BiometricEnabled);
+        Assert.False(result.Policy.WebEnabled);
+        Assert.False(result.Policy.PhotoRequiredEnabled);
+        Assert.Null(result.Policy.AllowedRadiusMeters);
     }
 
     private static OnevoApiClient Build(HttpMessageHandler handler) =>

@@ -46,7 +46,8 @@ public static class WorkLocationFlow
     /// Where an enrolled Stopped employee should land.
     /// Empty means first-time setup is still in progress — do not hijack the current page.
     /// </summary>
-    public static string RouteWhenStopped(IPreferencesStore prefs, bool trayClockInEnabled, DateTimeOffset? now = null)
+    public static string RouteWhenStopped(
+        IPreferencesStore prefs, bool trayClockInEnabled, bool allowsDailyLocationChoice, DateTimeOffset? now = null)
     {
         if (!IsSetupComplete(prefs))
             return string.Empty;
@@ -54,9 +55,21 @@ public static class WorkLocationFlow
         if (!trayClockInEnabled)
             return AwaitingClockInRoute;
 
-        return RouteToStartWork(prefs, now);
+        return RouteToStartWork(prefs, allowsDailyLocationChoice, now);
     }
 
-    public static string RouteToStartWork(IPreferencesStore prefs, DateTimeOffset? now = null) =>
-        IsConfirmedToday(prefs, now) ? SetupFlow.WelcomeBack : LocationThenClockIn;
+    /// <summary>
+    /// The daily office/home/other confirmation screen only applies to a work mode with "Let
+    /// employee choose daily" enabled — everyone else's location behavior is already fixed by
+    /// their work mode (see WorkMode.SelfRegistersLocation), so they skip straight to Clock In with
+    /// no prompt at all.
+    /// </summary>
+    public static string RouteToStartWork(
+        IPreferencesStore prefs, bool allowsDailyLocationChoice, DateTimeOffset? now = null)
+    {
+        if (!allowsDailyLocationChoice)
+            return ClockInRoute;
+
+        return IsConfirmedToday(prefs, now) ? SetupFlow.WelcomeBack : LocationThenClockIn;
+    }
 }
