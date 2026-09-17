@@ -79,7 +79,7 @@
             </LinearGradientBrush>
           </Border.Background>
           <Grid>
-            <Button Command="{Binding AcceptCommand}" IsEnabled="{Binding IsNotBusy}"
+            <Button Command="{Binding AcceptCommand}" IsEnabled="{Binding IsSubmitting, Converter={StaticResource InvertBoolConverter}}"
                     Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Accept and continue" />
             <Label InputTransparent="True" Text="Accepting…" IsVisible="{Binding IsSubmitting}"
                    FontSize="15" FontAttributes="Bold" TextColor="White" HorizontalOptions="Center" VerticalOptions="Center" />
