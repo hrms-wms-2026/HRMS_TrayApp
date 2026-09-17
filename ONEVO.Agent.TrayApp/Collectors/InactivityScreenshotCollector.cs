@@ -45,6 +45,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     private readonly IScreenshotCaptureService _captureService;
     private readonly INamedPipeClient _pipeClient;
     private readonly TimeSpan _pollInterval;
+    private readonly TimeSpan _idleDropCancelDelay;
 
     // Guards _started/_running/_policy/_loopCts/_loopTask — quick, synchronous bookkeeping only.
     private readonly object _gate = new();
@@ -66,6 +67,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     private CancellationTokenSource? _pendingCts;
     private int _pendingIdleAtStart;
     private Task? _workflowTask;
+    private bool _idleDropCancelArmed;
 
     public string Name => "InactivityScreenshot";
 
@@ -81,7 +83,8 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
         IInactivityPromptService promptService,
         IScreenshotCaptureService captureService,
         INamedPipeClient pipeClient,
-        TimeSpan? pollInterval = null)
+        TimeSpan? pollInterval = null,
+        TimeSpan? idleDropCancelDelay = null)
     {
         _logger = logger;
         _idleTimeProvider = idleTimeProvider;
@@ -89,6 +92,10 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
         _captureService = captureService;
         _pipeClient = pipeClient;
         _pollInterval = pollInterval ?? TimeSpan.FromSeconds(5);
+        // Toast Allow/Skip clicks reset Windows last-input time. A short grace lets
+        // NotificationInvoked deliver Allowed/Declined before we treat the idle drop
+        // as genuine activity resumed (which would skip the screenshot).
+        _idleDropCancelDelay = idleDropCancelDelay ?? TimeSpan.FromMilliseconds(500);
     }
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
@@ -115,13 +122,14 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
             _started = true;
             _running = true;
             _policy = policy;
-            _idleThresholdSeconds = policy.IdleThresholdMinutes * 60;
+            _idleThresholdSeconds = Math.Max(1, policy.IdleThresholdMinutes) * 60;
             // Same 90% ratio the old fixed 300s/270s pair used: the expiry window must end
             // before the next bucket boundary, or a slow-to-respond employee could see two
             // prompts stack while still inside a single continuous idle period.
             _promptExpirySeconds = (int)(_idleThresholdSeconds * 0.9);
             _lastPromptedBucket = 0;
             _lastIdleSeconds = 0;
+            _idleDropCancelArmed = false;
             loopCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _loopCts = loopCts;
         }
@@ -231,28 +239,23 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
         }
 
         Task? toAwait = null;
-        CancellationTokenSource? toCancel = null;
 
         await _lock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (_pendingAttemptId is not null)
             {
-                // A workflow is already in flight for the current continuous-idle period. Only
-                // react if idle time dropped — real new input, including the notification click
-                // itself updating Windows' last-input time — by cancelling it; never start a
-                // second concurrent workflow (design spec: "one attempt cannot capture twice").
-                if (idleSeconds < _pendingIdleAtStart)
+                // A workflow is already in flight. An idle drop is either genuine activity or
+                // the Allow/Skip toast click (which also resets last-input). Defer cancel so
+                // NotificationInvoked can complete Allowed and capture the screenshot.
+                if (idleSeconds < _pendingIdleAtStart
+                    && !_idleDropCancelArmed
+                    && _pendingCts is { } pendingCts
+                    && _pendingAttemptId is { } pendingId)
                 {
-                    toCancel = _pendingCts;
-
-                    // Record the reset now, even though the cancelled workflow is still unwinding
-                    // (its own finally clears _pendingAttemptId separately). Without this, the next
-                    // tick after the workflow clears the pending state would still compare against
-                    // the stale pre-interruption _lastIdleSeconds/_lastPromptedBucket and could
-                    // silently swallow a legitimate fresh prompt at the same bucket boundary.
+                    _idleDropCancelArmed = true;
                     _lastIdleSeconds = idleSeconds;
-                    _lastPromptedBucket = 0;
+                    _ = DeferIdleDropCancelAsync(pendingCts, pendingId);
                 }
             }
             else
@@ -275,6 +278,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
                     _pendingAttemptId = attemptId;
                     _pendingCts = workflowCts;
                     _pendingIdleAtStart = idleSeconds;
+                    _idleDropCancelArmed = false;
 
                     var idleStartedAt = now - TimeSpan.FromSeconds(idleSeconds);
                     var workflow = RunPromptWorkflowAsync(
@@ -290,10 +294,35 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
             _lock.Release();
         }
 
-        toCancel?.Cancel();
-
         if (toAwait is not null)
             await toAwait.ConfigureAwait(false);
+    }
+
+    private async Task DeferIdleDropCancelAsync(CancellationTokenSource cts, Guid attemptId)
+    {
+        try
+        {
+            if (_idleDropCancelDelay > TimeSpan.Zero)
+                await Task.Delay(_idleDropCancelDelay, cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        await _lock.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            if (_pendingAttemptId != attemptId || cts.IsCancellationRequested)
+                return;
+
+            cts.Cancel();
+            _lastPromptedBucket = 0;
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     private async Task RunPromptWorkflowAsync(
@@ -412,6 +441,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
                     _pendingCts?.Dispose();
                     _pendingAttemptId = null;
                     _pendingCts = null;
+                    _idleDropCancelArmed = false;
                 }
             }
             finally

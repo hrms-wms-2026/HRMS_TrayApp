@@ -111,6 +111,42 @@ public sealed class InactivityScreenshotCollectorTests
     }
 
     [Fact]
+    public async Task Allow_AfterIdleDropFromToastClick_StillCaptures()
+    {
+        var gated = new GatedPromptService();
+        var capture = new FakeScreenshotCaptureService
+        {
+            NextResult = new ScreenshotCaptureResult(
+                true, new byte[] { 9, 9 }, DateTimeOffset.Parse("2026-08-10T01:05:02Z"), 1,
+                new Rectangle(0, 0, 100, 100), "hash", null)
+        };
+        var pipe = new RecordingPipeClient();
+        var sut = new InactivityScreenshotCollector(
+            NullLogger<InactivityScreenshotCollector>.Instance,
+            new FixedIdleTimeProvider(),
+            gated,
+            capture,
+            pipe,
+            TimeSpan.FromHours(1),
+            TimeSpan.FromSeconds(30));
+
+        await sut.StartAsync(EnabledPolicy(), default);
+        var t1 = DateTimeOffset.Parse("2026-08-10T01:05:00Z");
+        var firstEvaluate = sut.EvaluateAsync(300, t1, default);
+        await gated.Entered;
+
+        // Toast Allow click resets Windows last-input; the next poll sees a short idle.
+        await sut.EvaluateAsync(2, t1.AddSeconds(1), default);
+        gated.Complete(InactivityPromptDecision.Allowed);
+        await firstEvaluate;
+
+        Assert.Equal(1, capture.CallCount);
+        var submitted = Assert.Single(pipe.Submitted);
+        Assert.Equal(InactivityCaptureOutcomes.Captured, submitted.Attempt.Outcome);
+        Assert.Equal(2, submitted.JpegLength);
+    }
+
+    [Fact]
     public async Task Skip_SubmitsDeclinedAttempt_WithoutCapturing()
     {
         _prompt.NextDecision = InactivityPromptDecision.Declined;
@@ -181,7 +217,8 @@ public sealed class InactivityScreenshotCollectorTests
             gated,
             _capture,
             _pipe,
-            TimeSpan.FromHours(1));
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
 
         await sut.StartAsync(EnabledPolicy(), default);
 
@@ -217,7 +254,8 @@ public sealed class InactivityScreenshotCollectorTests
             gated,
             _capture,
             _pipe,
-            TimeSpan.FromHours(1));
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
 
         await sut.StartAsync(EnabledPolicy(), default);
 
@@ -373,6 +411,7 @@ internal sealed class FakeInactivityPromptService : IInactivityPromptService
 internal sealed class GatedPromptService : IInactivityPromptService
 {
     private TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private TaskCompletionSource<InactivityPromptDecision>? _decision;
 
     public int RequestCount { get; private set; }
     public bool Dismissed { get; private set; }
@@ -383,10 +422,13 @@ internal sealed class GatedPromptService : IInactivityPromptService
     {
         RequestCount++;
         var tcs = new TaskCompletionSource<InactivityPromptDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _decision = tcs;
         ct.Register(() => tcs.TrySetCanceled(ct));
         _entered.TrySetResult();
         return tcs.Task;
     }
+
+    public void Complete(InactivityPromptDecision decision) => _decision?.TrySetResult(decision);
 
     /// <summary>Re-arms <see cref="Entered"/> so a test can wait for a *subsequent* PromptAsync call.</summary>
     public void ResetEntered() => _entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
