@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
+using System.Text.Json;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.Shared.IPC;
 
@@ -127,6 +128,15 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
             ConnectionLabel = result.EmployeeProfileStatus == "company_context_required"
                 ? "Connected — select a company in ONEVO to load your employee profile"
                 : BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
+
+            if (result.RequiresLegalAcceptance)
+            {
+                StashPendingLegalDocuments(result.PendingLegalDocuments);
+                try { await Shell.Current.GoToAsync(SetupFlow.LegalConsent); }
+                catch { /* unit tests */ }
+                return;
+            }
+
             try { await Shell.Current.GoToAsync(SetupFlow.AfterActivation); }
             catch { /* unit tests */ }
         }
@@ -229,9 +239,23 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         ConnectionLabel = result.EmployeeProfileStatus == "company_context_required"
             ? "Connected — select a company in ONEVO to load your employee profile"
             : BuildConnectedLabel(result.EmployeeNumber, result.EmployeeName);
+
+        if (result.RequiresLegalAcceptance)
+        {
+            StashPendingLegalDocuments(result.PendingLegalDocuments);
+            try { Shell.Current.GoToAsync(SetupFlow.LegalConsent); }
+            catch { /* unit tests */ }
+            return;
+        }
+
         try { Shell.Current.GoToAsync(SetupFlow.AfterActivation); }
         catch { /* unit tests */ }
     }
+
+    private void StashPendingLegalDocuments(IReadOnlyList<PendingLegalDocumentPayload>? documents) =>
+        _preferences.Set(
+            SessionPreferenceKeys.PendingLegalDocumentsJson,
+            JsonSerializer.Serialize(documents ?? Array.Empty<PendingLegalDocumentPayload>()));
 
     [RelayCommand]
     private async Task PasteActivationCodeAsync()

@@ -22,6 +22,7 @@ public static class SessionPreferenceKeys
     public const string WorkLocationReference = "onevo.work_location_reference";
     public const string WorkLocationConfirmedOn = "onevo.work_location_confirmed_on";
     public const string SetupCompleted = "onevo.setup_completed";
+    public const string PendingLegalDocumentsJson = "onevo.pending_legal_documents_json";
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -40,7 +41,8 @@ public static class SessionPreferenceKeys
         WorkLocationDisplay,
         WorkLocationReference,
         WorkLocationConfirmedOn,
-        SetupCompleted
+        SetupCompleted,
+        PendingLegalDocumentsJson
     ];
 
     public static void ClearAll(IPreferencesStore preferences)
