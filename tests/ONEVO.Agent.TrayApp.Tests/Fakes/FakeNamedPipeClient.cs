@@ -298,6 +298,26 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             new WorkLocationConfirmResultPayload(true, null));
     }
 
+    /// <summary>Optional canned result for SendLegalAcceptanceSubmitAsync. Null = auto-success.</summary>
+    public LegalAcceptanceResultPayload? NextLegalAcceptanceResult { get; set; }
+
+    public List<IReadOnlyList<LegalAcceptanceItemPayload>> LegalAcceptanceSubmitCalls { get; } = [];
+
+    public Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct)
+    {
+        LegalAcceptanceSubmitCalls.Add(acceptances);
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LegalAcceptanceSubmit,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new LegalAcceptanceSubmitPayload(acceptances))
+        });
+
+        return Task.FromResult<LegalAcceptanceResultPayload?>(
+            NextLegalAcceptanceResult ?? new LegalAcceptanceResultPayload(true, null));
+    }
+
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();
     public void SimulateState(MonitoringState s)  => OnStateReceived?.Invoke(s);
     public void SimulateStatus(StatusResponsePayload s)
