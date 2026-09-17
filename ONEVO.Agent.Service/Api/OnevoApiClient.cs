@@ -771,7 +771,9 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("organization_name")] string? OrganizationName = null,
     [property: JsonPropertyName("tenant_slug")] string? TenantSlug = null,
     [property: JsonPropertyName("legal_acceptance_required")] bool RequiresLegalAcceptance = false,
-    [property: JsonPropertyName("pending_legal_documents")] IReadOnlyList<PendingLegalDocument>? PendingLegalDocuments = null);
+    [property: JsonPropertyName("pending_legal_documents")] IReadOnlyList<PendingLegalDocument>? PendingLegalDocuments = null,
+    [property: JsonPropertyName("legal_challenge")] string? LegalChallenge = null,
+    [property: JsonPropertyName("legal_csrf_token")] string? LegalCsrfToken = null);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
 

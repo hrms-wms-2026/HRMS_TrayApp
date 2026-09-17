@@ -142,6 +142,30 @@ public class OnevoApiClientTests
     }
 
     [Fact]
+    public async Task ExchangeActivationCodeAsync_DeserializesLegalChallengeAndCsrfToken()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                access_token = "access",
+                expires_in_seconds = 3600,
+                refresh_token = "refresh",
+                refresh_expires_in_seconds = 7_776_000,
+                legal_acceptance_required = true,
+                legal_challenge = "raw-challenge",
+                legal_csrf_token = "raw-csrf",
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC123", "DESKTOP-1", "Windows 11", "fingerprint", CancellationToken.None);
+
+        Assert.Equal("raw-challenge", result.Auth!.LegalChallenge);
+        Assert.Equal("raw-csrf", result.Auth.LegalCsrfToken);
+    }
+
+    [Fact]
     public async Task ExchangeActivationCodeAsync_WhenLegalAcceptanceFieldsAbsent_DefaultsToNotRequired()
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
