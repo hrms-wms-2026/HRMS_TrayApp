@@ -190,6 +190,57 @@ public class AgentWorkerDevicePairingTests
     }
 
     [Fact]
+    public async Task PollDevicePairingLoopAsync_Authorized_WhenAlreadyStopped_ReplacesIdentityInsteadOfInvalidState()
+    {
+        var handler = new StubHandler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath == AgentApiRoutes.DeviceAuthorizationToken)
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new
+                    {
+                        access_token = "eyJ.test",
+                        expires_in_seconds = 3600,
+                        refresh_token = "raw-refresh",
+                        refresh_expires_in_seconds = 7_776_000,
+                        employee_name = "Dapi Owner",
+                        employee_email = "dapiyshanth1908@gmail.com",
+                        employee_number = "DAPI-0001",
+                        department_name = "Executive & Leadership",
+                        work_mode_label = "Onsite",
+                        office_name = "Dapi Technologies",
+                    })
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+        var worker = BuildWorker(handler);
+        var start = new DeviceAuthorizationStartResult(true, null, "device-secret", "ABCD2345",
+            "https://localhost:4200/device/activate", "https://localhost:4200/device/activate?request_id=id&user_code=ABCD2345",
+            600, 5);
+
+        await worker.PollDevicePairingLoopAsync(
+            start, "fingerprint-1", CancellationToken.None, NoDelay,
+            pushResult: _ => Task.CompletedTask);
+        Assert.Equal(MonitoringState.Stopped, worker.CurrentStateForTest);
+
+        DevicePairingResultPayload? second = null;
+        await worker.PollDevicePairingLoopAsync(
+            start, "fingerprint-1", CancellationToken.None, NoDelay,
+            pushResult: payload => { second = payload; return Task.CompletedTask; });
+
+        Assert.NotNull(second);
+        Assert.True(second!.Success);
+        Assert.Null(second.ErrorCode);
+        Assert.Equal("Dapi Owner", second.EmployeeName);
+        Assert.Equal("Executive & Leadership", second.DepartmentName);
+        Assert.Equal("Onsite", second.WorkModeLabel);
+        Assert.Equal("Dapi Technologies", second.OfficeName);
+        Assert.Equal(MonitoringState.Stopped, worker.CurrentStateForTest);
+    }
+
+    [Fact]
     public async Task PollDevicePairingLoopAsync_AccessDenied_PushesFailureAndStopsPolling()
     {
         var callCount = 0;

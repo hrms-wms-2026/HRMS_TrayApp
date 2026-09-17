@@ -143,6 +143,12 @@ public sealed class TrayScreenLayoutContractTests
 
         Assert.Contains("ReviewDetailRow", page, StringComparison.Ordinal);
         Assert.Contains("Confirm Your ", page, StringComparison.Ordinal);
+        Assert.Contains("←  Back", page, StringComparison.Ordinal);
+        Assert.Contains("RowDefinitions=\"*,Auto\"", page, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"*,680,*\"", page, StringComparison.Ordinal);
+        Assert.Contains("HorizontalOptions=\"Fill\"", page, StringComparison.Ordinal);
+        Assert.Contains("Confirm &amp; Continue", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("RowDefinitions=\"*,Auto,Auto\"", page, StringComparison.Ordinal);
         Assert.DoesNotContain("ColumnDefinitions=\"40,*,Auto\"", page, StringComparison.Ordinal);
         Assert.Contains("ColumnDefinitions=\"32,Auto,*\"", row, StringComparison.Ordinal);
         Assert.Contains("HorizontalTextAlignment=\"End\"", row, StringComparison.Ordinal);
@@ -184,6 +190,8 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Allow &amp; Continue", xaml, StringComparison.Ordinal);
         Assert.Contains("Why are these needed?", xaml, StringComparison.Ordinal);
         Assert.Contains("IconHelp", xaml, StringComparison.Ordinal);
+        Assert.Contains("PermissionToggleRow", xaml, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"0.92*,1.18*\"", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_perm_chart.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_perm_apps.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_perm_location.png", xaml, StringComparison.Ordinal);

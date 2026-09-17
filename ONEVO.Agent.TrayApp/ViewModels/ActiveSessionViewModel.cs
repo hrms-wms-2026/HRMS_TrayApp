@@ -419,7 +419,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private async Task ClockOutAsync(CancellationToken ct)
     {
         IsClockOutConfirmVisible = false;
-        if (_pipe.LastKnownPolicy?.CameraVerificationEnabled == true)
+        if (_pipe.LastKnownPolicy?.PhotoRequiredEnabled == true)
         {
             try { await Shell.Current.GoToAsync("//photo?context=clockout"); }
             catch { /* unit tests */ }

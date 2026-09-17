@@ -30,7 +30,7 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     public void ApplyPolicy(AgentPolicy policy)
     {
         AppTrackingEnabled  = policy.AppUsageEnabled;
-        CameraAccessEnabled = policy.CameraVerificationEnabled;
+        CameraAccessEnabled = policy.CameraVerificationEnabled || policy.PhotoRequiredEnabled;
     }
 
     partial void OnScreenMonitoringEnabledChanged(bool value)

@@ -189,8 +189,8 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         ErrorMessage = null;
         try
         {
-            // Camera verification required — photo page completes the lifecycle command.
-            if (_currentPolicy?.CameraVerificationEnabled == true)
+            // Work mode "Photo required" (clock-in policy) — photo page completes Clock In.
+            if (_currentPolicy?.PhotoRequiredEnabled == true)
             {
                 try { await Shell.Current.GoToAsync("//photo?context=clockin"); }
                 catch { /* unit tests */ }

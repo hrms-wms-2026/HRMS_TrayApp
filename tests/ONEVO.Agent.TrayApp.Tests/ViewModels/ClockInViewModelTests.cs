@@ -65,6 +65,40 @@ public sealed class ClockInViewModelTests
     }
 
     [Fact]
+    public async Task ClockInCommand_WhenWorkModePhotoRequired_DoesNotSendLifecycle()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1",
+                PhotoRequiredEnabled = true,
+                CameraVerificationEnabled = false
+            }
+        };
+        var vm = new ClockInViewModel(pipe, new FakePreferencesStore());
+        await vm.ClockInCommand.ExecuteAsync(null);
+        Assert.DoesNotContain(LifecycleAction.ClockIn, pipe.LifecycleActions);
+    }
+
+    [Fact]
+    public async Task ClockInCommand_WhenCameraVerificationOnButPhotoNotRequired_StillSendsLifecycle()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownPolicy = new AgentPolicy
+            {
+                Version = "v1",
+                PhotoRequiredEnabled = false,
+                CameraVerificationEnabled = true
+            }
+        };
+        var vm = new ClockInViewModel(pipe, new FakePreferencesStore());
+        await vm.ClockInCommand.ExecuteAsync(null);
+        Assert.Contains(LifecycleAction.ClockIn, pipe.LifecycleActions);
+    }
+
+    [Fact]
     public async Task ClockInCommand_OnFailure_SetsErrorMessage()
     {
         var pipe = new FakeNamedPipeClient
