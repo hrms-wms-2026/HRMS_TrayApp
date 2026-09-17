@@ -52,7 +52,8 @@ public class AgentWorkerTests : IDisposable
             new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by lifecycle commands
             null!, // InactivityEvidenceHandler — not touched by lifecycle commands
-            null!  // EvidenceSpoolStore — not touched by lifecycle commands
+            null!, // EvidenceSpoolStore — not touched by lifecycle commands
+            new PendingLegalChallengeStore()
         );
         worker.ApplyEnrollmentGates();
         return worker;

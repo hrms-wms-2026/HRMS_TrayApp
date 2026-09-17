@@ -23,19 +23,22 @@ public sealed class TokenRefreshService : BackgroundService
     private readonly OnevoApiClient _apiClient;
     private readonly CredentialStore _credentials;
     private readonly DeviceIdentityStore _deviceIdentityStore;
+    private readonly PendingLegalChallengeStore _pendingLegalChallenge;
 
     public TokenRefreshService(
         ILogger<TokenRefreshService> logger,
         AgentStateMachine stateMachine,
         OnevoApiClient apiClient,
         CredentialStore credentials,
-        DeviceIdentityStore deviceIdentityStore)
+        DeviceIdentityStore deviceIdentityStore,
+        PendingLegalChallengeStore pendingLegalChallenge)
     {
         _logger = logger;
         _stateMachine = stateMachine;
         _apiClient = apiClient;
         _credentials = credentials;
         _deviceIdentityStore = deviceIdentityStore;
+        _pendingLegalChallenge = pendingLegalChallenge;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -63,6 +66,7 @@ public sealed class TokenRefreshService : BackgroundService
         {
             _credentials.StoreRefreshToken(result.Auth.RefreshToken);
             _credentials.StoreDeviceJwt(result.Auth.AccessToken);
+            _pendingLegalChallenge.Set(result.Auth.LegalChallenge, result.Auth.LegalCsrfToken);
             _logger.LogDebug("Device token refreshed on schedule");
             return;
         }
@@ -75,6 +79,7 @@ public sealed class TokenRefreshService : BackgroundService
         {
             _credentials.StoreRefreshToken(retry.Auth.RefreshToken);
             _credentials.StoreDeviceJwt(retry.Auth.AccessToken);
+            _pendingLegalChallenge.Set(retry.Auth.LegalChallenge, retry.Auth.LegalCsrfToken);
             return;
         }
 

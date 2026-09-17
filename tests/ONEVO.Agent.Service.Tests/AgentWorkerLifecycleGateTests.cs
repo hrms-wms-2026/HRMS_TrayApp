@@ -77,7 +77,8 @@ public class AgentWorkerLifecycleGateTests : IDisposable
             new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by lifecycle commands
             null!, // InactivityEvidenceHandler — not touched by lifecycle commands
-            null!  // EvidenceSpoolStore — not touched by lifecycle commands
+            null!, // EvidenceSpoolStore — not touched by lifecycle commands
+            new PendingLegalChallengeStore()
         );
 
         // Mirrors what a real successful enrollment/session-resume applies before any lifecycle

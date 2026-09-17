@@ -47,7 +47,8 @@ public class AgentWorkerCollectionSubmitTests
             new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by HandleCollectionSubmitAsync
             null!, // InactivityEvidenceHandler — not touched by HandleCollectionSubmitAsync
-            null!  // EvidenceSpoolStore — not touched by HandleCollectionSubmitAsync
+            null!, // EvidenceSpoolStore — not touched by HandleCollectionSubmitAsync
+            new PendingLegalChallengeStore()
         );
     }
 

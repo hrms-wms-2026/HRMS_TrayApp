@@ -44,7 +44,8 @@ public class AgentWorkerDevicePairingTests
             deviceIdentityStore ?? new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by device pairing
             null!, // InactivityEvidenceHandler — not touched by device pairing
-            null!  // EvidenceSpoolStore — not touched by device pairing
+            null!, // EvidenceSpoolStore — not touched by device pairing
+            new PendingLegalChallengeStore()
         );
     }
 
