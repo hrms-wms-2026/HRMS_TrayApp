@@ -8,7 +8,7 @@
              Shell.NavBarIsVisible="False"
              Title="OneXso WorkPulse">
 
-  <Grid RowDefinitions="*,Auto" Padding="40,20,40,12">
+  <Grid RowDefinitions="*,Auto" Padding="72,24,72,12">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
@@ -17,8 +17,13 @@
       </LinearGradientBrush>
     </Grid.Background>
 
-    <VerticalStackLayout Grid.Row="0" Spacing="0" VerticalOptions="Center"
-                         MaximumWidthRequest="680" HorizontalOptions="Center">
+    <!-- Centered 680px column so the confirm pill is the same width as the card
+         (a Center-sized stack was shrinking the button to its label). -->
+    <Grid Grid.Row="0" ColumnDefinitions="*,680,*">
+    <VerticalStackLayout Grid.Column="1"
+                         Spacing="0"
+                         VerticalOptions="Center"
+                         HorizontalOptions="Fill">
       <Label HorizontalOptions="Center" Margin="0,0,0,6">
         <Label.FormattedText>
           <FormattedString>
@@ -28,9 +33,13 @@
         </Label.FormattedText>
       </Label>
       <Label Text="Please review your information before continuing."
-             Style="{StaticResource PageSubtitle}" Margin="0,0,0,18" />
+             Style="{StaticResource PageSubtitle}"
+             Margin="0,0,0,20" />
 
-      <Border Style="{StaticResource SetupResultCard}" Padding="20,4" Margin="0,0,0,18">
+      <Border Style="{StaticResource SetupResultCard}"
+              Padding="24,8"
+              Margin="0,0,0,20"
+              HorizontalOptions="Fill">
         <VerticalStackLayout Spacing="0">
           <controls:ReviewDetailRow Icon="{StaticResource IconPerson}"
                                     LabelText="Full Name"
@@ -60,7 +69,10 @@
         </VerticalStackLayout>
       </Border>
 
-      <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,8">
+      <Border Style="{StaticResource TrayPrimaryActionBorder}"
+              HorizontalOptions="Fill"
+              HeightRequest="48"
+              Margin="0,0,0,8">
         <Border.Background>
           <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
             <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
@@ -69,16 +81,39 @@
           </LinearGradientBrush>
         </Border.Background>
         <Grid>
-          <Button Command="{Binding ConfirmAndContinueCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Confirm and Continue" />
-          <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-            <Label Text="{StaticResource IconShield}" FontFamily="Segoe MDL2 Assets" FontSize="16" TextColor="White" VerticalOptions="Center" />
-            <Label Text="Confirm &amp; Continue" Style="{StaticResource ButtonLabel}" />
+          <Button Command="{Binding ConfirmAndContinueCommand}"
+                  Style="{StaticResource TrayPrimaryActionOverlay}"
+                  HeightRequest="48"
+                  Text=""
+                  SemanticProperties.Description="Confirm and Continue" />
+          <HorizontalStackLayout InputTransparent="True"
+                                 HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="8">
+            <Label Text="{StaticResource IconShield}"
+                   FontFamily="Segoe MDL2 Assets"
+                   FontSize="16"
+                   TextColor="White"
+                   VerticalOptions="Center" />
+            <Label Text="Confirm &amp; Continue"
+                   Style="{StaticResource ButtonLabel}" />
           </HorizontalStackLayout>
         </Grid>
       </Border>
-      <Button Text="←  Back" Command="{Binding BackCommand}" BackgroundColor="Transparent" TextColor="{StaticResource Primary}" FontSize="14" HorizontalOptions="Center" />
-    </VerticalStackLayout>
 
-    <controls:FooterStatusBar Grid.Row="1" VersionText="Version 1.0.0" ConnectionLabel="Connected" IsConnected="True" />
+      <Button Text="←  Back"
+              Command="{Binding BackCommand}"
+              BackgroundColor="Transparent"
+              TextColor="{StaticResource Primary}"
+              FontSize="14"
+              FontAttributes="Bold"
+              HorizontalOptions="Center" />
+    </VerticalStackLayout>
+    </Grid>
+
+    <controls:FooterStatusBar Grid.Row="1"
+                              VersionText="Version 1.0.0"
+                              ConnectionLabel="Connected"
+                              IsConnected="True" />
   </Grid>
 </ContentPage>

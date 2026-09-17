@@ -211,6 +211,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
                 "EXPIRED" => "The browser request expired — try again.",
                 "SERVICE_UNAVAILABLE" => "Can't reach the ONEVO backend right now. Check your connection and try again.",
                 "DEVICE_CHANGE_PENDING" => "A different device is already approved for your account. We've sent a device-change request to your approver — you'll be notified once it's approved.",
+                "INVALID_STATE" => "This device is already connected. Close WorkPulse fully and open it again to continue setup.",
                 _ => result.ErrorCode ?? "Browser connect failed."
             };
             IsConnected = false;

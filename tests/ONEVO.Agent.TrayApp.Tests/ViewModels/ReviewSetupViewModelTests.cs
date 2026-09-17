@@ -1,3 +1,4 @@
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
 
@@ -52,5 +53,29 @@ public sealed class ReviewSetupViewModelTests
     {
         var vm = new ReviewSetupViewModel(new FakePreferencesStore());
         Assert.Equal(string.Empty, vm.FullName);
+    }
+
+    [Fact]
+    public void OnAppearing_LoadsDepartmentOfficeAndWorkModeFromSession()
+    {
+        var prefs = new FakePreferencesStore();
+        prefs.Set(SessionPreferenceKeys.EmployeeDisplayName, "Dapi Owner");
+        prefs.Set(SessionPreferenceKeys.EmployeeEmail, "dapiyshanth1908@gmail.com");
+        prefs.Set(SessionPreferenceKeys.EmployeeId, "DAPI-0001");
+        prefs.Set(SessionPreferenceKeys.Department, "Executive & Leadership");
+        prefs.Set(SessionPreferenceKeys.OfficeName, "Dapi Technologies");
+        prefs.Set(SessionPreferenceKeys.WorkMode, "Onsite");
+        prefs.Set(SessionPreferenceKeys.DeviceName, "TICS16");
+
+        var vm = new ReviewSetupViewModel(prefs);
+        vm.OnAppearing();
+
+        Assert.Equal("Dapi Owner", vm.FullName);
+        Assert.Equal("dapiyshanth1908@gmail.com", vm.WorkEmail);
+        Assert.Equal("DAPI-0001", vm.EmployeeId);
+        Assert.Equal("Executive & Leadership", vm.Department);
+        Assert.Equal("Dapi Technologies", vm.RegisteredOffice);
+        Assert.Equal("Onsite", vm.WorkMode);
+        Assert.Equal("TICS16", vm.ThisDevice);
     }
 }

@@ -156,6 +156,15 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         _pendingLegalChallenge.Set(auth.LegalChallenge, auth.LegalCsrfToken);
         await _apiClient.SendHeartbeatAsync(auth.AccessToken, ct);
 
+        // Back on Confirm Details only navigates to Connect — it does not sign out.
+        // A second browser approval must refresh credentials in place instead of
+        // rejecting Stopped → Stopped as INVALID_STATE.
+        if (_stateMachine.CurrentState == MonitoringState.Stopped)
+        {
+            ApplyEnrollmentGates();
+            return (true, null);
+        }
+
         if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
             return (false, "INVALID_STATE");
 

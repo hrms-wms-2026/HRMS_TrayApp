@@ -260,7 +260,11 @@ public class OnevoApiClientTests
                 employee_name = "Priya Employee",
                 employee_email = "priya@test.dev",
                 employee_number = "EMP-0001",
-                employee_profile_status = "resolved"
+                employee_profile_status = "resolved",
+                department_name = "Product Development",
+                work_mode_label = "Hybrid",
+                office_name = "Acme Head Office",
+                organization_name = "Acme Test"
             })
         });
         var client = Build(handler);
@@ -276,6 +280,10 @@ public class OnevoApiClientTests
         Assert.Equal("priya@test.dev", result.Auth.EmployeeEmail);
         Assert.Equal("EMP-0001", result.Auth.EmployeeNumber);
         Assert.Equal("resolved", result.Auth.EmployeeProfileStatus);
+        Assert.Equal("Product Development", result.Auth.DepartmentName);
+        Assert.Equal("Hybrid", result.Auth.WorkModeLabel);
+        Assert.Equal("Acme Head Office", result.Auth.OfficeName);
+        Assert.Equal("Acme Test", result.Auth.OrganizationName);
     }
 
     [Fact]

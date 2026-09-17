@@ -300,6 +300,21 @@ public sealed class ConnectWorkspaceViewModelTests
     }
 
     [Fact]
+    public async Task OnDevicePairingResult_InvalidState_DoesNotShowRawErrorCode()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm = new ConnectWorkspaceViewModel(pipe, new FakePreferencesStore());
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        pipe.SimulateDevicePairingResult(new ONEVO.Agent.Shared.IPC.DevicePairingResultPayload { Success = false, ErrorCode = "INVALID_STATE" });
+
+        Assert.False(vm.IsWaitingForBrowserApproval);
+        Assert.False(vm.IsConnected);
+        Assert.DoesNotContain("INVALID_STATE", vm.ErrorMessage);
+        Assert.Contains("already connected", vm.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task OnDevicePairingResult_WhenDeviceChangePending_ShowsApprovalMessage()
     {
         var pipe = new FakeNamedPipeClient();

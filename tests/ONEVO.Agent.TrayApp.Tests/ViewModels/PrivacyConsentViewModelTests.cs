@@ -87,4 +87,13 @@ public sealed class PrivacyConsentViewModelTests
         vm.ApplyPolicy(policy);
         Assert.True(vm.CameraAccessEnabled);
     }
+
+    [Fact]
+    public void ApplyPolicy_TurnsCameraAccessOnWhenWorkModePhotoRequired()
+    {
+        var vm = Make();
+        var policy = new AgentPolicy { Version = "1", PhotoRequiredEnabled = true, CameraVerificationEnabled = false };
+        vm.ApplyPolicy(policy);
+        Assert.True(vm.CameraAccessEnabled);
+    }
 }
