@@ -75,6 +75,14 @@ public sealed class EndSessionViewModelTests
     }
 
     [Fact]
+    public async Task ViewSummaryCommand_CanExecute()
+    {
+        var vm = new EndSessionViewModel(new FakeNamedPipeClient());
+        Assert.True(vm.ViewSummaryCommand.CanExecute(null));
+        await vm.ViewSummaryCommand.ExecuteAsync(null);
+    }
+
+    [Fact]
     public async Task DownloadSummaryCommand_WritesPdfFile()
     {
         var vm = new EndSessionViewModel(new FakeNamedPipeClient());

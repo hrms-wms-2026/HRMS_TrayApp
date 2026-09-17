@@ -274,10 +274,10 @@
       </Border>
       <Border Grid.Column="1" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44" MinimumWidthRequest="170">
         <Grid>
-          <Button Command="{Binding DownloadSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Download Summary" />
+          <Button Command="{Binding DownloadSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Download PDF" />
           <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
             <Image Source="icon3d_download.png" WidthRequest="16" HeightRequest="16" Aspect="AspectFit" VerticalOptions="Center" />
-            <Label Text="Download Summary" Style="{StaticResource ButtonLabelOutline}" FontSize="13" />
+            <Label Text="Download PDF" Style="{StaticResource ButtonLabelOutline}" FontSize="13" />
           </HorizontalStackLayout>
         </Grid>
       </Border>

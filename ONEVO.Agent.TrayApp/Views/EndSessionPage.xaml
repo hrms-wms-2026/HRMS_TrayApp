@@ -124,10 +124,10 @@
           </Border>
           <Border Grid.Column="1" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16" HeightRequest="44">
             <Grid>
-              <Button Command="{Binding DownloadSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="Download Summary" />
+              <Button Command="{Binding ViewSummaryCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" HeightRequest="44" Text="" SemanticProperties.Description="View Summary" />
               <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
-                <Image Source="icon_end_download.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
-                <Label Text="Download Summary" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="NoWrap" MaxLines="1" />
+                <Image Source="icon_chart_blue.png" WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                <Label Text="View Summary" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource Primary}" LineBreakMode="NoWrap" MaxLines="1" />
               </HorizontalStackLayout>
             </Grid>
           </Border>
