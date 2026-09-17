@@ -35,4 +35,8 @@ public static class AgentApiRoutes
     public const string LocationChangeRequestPending = "/api/v1/monitoring/location-change-requests/pending";
 
     public const string WorkLocationConfirmSubmit = "/api/v1/monitoring/tray/work-location/confirm";
+
+    // Not under /monitoring — this is the same pre-session legal-acceptance endpoint the web
+    // login flow's complete-login step already uses.
+    public const string LegalAcceptanceComplete = "/api/v1/legal/acceptances/complete-login";
 }

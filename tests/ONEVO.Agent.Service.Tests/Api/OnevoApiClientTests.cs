@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Service.Api;
+using ONEVO.Agent.Shared.IPC;
 using Xunit;
 
 public class OnevoApiClientTests
@@ -184,6 +185,46 @@ public class OnevoApiClientTests
 
         Assert.False(result.Auth!.RequiresLegalAcceptance);
         Assert.Null(result.Auth.PendingLegalDocuments);
+    }
+
+    [Fact]
+    public async Task CompleteLegalAcceptanceAsync_SendsChallengeCookieCsrfHeaderAndAcceptedDocuments()
+    {
+        HttpRequestMessage? captured = null;
+        string? capturedBody = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var client = Build(handler);
+
+        var success = await client.CompleteLegalAcceptanceAsync(
+            "raw-challenge", "raw-csrf",
+            new[] { new LegalAcceptanceItemPayload("privacy_policy", "2.0") },
+            CancellationToken.None);
+
+        Assert.True(success);
+        Assert.Equal(AgentApiRoutes.LegalAcceptanceComplete, captured!.RequestUri!.AbsolutePath);
+        Assert.Equal("onevo_legal_pending=raw-challenge", captured.Headers.GetValues("Cookie").Single());
+        Assert.Equal("raw-csrf", captured.Headers.GetValues("X-CSRF-Token").Single());
+        Assert.Contains("\"document_type\":\"privacy_policy\"", capturedBody);
+        Assert.Contains("\"decision\":\"accepted\"", capturedBody);
+    }
+
+    [Fact]
+    public async Task CompleteLegalAcceptanceAsync_WhenServerRejects_ReturnsFalse()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var client = Build(handler);
+
+        var success = await client.CompleteLegalAcceptanceAsync(
+            "raw-challenge", "raw-csrf",
+            new[] { new LegalAcceptanceItemPayload("privacy_policy", "2.0") },
+            CancellationToken.None);
+
+        Assert.False(success);
     }
 
     [Fact]

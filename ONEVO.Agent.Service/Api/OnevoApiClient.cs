@@ -1,11 +1,13 @@
 namespace ONEVO.Agent.Service.Api;
 
+using System.Linq;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
@@ -147,6 +149,48 @@ public sealed class OnevoApiClient
             return false;
         }
     }
+
+    /// <summary>
+    /// Accept the pending legal documents shown on the tray consent screen. AuthPendingLegalController
+    /// is [AllowAnonymous] and authenticates via this challenge/CSRF pair (not the device JWT) — the
+    /// same mechanism the web login flow uses, minted alongside the enroll/refresh response that
+    /// reported RequiresLegalAcceptance. The controller reads the challenge from a literal cookie, so
+    /// it's sent as a raw Cookie header rather than through a CookieContainer.
+    /// </summary>
+    public async Task<bool> CompleteLegalAcceptanceAsync(
+        string legalChallenge,
+        string legalCsrfToken,
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances,
+        CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.LegalAcceptanceComplete)
+        {
+            Content = JsonContent.Create(new AcceptPendingLegalDocumentsBody(
+                acceptances.Select(a => new LegalAcceptanceItemBody(a.DocumentType, a.Version, "accepted")).ToArray()))
+        };
+        request.Headers.Add("Cookie", $"onevo_legal_pending={legalChallenge}");
+        request.Headers.Add("X-CSRF-Token", legalCsrfToken);
+
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.LegalAcceptanceComplete);
+            return false;
+        }
+    }
+
+    private sealed record LegalAcceptanceItemBody(
+        [property: JsonPropertyName("document_type")] string DocumentType,
+        [property: JsonPropertyName("version")] string Version,
+        [property: JsonPropertyName("decision")] string Decision);
+
+    private sealed record AcceptPendingLegalDocumentsBody(
+        [property: JsonPropertyName("acceptances")] IReadOnlyList<LegalAcceptanceItemBody> Acceptances);
 
     /// <summary>Fetch the effective monitoring policy for this device (§Task3). Auth: Bearer Device JWT.</summary>
     public async Task<PolicyResult> GetEffectivePolicyAsync(string accessToken, CancellationToken ct)
