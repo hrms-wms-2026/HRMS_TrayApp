@@ -301,6 +301,10 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     /// <summary>Optional canned result for SendLegalAcceptanceSubmitAsync. Null = auto-success.</summary>
     public LegalAcceptanceResultPayload? NextLegalAcceptanceResult { get; set; }
 
+    /// <summary>When true, SendLegalAcceptanceSubmitAsync resolves to null - the shape the real
+    /// client returns on a pipe timeout / no LegalAcceptanceResult reply.</summary>
+    public bool LegalAcceptanceSubmitReturnsNull { get; set; }
+
     public List<IReadOnlyList<LegalAcceptanceItemPayload>> LegalAcceptanceSubmitCalls { get; } = [];
 
     public Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
@@ -313,6 +317,9 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             Payload = System.Text.Json.JsonSerializer.SerializeToElement(
                 new LegalAcceptanceSubmitPayload(acceptances))
         });
+
+        if (LegalAcceptanceSubmitReturnsNull)
+            return Task.FromResult<LegalAcceptanceResultPayload?>(null);
 
         return Task.FromResult<LegalAcceptanceResultPayload?>(
             NextLegalAcceptanceResult ?? new LegalAcceptanceResultPayload(true, null));
