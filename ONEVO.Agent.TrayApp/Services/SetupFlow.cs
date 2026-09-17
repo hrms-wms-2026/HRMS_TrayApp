@@ -7,6 +7,7 @@ namespace ONEVO.Agent.TrayApp.Services;
 public static class SetupFlow
 {
     public const string Connect = "//connect";
+    public const string LegalConsent = "//legal-consent";
     public const string ConfirmDetails = "//review";
     public const string FaceEnrollment = "//photo";
     public const string LocationThenPrivacy = "//location?next=privacy";

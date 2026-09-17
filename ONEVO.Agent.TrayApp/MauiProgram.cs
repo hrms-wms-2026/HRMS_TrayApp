@@ -111,6 +111,7 @@ public static class MauiProgram
 
         // ViewModels
         builder.Services.AddTransient<ConnectWorkspaceViewModel>();
+        builder.Services.AddTransient<LegalConsentViewModel>();
         builder.Services.AddTransient<PrepareWorkspaceViewModel>();
         builder.Services.AddTransient<WorkLocationViewModel>();
         builder.Services.AddTransient<ReviewSetupViewModel>();
@@ -127,6 +128,7 @@ public static class MauiProgram
 
         // Views
         builder.Services.AddTransient<ConnectWorkspacePage>();
+        builder.Services.AddTransient<LegalConsentPage>();
         builder.Services.AddTransient<PrepareWorkspacePage>();
         builder.Services.AddTransient<WorkLocationPage>();
         builder.Services.AddTransient<ReviewSetupPage>();

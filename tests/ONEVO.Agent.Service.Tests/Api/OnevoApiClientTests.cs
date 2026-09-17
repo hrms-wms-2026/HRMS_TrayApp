@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Service.Api;
+using ONEVO.Agent.Shared.IPC;
 using Xunit;
 
 public class OnevoApiClientTests
@@ -106,6 +107,124 @@ public class OnevoApiClientTests
 
         Assert.Equal(DeviceAuthorizationPollState.Authorized, result.State);
         Assert.Equal("access", result.Auth!.AccessToken);
+    }
+
+    [Fact]
+    public async Task ExchangeActivationCodeAsync_DeserializesLegalAcceptanceFields()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                access_token = "access",
+                expires_in_seconds = 3600,
+                refresh_token = "refresh",
+                refresh_expires_in_seconds = 7_776_000,
+                legal_acceptance_required = true,
+                pending_legal_documents = new[]
+                {
+                    new
+                    {
+                        document_type = "privacy_policy",
+                        version = "2.0",
+                        title = "Privacy Policy",
+                        content_endpoint = "/api/v1/legal/documents/privacy_policy/2.0",
+                    }
+                }
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC123", "DESKTOP-1", "Windows 11", "fingerprint", CancellationToken.None);
+
+        Assert.True(result.Auth!.RequiresLegalAcceptance);
+        Assert.Single(result.Auth.PendingLegalDocuments!);
+        Assert.Equal("privacy_policy", result.Auth.PendingLegalDocuments![0].DocumentType);
+    }
+
+    [Fact]
+    public async Task ExchangeActivationCodeAsync_DeserializesLegalChallengeAndCsrfToken()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                access_token = "access",
+                expires_in_seconds = 3600,
+                refresh_token = "refresh",
+                refresh_expires_in_seconds = 7_776_000,
+                legal_acceptance_required = true,
+                legal_challenge = "raw-challenge",
+                legal_csrf_token = "raw-csrf",
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC123", "DESKTOP-1", "Windows 11", "fingerprint", CancellationToken.None);
+
+        Assert.Equal("raw-challenge", result.Auth!.LegalChallenge);
+        Assert.Equal("raw-csrf", result.Auth.LegalCsrfToken);
+    }
+
+    [Fact]
+    public async Task ExchangeActivationCodeAsync_WhenLegalAcceptanceFieldsAbsent_DefaultsToNotRequired()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                access_token = "access",
+                expires_in_seconds = 3600,
+                refresh_token = "refresh",
+                refresh_expires_in_seconds = 7_776_000,
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.ExchangeActivationCodeAsync("ABC123", "DESKTOP-1", "Windows 11", "fingerprint", CancellationToken.None);
+
+        Assert.False(result.Auth!.RequiresLegalAcceptance);
+        Assert.Null(result.Auth.PendingLegalDocuments);
+    }
+
+    [Fact]
+    public async Task CompleteLegalAcceptanceAsync_SendsChallengeCookieCsrfHeaderAndAcceptedDocuments()
+    {
+        HttpRequestMessage? captured = null;
+        string? capturedBody = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        });
+        var client = Build(handler);
+
+        var success = await client.CompleteLegalAcceptanceAsync(
+            "raw-challenge", "raw-csrf",
+            new[] { new LegalAcceptanceItemPayload("privacy_policy", "2.0") },
+            CancellationToken.None);
+
+        Assert.True(success);
+        Assert.Equal(AgentApiRoutes.LegalAcceptanceComplete, captured!.RequestUri!.AbsolutePath);
+        Assert.Equal("onevo_legal_pending=raw-challenge", captured.Headers.GetValues("Cookie").Single());
+        Assert.Equal("raw-csrf", captured.Headers.GetValues("X-CSRF-Token").Single());
+        Assert.Contains("\"document_type\":\"privacy_policy\"", capturedBody);
+        Assert.Contains("\"decision\":\"accepted\"", capturedBody);
+    }
+
+    [Fact]
+    public async Task CompleteLegalAcceptanceAsync_WhenServerRejects_ReturnsFalse()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var client = Build(handler);
+
+        var success = await client.CompleteLegalAcceptanceAsync(
+            "raw-challenge", "raw-csrf",
+            new[] { new LegalAcceptanceItemPayload("privacy_policy", "2.0") },
+            CancellationToken.None);
+
+        Assert.False(success);
     }
 
     [Fact]

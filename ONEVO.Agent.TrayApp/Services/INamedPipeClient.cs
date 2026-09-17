@@ -99,4 +99,11 @@ public interface INamedPipeClient
     /// </summary>
     Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
         string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct);
+
+    /// <summary>
+    /// Submits every pending legal document the employee accepted on the consent screen in one
+    /// action and waits for the correlated LegalAcceptanceResult (or timeout).
+    /// </summary>
+    Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct);
 }

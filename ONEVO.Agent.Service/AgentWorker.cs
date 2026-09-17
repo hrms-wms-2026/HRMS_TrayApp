@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.Service;
 
+using System.Linq;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using ONEVO.Agent.Service.Api;
@@ -30,6 +31,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     private readonly EnrollmentCoordinator _enrollmentCoordinator;
     private readonly InactivityEvidenceHandler _inactivityEvidence;
     private readonly EvidenceSpoolStore _evidenceSpool;
+    private readonly PendingLegalChallengeStore _pendingLegalChallenge;
     private CancellationTokenSource? _pairingCts;
 
     public AgentWorker(
@@ -46,7 +48,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         DeviceIdentityStore deviceIdentityStore,
         EnrollmentCoordinator enrollmentCoordinator,
         InactivityEvidenceHandler inactivityEvidence,
-        EvidenceSpoolStore evidenceSpool)
+        EvidenceSpoolStore evidenceSpool,
+        PendingLegalChallengeStore pendingLegalChallenge)
     {
         _logger = logger;
         _pipeServer = pipeServer;
@@ -62,6 +65,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         _enrollmentCoordinator = enrollmentCoordinator;
         _inactivityEvidence = inactivityEvidence;
         _evidenceSpool = evidenceSpool;
+        _pendingLegalChallenge = pendingLegalChallenge;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -102,6 +106,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         }
 
         PersistAuth(identity, result.Auth);
+        _pendingLegalChallenge.Set(result.Auth.LegalChallenge, result.Auth.LegalCsrfToken);
         await _apiClient.SendHeartbeatAsync(result.Auth.AccessToken, ct);
         ApplyEnrollmentGates();
         _stateMachine.TryTransition(MonitoringState.Stopped, out _);
@@ -148,6 +153,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         };
 
         PersistAuth(identity, auth);
+        _pendingLegalChallenge.Set(auth.LegalChallenge, auth.LegalCsrfToken);
         await _apiClient.SendHeartbeatAsync(auth.AccessToken, ct);
 
         if (!_stateMachine.TryTransition(MonitoringState.Stopped, out _))
@@ -278,6 +284,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
             case IpcMessageTypes.WorkLocationConfirm:
                 await HandleWorkLocationConfirmAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.LegalAcceptanceSubmit:
+                await HandleLegalAcceptanceSubmitAsync(envelope, reply);
                 break;
 
             case IpcMessageTypes.EvidenceTransferStart:
@@ -915,7 +925,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             result.Auth.EmployeeName, result.Auth.EmployeeEmail, result.Auth.EmployeeNumber,
             result.Auth.EmployeeProfileStatus,
             result.Auth.DepartmentName, result.Auth.WorkModeLabel, result.Auth.OfficeName,
-            result.Auth.OrganizationName);
+            result.Auth.OrganizationName,
+            result.Auth.RequiresLegalAcceptance, MapPendingLegalDocuments(result.Auth.PendingLegalDocuments));
 
         // Push status so tray coordinator sees Stopped (enrolled) not Unenrolled.
         await reply(BuildStatusEnvelope(correlationId: null));
@@ -1052,7 +1063,9 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                         DepartmentName = poll.Auth.DepartmentName,
                         WorkModeLabel = poll.Auth.WorkModeLabel,
                         OfficeName = poll.Auth.OfficeName,
-                        OrganizationName = poll.Auth.OrganizationName
+                        OrganizationName = poll.Auth.OrganizationName,
+                        RequiresLegalAcceptance = poll.Auth.RequiresLegalAcceptance,
+                        PendingLegalDocuments = MapPendingLegalDocuments(poll.Auth.PendingLegalDocuments)
                     });
                     return;
                 }
@@ -1254,7 +1267,9 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         string? departmentName = null,
         string? workModeLabel = null,
         string? officeName = null,
-        string? organizationName = null)
+        string? organizationName = null,
+        bool requiresLegalAcceptance = false,
+        IReadOnlyList<PendingLegalDocumentPayload>? pendingLegalDocuments = null)
     {
         await reply(new IpcEnvelope
         {
@@ -1271,8 +1286,52 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 DepartmentName = departmentName,
                 WorkModeLabel = workModeLabel,
                 OfficeName = officeName,
-                OrganizationName = organizationName
+                OrganizationName = organizationName,
+                RequiresLegalAcceptance = requiresLegalAcceptance,
+                PendingLegalDocuments = pendingLegalDocuments
             })
+        });
+    }
+
+    private static IReadOnlyList<PendingLegalDocumentPayload>? MapPendingLegalDocuments(
+        IReadOnlyList<PendingLegalDocument>? documents) =>
+        documents?.Select(d => new PendingLegalDocumentPayload(
+            d.DocumentType, d.Version, d.Title, d.ContentUrl, d.ContentEndpoint)).ToArray();
+
+    /// <summary>
+    /// The employee accepted every pending document on the consent screen in one action. The
+    /// challenge/CSRF pair never crosses the pipe to the UI — it is a bearer-equivalent credential
+    /// for accepting documents as this user, so it stays in PendingLegalChallengeStore from
+    /// whichever enroll/refresh call most recently minted one.
+    /// </summary>
+    internal async Task HandleLegalAcceptanceSubmitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<LegalAcceptanceSubmitPayload>();
+        var challenge = _pendingLegalChallenge.Current;
+        if (payload is null || challenge is null)
+        {
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LegalAcceptanceResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LegalAcceptanceResultPayload(false, "NO_PENDING_CHALLENGE"))
+            });
+            return;
+        }
+
+        var success = await _apiClient.CompleteLegalAcceptanceAsync(
+            challenge.Value.Challenge, challenge.Value.CsrfToken, payload.Acceptances, CancellationToken.None);
+
+        if (success)
+            _pendingLegalChallenge.Set(null, null);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LegalAcceptanceResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(
+                new LegalAcceptanceResultPayload(success, success ? null : "SERVICE_UNAVAILABLE"))
         });
     }
 

@@ -50,7 +50,8 @@ public class AgentWorkerHandleWorkLocationConfirmTests : IDisposable
             new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by this handler
             null!, // InactivityEvidenceHandler — not touched by this handler
-            null!  // EvidenceSpoolStore — not touched by this handler
+            null!, // EvidenceSpoolStore — not touched by this handler
+            new PendingLegalChallengeStore()
         );
         worker.ApplyEnrollmentGates();
         return worker;

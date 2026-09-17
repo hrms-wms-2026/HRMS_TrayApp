@@ -43,6 +43,7 @@ var host = Host.CreateDefaultBuilder(args)
         });
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<DeviceIdentityStore>();
+        services.AddSingleton<PendingLegalChallengeStore>();
         services.AddSingleton<NamedPipeAuthenticator>();
         services.AddSingleton<NamedPipeServer>();
         services.AddSingleton<IIpcBroadcaster>(sp => sp.GetRequiredService<NamedPipeServer>());
