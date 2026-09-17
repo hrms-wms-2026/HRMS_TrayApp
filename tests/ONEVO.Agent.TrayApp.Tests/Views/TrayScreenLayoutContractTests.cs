@@ -304,11 +304,12 @@ public sealed class TrayScreenLayoutContractTests
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml");
         Assert.Contains("end_session_hero.png", xaml, StringComparison.Ordinal);
         Assert.Contains("View Dashboard", xaml, StringComparison.Ordinal);
-        Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("View Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("ViewSummaryCommand", xaml, StringComparison.Ordinal);
         // The third action returns to Clock In (not a hide-the-window "Close App") - without it,
         // the window stayed on yesterday's completed-session snapshot with no way back in.
         Assert.Contains("BackCommand", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("View Summary", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Download Summary", xaml, StringComparison.Ordinal);
         Assert.Contains("Synced to OneXso Cloud", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_end_check.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_end_briefcase.png", xaml, StringComparison.Ordinal);
@@ -316,7 +317,6 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("icon_chart_blue.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_end_cloud.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_end_shield.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("icon_end_download.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_home.png", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"0\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Column=\"1\"", xaml, StringComparison.Ordinal);
@@ -329,7 +329,7 @@ public sealed class TrayScreenLayoutContractTests
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml");
         Assert.Contains("Daily ", xaml, StringComparison.Ordinal);
         Assert.Contains("Summary", xaml, StringComparison.Ordinal);
-        Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("Download PDF", xaml, StringComparison.Ordinal);
         Assert.Contains("Top Applications", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Done\"", xaml, StringComparison.Ordinal);
         Assert.Contains("View My Insights", xaml, StringComparison.Ordinal);
