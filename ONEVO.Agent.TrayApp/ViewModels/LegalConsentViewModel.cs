@@ -41,14 +41,21 @@ public sealed partial class LegalConsentViewModel : BaseViewModel
     [RelayCommand]
     private static void OpenDocument(PendingLegalDocumentPayload document)
     {
-        if (string.IsNullOrWhiteSpace(document.ContentUrl))
+        // ContentUrl comes from the backend response, not a hardcoded constant like
+        // WorkspaceLinks.PortalUrl — restrict it to http(s) before handing it to
+        // ShellExecute, which would otherwise happily launch any registered protocol
+        // handler (file:, a custom app scheme, etc.) for a malformed or tampered value.
+        if (!Uri.TryCreate(document.ContentUrl, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
             return;
+        }
 
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName = document.ContentUrl,
+                FileName = uri.AbsoluteUri,
                 UseShellExecute = true
             });
         }
