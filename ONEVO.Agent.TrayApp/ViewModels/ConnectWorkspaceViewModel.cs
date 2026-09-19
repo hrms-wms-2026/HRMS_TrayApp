@@ -8,6 +8,7 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 {
     private readonly INamedPipeClient _pipe;
     private readonly IPreferencesStore _preferences;
+    private readonly IUpdateChecker? _updateChecker;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(VerifyAndConnectCommand))]
@@ -22,11 +23,25 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         "Paste the code copied from the OneXso Workspace web portal.";
     [ObservableProperty] private bool _isWaitingForBrowserApproval;
 
-    public ConnectWorkspaceViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUpdateBanner))]
+    private string? _updateBannerText;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DownloadUpdateCommand))]
+    private string? _updateDownloadUrl;
+
+    public bool HasUpdateBanner => !string.IsNullOrEmpty(UpdateBannerText);
+
+    public ConnectWorkspaceViewModel(
+        INamedPipeClient pipe,
+        IPreferencesStore preferences,
+        IUpdateChecker? updateChecker = null)
     {
         Title = "OneXso WorkPulse";
         _pipe = pipe;
         _preferences = preferences;
+        _updateChecker = updateChecker;
         _pipe.OnDisconnected += () =>
         {
             try
@@ -150,6 +165,50 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
         {
             IsConnecting = false;
         }
+    }
+
+    /// <summary>
+    /// Asks the backend (via the Service) whether a newer installer exists and shows a banner if so.
+    /// Failures are silent: an update check must never get in the way of connecting. A mandatory
+    /// update only changes the banner wording — it does not block connecting or clocking in.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckForUpdateAsync(CancellationToken ct)
+    {
+        if (_updateChecker is null)
+            return;
+
+        try
+        {
+            var update = await _updateChecker.CheckAsync(ct);
+            if (update is null)
+                return;
+
+            UpdateDownloadUrl = update.DownloadUrl;
+            UpdateBannerText = update.Mandatory
+                ? $"A required update (v{update.LatestVersion}) is available. Download and install it to continue."
+                : $"Update available (v{update.LatestVersion}). Download and install it when convenient.";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            // Silent by design.
+        }
+    }
+
+    private bool CanDownloadUpdate => !string.IsNullOrEmpty(UpdateDownloadUrl);
+
+    [RelayCommand(CanExecute = nameof(CanDownloadUpdate))]
+    private async Task DownloadUpdateAsync()
+    {
+        if (!Uri.TryCreate(UpdateDownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+            return;
+
+        try { await Launcher.Default.OpenAsync(uri); }
+        catch { /* browser unavailable (unit tests / restricted hosts) */ }
     }
 
     [RelayCommand]

@@ -39,6 +39,12 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: result of a sign-out attempt.</summary>
     public const string LogoutResult = "LogoutResult";
 
+    /// <summary>Tray → Service: ask the backend whether a newer installer exists.</summary>
+    public const string UpdateCheckRequest = "UpdateCheckRequest";
+
+    /// <summary>Service → Tray: result of an update check.</summary>
+    public const string UpdateCheckResult = "UpdateCheckResult";
+
     /// <summary>Tray → Service: begin an evidence transfer for one inactivity capture attempt.</summary>
     public const string EvidenceTransferStart = "EvidenceTransferStart";
 
@@ -202,6 +208,19 @@ public sealed record EnrollmentResultPayload
 }
 
 public sealed record LogoutResultPayload(bool Success, string? ErrorCode);
+
+public sealed record UpdateCheckRequestPayload(string CurrentVersion);
+
+public sealed record UpdateCheckResultPayload(
+    bool Success,
+    bool UpdateAvailable,
+    bool Mandatory,
+    string? LatestVersion,
+    string? DownloadUrl,
+    string? Sha256,
+    long FileSizeBytes,
+    string? ReleaseNotes,
+    string? ErrorCode);
 
 public sealed record BiometricEnrollmentStartPayload;
 
