@@ -8,11 +8,13 @@
 
 param(
     [string]$CertPassword = "Dev@1234",
-    [string]$OutDir       = "$PSScriptRoot\publish\msix"
+    [string]$OutDir       = "$PSScriptRoot\publish\msix",
+    [string]$Version      = "1.0.0",      # x.y.z
+    [string]$CertFile     = "$PSScriptRoot\dev-cert.pfx"
 )
 
 $ErrorActionPreference = "Stop"
-$certFile = "$PSScriptRoot\dev-cert.pfx"
+$certFile = $CertFile
 $pw = ConvertTo-SecureString $CertPassword -Force -AsPlainText
 
 # ── 1. Ensure cert exists ─────────────────────────────────────────────────────
@@ -36,18 +38,35 @@ $thumbprint = $imported.Thumbprint
 Write-Host "Thumbprint: $thumbprint"
 
 # ── 3. Build MSIX using thumbprint (no PFX password needed at sign time) ──────
-Write-Host "Building MSIX..."
-dotnet publish "$PSScriptRoot\ONEVO.Agent.TrayApp\ONEVO.Agent.TrayApp.csproj" `
-    -f net10.0-windows10.0.19041.0 `
-    -r win-x64 `
-    -c Release `
-    -p:WindowsPackageType=MSIX `
-    -p:GenerateAppxPackageOnBuild=true `
-    -p:AppxPackageSigningEnabled=true `
-    -p:PackageCertificateThumbprint="$thumbprint" `
-    -p:AppxPackageDir="$OutDir\"
+# MAUI does not map ApplicationDisplayVersion onto the MSIX Identity version, so stamp
+# Package.appxmanifest for the duration of the build (x.y.z.0) and always restore it.
+$manifestPath = "$PSScriptRoot\ONEVO.Agent.TrayApp\Platforms\Windows\Package.appxmanifest"
+$originalManifest = [IO.File]::ReadAllText($manifestPath)
+$stamped = $originalManifest -replace '(?s)(<Identity[^>]*?Version=")[^"]*(")', ('${1}' + "$Version.0" + '${2}')
+if ($stamped -eq $originalManifest -and $originalManifest -notmatch [regex]::Escape("Version=`"$Version.0`"")) {
+    throw "Could not stamp Identity Version in $manifestPath"
+}
 
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Host "Building MSIX $Version..."
+try {
+    [IO.File]::WriteAllText($manifestPath, $stamped)
+    dotnet publish "$PSScriptRoot\ONEVO.Agent.TrayApp\ONEVO.Agent.TrayApp.csproj" `
+        -f net10.0-windows10.0.19041.0 `
+        -r win-x64 `
+        -c Release `
+        -p:WindowsPackageType=MSIX `
+        -p:ApplicationDisplayVersion=$Version `
+        -p:GenerateAppxPackageOnBuild=true `
+        -p:AppxPackageSigningEnabled=true `
+        -p:PackageCertificateThumbprint="$thumbprint" `
+        -p:AppxPackageDir="$OutDir\"
+    $publishExit = $LASTEXITCODE
+}
+finally {
+    [IO.File]::WriteAllText($manifestPath, $originalManifest)
+}
+
+if ($publishExit -ne 0) { exit $publishExit }
 
 $msix = Get-ChildItem "$OutDir" -Recurse -Filter "*.msix" | Select-Object -First 1
 Write-Host ""
