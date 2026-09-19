@@ -16,5 +16,8 @@ public partial class ConnectWorkspacePage : ContentPage
     {
         base.OnAppearing();
         await PageAnimations.EntranceAsync(LeftPane, RightPane);
+
+        if (BindingContext is ConnectWorkspaceViewModel vm)
+            await vm.CheckForUpdateCommand.ExecuteAsync(null);
     }
 }

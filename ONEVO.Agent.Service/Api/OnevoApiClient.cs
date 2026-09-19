@@ -151,6 +151,58 @@ public sealed class OnevoApiClient
     }
 
     /// <summary>
+    /// Asks the backend whether a newer installer exists. Anonymous endpoint; never throws —
+    /// failures come back as Success=false so an update check can never break the agent.
+    /// </summary>
+    public async Task<UpdateCheckResultPayload> CheckForUpdateAsync(string currentVersion, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        var url = $"{AgentApiRoutes.TrayReleaseCheck}?current={Uri.EscapeDataString(currentVersion)}&channel=stable";
+
+        try
+        {
+            using var response = await client.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode)
+                return Failed($"HTTP_{(int)response.StatusCode}");
+
+            var body = await response.Content.ReadFromJsonAsync<UpdateCheckWire>(cancellationToken: ct);
+            if (body is null)
+                return Failed("EMPTY_RESPONSE");
+
+            if (!body.UpdateAvailable || body.Latest is null)
+                return new UpdateCheckResultPayload(true, false, false, null, null, null, 0, null, null);
+
+            if (!Uri.TryCreate(body.Latest.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                return Failed("INSECURE_URL");
+
+            return new UpdateCheckResultPayload(
+                true, true, body.Mandatory,
+                body.Latest.Version, body.Latest.DownloadUrl, body.Latest.Sha256,
+                body.Latest.FileSizeBytes, body.Latest.ReleaseNotes, null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.TrayReleaseCheck);
+            return Failed("SERVICE_UNAVAILABLE");
+        }
+
+        static UpdateCheckResultPayload Failed(string code) =>
+            new(false, false, false, null, null, null, 0, null, code);
+    }
+
+    private sealed record UpdateCheckWire(
+        [property: JsonPropertyName("update_available")] bool UpdateAvailable,
+        [property: JsonPropertyName("mandatory")] bool Mandatory,
+        [property: JsonPropertyName("latest")] UpdateLatestWire? Latest);
+
+    private sealed record UpdateLatestWire(
+        [property: JsonPropertyName("version")] string Version,
+        [property: JsonPropertyName("download_url")] string DownloadUrl,
+        [property: JsonPropertyName("sha256")] string Sha256,
+        [property: JsonPropertyName("file_size_bytes")] long FileSizeBytes,
+        [property: JsonPropertyName("release_notes")] string? ReleaseNotes);
+
+    /// <summary>
     /// Accept the pending legal documents shown on the tray consent screen. AuthPendingLegalController
     /// is [AllowAnonymous] and authenticates via this challenge/CSRF pair (not the device JWT) — the
     /// same mechanism the web login flow uses, minted alongside the enroll/refresh response that

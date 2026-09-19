@@ -487,6 +487,9 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct) =>
         Task.FromResult<LogoutResultPayload?>(null);
 
+    public Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct) =>
+        Task.FromResult<UpdateCheckResultPayload?>(null);
+
     public Task<bool> SubmitInactivityAttemptAsync(
         InactivityCaptureAttemptPayload attempt, ReadOnlyMemory<byte> jpegBytes, CancellationToken ct)
     {

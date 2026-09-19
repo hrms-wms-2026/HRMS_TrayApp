@@ -17,6 +17,7 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly CollectorCoordinator _collectors;
     private readonly ISessionDayMetrics _dayMetrics;
     private readonly IPreferencesStore _preferences;
+    private readonly UpdateNotifier _updateNotifier;
     private readonly ILogger<App> _logger;
     private bool _allowExit;
 
@@ -26,6 +27,7 @@ public partial class App : Microsoft.Maui.Controls.Application
         CollectorCoordinator collectors,
         ISessionDayMetrics dayMetrics,
         IPreferencesStore preferences,
+        UpdateNotifier updateNotifier,
         ILogger<App> logger)
     {
         InitializeComponent();
@@ -34,6 +36,7 @@ public partial class App : Microsoft.Maui.Controls.Application
         _collectors   = collectors;
         _dayMetrics   = dayMetrics;
         _preferences  = preferences;
+        _updateNotifier = updateNotifier;
         _logger       = logger;
         BootLog("App ctor completed");
 
@@ -140,6 +143,7 @@ public partial class App : Microsoft.Maui.Controls.Application
         };
 
         _ = _pipeClient.StartAsync(CancellationToken.None);
+        _ = _updateNotifier.RunAsync(CancellationToken.None);
 
         var shell  = new ONEVO.Agent.TrayApp.Views.AppShell();
         var window = new Window(shell)

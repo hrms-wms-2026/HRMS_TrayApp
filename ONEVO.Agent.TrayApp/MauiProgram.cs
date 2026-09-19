@@ -74,6 +74,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<INamedPipeClient>(sp =>
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<IUpdateChecker, UpdateChecker>();
+        builder.Services.AddSingleton<UpdateNotifier>();
         builder.Services.AddSingleton<NotificationActivationRouter>();
         builder.Services.AddSingleton<WindowsInactivityPromptService>();
         builder.Services.AddSingleton<IInactivityPromptService>(sp =>

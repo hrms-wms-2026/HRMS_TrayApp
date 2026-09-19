@@ -263,6 +263,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 await HandleLogoutRequestAsync(envelope, reply);
                 break;
 
+            case IpcMessageTypes.UpdateCheckRequest:
+                await HandleUpdateCheckRequestAsync(envelope, reply);
+                break;
+
             case IpcMessageTypes.BiometricEnrollmentStart:
                 await HandleBiometricEnrollmentStartAsync(envelope, reply);
                 break;
@@ -1341,6 +1345,21 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             CorrelationId = envelope.CorrelationId,
             Payload = JsonSerializer.SerializeToElement(
                 new LegalAcceptanceResultPayload(success, success ? null : "SERVICE_UNAVAILABLE"))
+        });
+    }
+
+    private async Task HandleUpdateCheckRequestAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var request = envelope.Payload?.Deserialize<UpdateCheckRequestPayload>();
+        var result = string.IsNullOrWhiteSpace(request?.CurrentVersion)
+            ? new UpdateCheckResultPayload(false, false, false, null, null, null, 0, null, "BAD_REQUEST")
+            : await _apiClient.CheckForUpdateAsync(request.CurrentVersion, CancellationToken.None);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.UpdateCheckResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(result)
         });
     }
 

@@ -146,6 +146,15 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             NextLogoutResult ?? new LogoutResultPayload(true, null));
     }
 
+    /// <summary>Canned update-check result. Null = the Service did not answer.</summary>
+    public UpdateCheckResultPayload? NextUpdateCheckResult { get; set; }
+
+    public Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.UpdateCheckRequest });
+        return Task.FromResult(NextUpdateCheckResult);
+    }
+
     /// <summary>Optional canned result for StartBiometricEnrollmentAsync. Null = auto-success.</summary>
     public BiometricEnrollmentSessionReadyPayload? NextEnrollmentSessionResult { get; set; }
 

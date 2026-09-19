@@ -126,6 +126,15 @@
                  FontSize="14" Margin="4,0,0,10"
                  IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
 
+          <VerticalStackLayout Margin="4,0,0,10" Spacing="6" IsVisible="{Binding HasUpdateBanner}">
+            <Label Text="{Binding UpdateBannerText}"
+                   FontSize="14" TextColor="{StaticResource Primary}" LineBreakMode="WordWrap" />
+            <Button Text="Download update"
+                    FontSize="13" TextColor="{StaticResource Primary}"
+                    BackgroundColor="Transparent" HorizontalOptions="Start"
+                    Command="{Binding DownloadUpdateCommand}" />
+          </VerticalStackLayout>
+
           <Border Style="{StaticResource TrayPrimaryActionBorder}" Margin="0,0,0,10">
             <Border.Background>
               <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
