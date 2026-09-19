@@ -21,3 +21,6 @@ Desktop.ini
 
 # Signing certificates (never commit)
 *.pfx
+
+# Local MSIX build output
+publish/
