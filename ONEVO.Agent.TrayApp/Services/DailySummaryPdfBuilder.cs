@@ -5,6 +5,8 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
+public sealed record DailySummaryPdfScreenshot(string TimeDisplay, byte[] JpegBytes);
+
 public sealed record DailySummaryPdfData(
     string StatusText,
     string ClockInDisplay,
@@ -15,7 +17,8 @@ public sealed record DailySummaryPdfData(
     string ProductiveTimeDisplay,
     string IdleTimeDisplay,
     string BreakSessionsDisplay,
-    IReadOnlyList<TopAppItem> TopApps);
+    IReadOnlyList<TopAppItem> TopApps,
+    IReadOnlyList<DailySummaryPdfScreenshot>? Screenshots = null);
 
 /// <summary>
 /// Renders the same locally-known session summary shown on EndSessionPage as a one-page
@@ -103,6 +106,29 @@ public static class DailySummaryPdfBuilder
                         static IContainer BodyCellStyle(IContainer c) =>
                             c.PaddingVertical(4).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2);
                     });
+
+                    var shots = data.Screenshots ?? [];
+                    if (shots.Count > 0)
+                    {
+                        col.Item().PaddingTop(8).Text("Activity Screenshots").FontSize(12).Bold();
+                        col.Item().Text($"{shots.Count} captured after you allowed an activity check.")
+                            .FontSize(9).FontColor(Colors.Grey.Medium);
+
+                        foreach (var shot in shots)
+                        {
+                            if (shot.JpegBytes is not { Length: >= 2 }
+                                || shot.JpegBytes[0] != 0xFF
+                                || shot.JpegBytes[1] != 0xD8)
+                                continue;
+
+                            var captured = shot;
+                            col.Item().Row(row =>
+                            {
+                                row.RelativeItem().Height(110).Image(captured.JpegBytes).FitArea();
+                                row.ConstantItem(72).AlignMiddle().Text(captured.TimeDisplay).FontSize(9);
+                            });
+                        }
+                    }
                 });
 
                 page.Footer().AlignCenter().Text(text =>

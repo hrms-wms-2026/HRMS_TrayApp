@@ -4,15 +4,16 @@
              x:Class="ONEVO.Agent.TrayApp.Controls.ReviewDetailRow"
              x:Name="Root">
   <VerticalStackLayout Spacing="0">
-    <Grid ColumnDefinitions="32,Auto,*" ColumnSpacing="12" Padding="4,14">
+    <Grid ColumnDefinitions="36,Auto,*" ColumnSpacing="12" Padding="6,11">
       <Border Style="{StaticResource IconTile}"
-              StrokeShape="RoundRectangle 16"
-              WidthRequest="32"
-              HeightRequest="32"
+              StrokeShape="RoundRectangle 18"
+              WidthRequest="36"
+              HeightRequest="36"
+              BackgroundColor="{StaticResource PrimarySoft}"
               VerticalOptions="Center">
         <Label Text="{Binding Source={x:Reference Root}, Path=Icon}"
                FontFamily="Segoe MDL2 Assets"
-               FontSize="14"
+               FontSize="16"
                TextColor="{StaticResource BrandTitle}"
                HorizontalOptions="Center"
                VerticalOptions="Center" />

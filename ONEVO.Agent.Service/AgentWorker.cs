@@ -11,6 +11,7 @@ using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Sync;
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
@@ -287,6 +288,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
             case IpcMessageTypes.WorkLocationConfirm:
                 await HandleWorkLocationConfirmAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.FacePhotoValidate:
+                await HandleFacePhotoValidateAsync(envelope, reply);
                 break;
 
             case IpcMessageTypes.EvidenceTransferStart:
@@ -815,7 +820,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
             // Per-record-type policy gate at ingest — mirrors ActivitySyncService.IsAllowedByPolicy
             // exactly (Screenshot->ScreenshotEnabled, AppUsage->AppUsageEnabled,
-            // FacePhoto->CameraVerificationEnabled, Activity/DeviceState->ActivitySignalEnabled) so a
+            // FacePhoto->CameraVerificationEnabled || PhotoRequiredEnabled, Activity/DeviceState->ActivitySignalEnabled) so a
             // capability disabled server-side is rejected here rather than buffered and only
             // dropped later at ActivitySyncService flush time.
             if (!ActivitySyncService.IsAllowedByPolicy(record.RecordType, currentPolicy))
@@ -1249,6 +1254,58 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             Payload = JsonSerializer.SerializeToElement(
                 new WorkLocationConfirmResultPayload(result.Success, result.ErrorCode))
         });
+    }
+
+    internal async Task HandleFacePhotoValidateAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        async Task Reply(FacePhotoValidateResultPayload payload) =>
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.FacePhotoValidateResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(payload)
+            });
+
+        FacePhotoValidateResultPayload Fail(string errorCode) =>
+            new(false, errorCode, false, false, false, false, false, null, null);
+
+        var payload = envelope.Payload?.Deserialize<FacePhotoValidatePayload>();
+        if (payload is null || string.IsNullOrWhiteSpace(payload.Data))
+        {
+            await Reply(Fail("INVALID_PAYLOAD"));
+            return;
+        }
+
+        byte[] jpeg;
+        try
+        {
+            jpeg = Convert.FromBase64String(payload.Data);
+        }
+        catch (FormatException)
+        {
+            await Reply(Fail("INVALID_PAYLOAD"));
+            return;
+        }
+
+        if (jpeg.Length == 0 || jpeg.Length > Constants.MaxFacePhotoJpegBytes)
+        {
+            await Reply(Fail("INVALID_PAYLOAD"));
+            return;
+        }
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await Reply(Fail("NO_DEVICE_CREDENTIAL"));
+            return;
+        }
+
+        var format = string.IsNullOrWhiteSpace(payload.Format) ? "jpeg" : payload.Format;
+        var result = await _apiClient.ValidateFacePhotoAsync(jwt, format, jpeg, CancellationToken.None);
+        await Reply(new FacePhotoValidateResultPayload(
+            result.Success, result.ErrorCode,
+            result.LightingOk, result.FaceVisible, result.NoSunglassesOrMask,
+            result.IsMatch, result.CanProceed, result.Similarity, result.FailureReason));
     }
 
     private async Task ReplyEnrollmentAsync(

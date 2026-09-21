@@ -147,8 +147,73 @@ public sealed class PhotoCaptureWindowViewModelTests
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         await vm.ContinueCommand.ExecuteAsync(null);
 
-        Assert.Equal(["lifecycle:ClockIn", "submit"], pipe.CallOrder);
+        Assert.Equal(["validate", "lifecycle:ClockIn", "submit"], pipe.CallOrder);
         Assert.Single(pipe.Submitted);
+    }
+
+    [Fact]
+    public async Task Continue_ClockinContext_DoesNotClockInWhenQualityFails()
+    {
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, false, true, true, false, false, null, "poor_lighting")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(["validate"], pipe.CallOrder);
+        Assert.Empty(pipe.Submitted);
+        Assert.False(vm.LightingPassed);
+        Assert.Contains("Lighting", vm.CaptureStatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Continue_ClockinContext_DoesNotClockInWhenSunglassesDetected()
+    {
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, false, false, false, null, "sunglasses_or_mask")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(["validate"], pipe.CallOrder);
+        Assert.Empty(pipe.Submitted);
+        Assert.True(vm.NoObstructionFailed);
+        Assert.Contains("sunglasses", vm.CaptureStatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CapturePhoto_ResetsValidationChecks()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, false, false, false, false, false, null, "face_not_visible")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+        Assert.True(vm.HasValidationResult);
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasValidationResult);
+        Assert.False(vm.LightingFailed);
     }
 
     [Fact]

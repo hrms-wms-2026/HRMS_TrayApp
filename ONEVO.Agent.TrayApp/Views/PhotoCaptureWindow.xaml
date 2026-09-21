@@ -221,7 +221,7 @@
             <Button Command="{Binding CapturePhotoCommand}"
                     BackgroundColor="Transparent"
                     Text=""
-                    IsEnabled="{Binding IsCapturing, Converter={StaticResource InvertBoolConverter}}"
+                    IsEnabled="{Binding IsValidating, Converter={StaticResource InvertBoolConverter}}"
                     SemanticProperties.Description="Capture or retake photo" />
             <Label InputTransparent="True"
                    Text="{StaticResource IconCamera}"
@@ -299,15 +299,35 @@
           <HorizontalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center">
             <Border WidthRequest="19" HeightRequest="19"
                     StrokeShape="RoundRectangle 9.5"
-                    Stroke="{StaticResource StatusGreen}"
+                    Stroke="{StaticResource Separator}"
                     StrokeThickness="1.5"
-                    BackgroundColor="#F2FFF7">
-              <Label Text="{StaticResource IconCheck}"
-                     FontFamily="Segoe MDL2 Assets"
-                     FontSize="10"
-                     TextColor="{StaticResource StatusGreen}"
-                     HorizontalOptions="Center"
-                     VerticalOptions="Center" />
+                    BackgroundColor="{StaticResource GlassSurfaceTop}">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding LightingPassed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusGreen}" />
+                  <Setter Property="BackgroundColor" Value="#F2FFF7" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding LightingFailed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusRed}" />
+                  <Setter Property="BackgroundColor" Value="#FEF2F2" />
+                </DataTrigger>
+              </Border.Triggers>
+              <Grid>
+                <Label Text="{StaticResource IconCheck}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusGreen}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding LightingPassed}" />
+                <Label Text="{StaticResource IconCancel}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusRed}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding LightingFailed}" />
+              </Grid>
             </Border>
             <Label Text="Good lighting"
                    FontSize="13"
@@ -322,15 +342,35 @@
           <HorizontalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center">
             <Border WidthRequest="19" HeightRequest="19"
                     StrokeShape="RoundRectangle 9.5"
-                    Stroke="{StaticResource StatusGreen}"
+                    Stroke="{StaticResource Separator}"
                     StrokeThickness="1.5"
-                    BackgroundColor="#F2FFF7">
-              <Label Text="{StaticResource IconCheck}"
-                     FontFamily="Segoe MDL2 Assets"
-                     FontSize="10"
-                     TextColor="{StaticResource StatusGreen}"
-                     HorizontalOptions="Center"
-                     VerticalOptions="Center" />
+                    BackgroundColor="{StaticResource GlassSurfaceTop}">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding FaceVisiblePassed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusGreen}" />
+                  <Setter Property="BackgroundColor" Value="#F2FFF7" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding FaceVisibleFailed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusRed}" />
+                  <Setter Property="BackgroundColor" Value="#FEF2F2" />
+                </DataTrigger>
+              </Border.Triggers>
+              <Grid>
+                <Label Text="{StaticResource IconCheck}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusGreen}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding FaceVisiblePassed}" />
+                <Label Text="{StaticResource IconCancel}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusRed}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding FaceVisibleFailed}" />
+              </Grid>
             </Border>
             <Label Text="Face clearly visible"
                    FontSize="13"
@@ -345,15 +385,35 @@
           <HorizontalStackLayout Grid.Column="4" Spacing="7" HorizontalOptions="Center">
             <Border WidthRequest="19" HeightRequest="19"
                     StrokeShape="RoundRectangle 9.5"
-                    Stroke="{StaticResource StatusGreen}"
+                    Stroke="{StaticResource Separator}"
                     StrokeThickness="1.5"
-                    BackgroundColor="#F2FFF7">
-              <Label Text="{StaticResource IconCheck}"
-                     FontFamily="Segoe MDL2 Assets"
-                     FontSize="10"
-                     TextColor="{StaticResource StatusGreen}"
-                     HorizontalOptions="Center"
-                     VerticalOptions="Center" />
+                    BackgroundColor="{StaticResource GlassSurfaceTop}">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding NoObstructionPassed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusGreen}" />
+                  <Setter Property="BackgroundColor" Value="#F2FFF7" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding NoObstructionFailed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusRed}" />
+                  <Setter Property="BackgroundColor" Value="#FEF2F2" />
+                </DataTrigger>
+              </Border.Triggers>
+              <Grid>
+                <Label Text="{StaticResource IconCheck}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusGreen}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding NoObstructionPassed}" />
+                <Label Text="{StaticResource IconCancel}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusRed}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding NoObstructionFailed}" />
+              </Grid>
             </Border>
             <Label Text="No sunglasses or mask"
                    FontSize="13"

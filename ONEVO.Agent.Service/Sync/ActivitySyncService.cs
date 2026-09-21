@@ -246,7 +246,7 @@ public sealed class ActivitySyncService : BackgroundService
         CollectionRecordTypes.MeetingSignal => policy.ActivitySignalEnabled,
         CollectionRecordTypes.Screenshot => policy.ScreenshotEnabled,
         CollectionRecordTypes.InactivityCaptureAttempt => policy.InactivityScreenshotEnabled,
-        CollectionRecordTypes.FacePhoto => policy.CameraVerificationEnabled,
+        CollectionRecordTypes.FacePhoto => policy.CameraVerificationEnabled || policy.PhotoRequiredEnabled,
         CollectionRecordTypes.WorkSession => true,
         _ => false
     };

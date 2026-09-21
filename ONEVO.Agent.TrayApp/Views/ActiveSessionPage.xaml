@@ -350,5 +350,13 @@
         <ActivityIndicator IsRunning="{Binding IsRespondingToLocationChangePrompt}" IsVisible="{Binding IsRespondingToLocationChangePrompt}" Color="{StaticResource Primary}" />
       </controls:GlassConfirmHost.Body>
     </controls:GlassConfirmHost>
+
+    <controls:GlassConfirmHost IsOpen="{Binding IsActivityCheckVisible}"
+                               Title="Activity check"
+                               Message="{Binding ActivityCheckMessage}"
+                               CancelCommand="{Binding SkipActivityCheckCommand}"
+                               CancelText="Skip"
+                               ConfirmCommand="{Binding AllowActivityCheckCommand}"
+                               ConfirmText="Allow" />
   </Grid>
 </ContentPage>

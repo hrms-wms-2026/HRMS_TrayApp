@@ -145,12 +145,19 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Confirm Your ", page, StringComparison.Ordinal);
         Assert.Contains("←  Back", page, StringComparison.Ordinal);
         Assert.Contains("RowDefinitions=\"*,Auto\"", page, StringComparison.Ordinal);
+        Assert.Contains("RowDefinitions=\"Auto,*,Auto\"", page, StringComparison.Ordinal);
         Assert.Contains("ColumnDefinitions=\"*,680,*\"", page, StringComparison.Ordinal);
         Assert.Contains("HorizontalOptions=\"Fill\"", page, StringComparison.Ordinal);
         Assert.Contains("Confirm &amp; Continue", page, StringComparison.Ordinal);
+        Assert.Contains("FooterStatusBar", page, StringComparison.Ordinal);
+        Assert.Contains("Grid.Row=\"1\"", page, StringComparison.Ordinal);
+        Assert.Contains("InputTransparent=\"True\"", page, StringComparison.Ordinal);
+        Assert.Contains("GlassGlowPrimary", page, StringComparison.Ordinal);
+        Assert.Contains("GlassGlowAccent", page, StringComparison.Ordinal);
         Assert.DoesNotContain("RowDefinitions=\"*,Auto,Auto\"", page, StringComparison.Ordinal);
         Assert.DoesNotContain("ColumnDefinitions=\"40,*,Auto\"", page, StringComparison.Ordinal);
-        Assert.Contains("ColumnDefinitions=\"32,Auto,*\"", row, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"36,Auto,*\"", row, StringComparison.Ordinal);
+        Assert.Contains("WidthRequest=\"36\"", row, StringComparison.Ordinal);
         Assert.Contains("HorizontalTextAlignment=\"End\"", row, StringComparison.Ordinal);
         Assert.Contains("ShowDivider", row, StringComparison.Ordinal);
     }
@@ -286,6 +293,8 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("icon3d_info.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon3d_coffee.png", xaml, StringComparison.Ordinal);
         Assert.Contains("IsClockOutConfirmVisible", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsActivityCheckVisible", xaml, StringComparison.Ordinal);
+        Assert.Contains("AllowActivityCheckCommand", xaml, StringComparison.Ordinal);
         Assert.Contains("Clock Out?", xaml, StringComparison.Ordinal);
         Assert.Contains("End Break", xaml, StringComparison.Ordinal);
         Assert.Contains("WorkStartedCaption", xaml, StringComparison.Ordinal);
@@ -343,6 +352,20 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("icon3d_stopwatch.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon3d_trophy.png", xaml, StringComparison.Ordinal);
         Assert.Contains("<ScrollView", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Activity Screenshots", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding Screenshots", xaml, StringComparison.Ordinal);
+        Assert.Contains("illustration_meditation.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("SplitDonutChart", xaml, StringComparison.Ordinal);
+        Assert.Contains("MultiSegmentDonutChart", xaml, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"*,*,*,*\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"*,*,*\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ColumnDefinitions=\"*,*,*,*,*,*\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Meetings Time", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Tasks Completed", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Meetings\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("icon3d_people.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("icon3d_tasks.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("icon3d_meditation.png", xaml, StringComparison.Ordinal);
     }
 
     [Fact]

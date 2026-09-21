@@ -3,6 +3,7 @@ namespace ONEVO.Agent.TrayApp.ViewModels;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 
@@ -28,8 +29,44 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     private bool _isCaptured;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
+    [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
+    private bool _isValidating;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
     private bool _isCapturing;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LightingPassed))]
+    [NotifyPropertyChangedFor(nameof(LightingFailed))]
+    [NotifyPropertyChangedFor(nameof(FaceVisiblePassed))]
+    [NotifyPropertyChangedFor(nameof(FaceVisibleFailed))]
+    [NotifyPropertyChangedFor(nameof(NoObstructionPassed))]
+    [NotifyPropertyChangedFor(nameof(NoObstructionFailed))]
+    private bool _hasValidationResult;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(LightingPassed))]
+    [NotifyPropertyChangedFor(nameof(LightingFailed))]
+    private bool _lightingOk;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FaceVisiblePassed))]
+    [NotifyPropertyChangedFor(nameof(FaceVisibleFailed))]
+    private bool _faceVisibleOk;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoObstructionPassed))]
+    [NotifyPropertyChangedFor(nameof(NoObstructionFailed))]
+    private bool _noObstructionOk;
+
+    public bool LightingPassed => HasValidationResult && LightingOk;
+    public bool LightingFailed => HasValidationResult && !LightingOk;
+    public bool FaceVisiblePassed => HasValidationResult && FaceVisibleOk;
+    public bool FaceVisibleFailed => HasValidationResult && !FaceVisibleOk;
+    public bool NoObstructionPassed => HasValidationResult && NoObstructionOk;
+    public bool NoObstructionFailed => HasValidationResult && !NoObstructionOk;
 
     [ObservableProperty] private bool    _isScanAnimating;
     [ObservableProperty] private object? _previewFrameSource;
@@ -84,6 +121,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         CapturedPhotoBytes = null;
         IsCaptured        = false;
         CaptureStatusText = DefaultPrompt;
+        ResetValidation();
         LoadEmployee();
         if (string.Equals(context, "clockin", StringComparison.OrdinalIgnoreCase))
         {
@@ -130,6 +168,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             _capturedBytes    = bytes is { Length: > 0 } ? bytes : null;
             CapturedPhotoBytes = _capturedBytes;
             IsCaptured        = _capturedBytes is not null;
+            ResetValidation();
             CaptureStatusText = IsCaptured
                 ? "Face captured successfully."
                 : "No photo taken. Please try again.";
@@ -146,13 +185,16 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         }
     }
 
-    private bool CanContinue => IsCaptured;
+    private bool CanContinue => IsCaptured && !IsValidating;
 
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private async Task Continue()
     {
         if (_captureContext == "clockout")
         {
+            if (!await TryValidateCapturedPhotoAsync())
+                return;
+
             CaptureStatusText = "Completing clock-out...";
             var clockOut = await _pipe.SendLifecycleAsync(LifecycleAction.ClockOut, CancellationToken.None);
             if (clockOut is null || !clockOut.Success)
@@ -170,9 +212,9 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
         if (_captureContext == "clockin")
         {
-            // Show the "Verify Your Identity" match screen with the just-captured selfie
-            // before finishing clock-in. Purely a visual dwell step — the actual match
-            // decision still happens server-side; nothing here blocks on a real result.
+            if (!await TryValidateCapturedPhotoAsync())
+                return;
+
             _photoBuffer.Bytes = _capturedBytes;
             try { await Shell.Current.GoToAsync("identity-verification"); } catch { /* unit tests */ }
             await Task.Delay(IdentityVerificationDwell);
@@ -212,6 +254,77 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
                 SetupFlow.AfterFaceEnrollment(_pipe.LastKnownPolicy?.AllowsDailyLocationChoice ?? false));
         }
         catch { /* unit tests */ }
+    }
+
+    private void ResetValidation()
+    {
+        HasValidationResult = false;
+        LightingOk = false;
+        FaceVisibleOk = false;
+        NoObstructionOk = false;
+        _photoBuffer.LastValidation = null;
+    }
+
+    private async Task<bool> TryValidateCapturedPhotoAsync()
+    {
+        if (_capturedBytes is not { Length: > 0 })
+        {
+            CaptureStatusText = "No photo taken. Please try again.";
+            return false;
+        }
+
+        IsValidating = true;
+        CaptureStatusText = "Checking lighting and face...";
+        try
+        {
+            var result = await _pipe.ValidateFacePhotoAsync("jpeg", _capturedBytes, CancellationToken.None);
+            ApplyValidation(result);
+            if (result is { Success: true, CanProceed: true })
+                return true;
+
+            CaptureStatusText = BuildRetakeMessage(result);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Face photo validate failed");
+            ApplyValidation(null);
+            CaptureStatusText = "Face verification is unavailable. Retake and try again.";
+            return false;
+        }
+        finally
+        {
+            IsValidating = false;
+        }
+    }
+
+    private void ApplyValidation(FacePhotoValidateResultPayload? result)
+    {
+        HasValidationResult = result is not null;
+        LightingOk = result?.LightingOk == true;
+        FaceVisibleOk = result?.FaceVisible == true;
+        NoObstructionOk = result?.NoSunglassesOrMask == true;
+        _photoBuffer.LastValidation = result;
+    }
+
+    internal static string BuildRetakeMessage(FacePhotoValidateResultPayload? result)
+    {
+        if (result is null || result.Success == false)
+            return "Face verification is unavailable. Retake and try again.";
+
+        if (!result.FaceVisible)
+            return "Face is not clearly visible. Look at the camera and retake.";
+        if (!result.LightingOk)
+            return "Lighting is too low. Move to a brighter spot and retake.";
+        if (!result.NoSunglassesOrMask)
+            return "Remove sunglasses or mask and retake.";
+        if (result.FailureReason == "no_reference_photo")
+            return "No enrolled face photo. Complete face setup, then try again.";
+        if (result.FailureReason == "verification_failed")
+            return "Face check reached AWS but could not finish. Try again.";
+        if (!result.IsMatch)
+            return "Face did not match. Look at the camera and retake.";
+        return "Retake photo and try again.";
     }
 
     private async Task SubmitFacePhotoRecordAsync()

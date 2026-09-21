@@ -99,4 +99,12 @@ public interface INamedPipeClient
     /// </summary>
     Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
         string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct);
+
+    /// <summary>
+    /// Sends the captured selfie for AWS DetectFaces + CompareFaces and waits for
+    /// <see cref="FacePhotoValidateResultPayload"/>. Clock-in/out must not proceed unless
+    /// <c>CanProceed</c> is true.
+    /// </summary>
+    Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
+        string format, byte[] jpegBytes, CancellationToken ct);
 }

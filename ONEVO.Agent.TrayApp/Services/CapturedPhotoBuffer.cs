@@ -1,5 +1,7 @@
 namespace ONEVO.Agent.TrayApp.Services;
 
+using ONEVO.Agent.Shared.IPC;
+
 /// <summary>
 /// In-memory hand-off of the just-captured selfie between PhotoCaptureWindow and
 /// IdentityVerificationPage during the clock-in flow. Not persisted, not the photo
@@ -8,4 +10,5 @@ namespace ONEVO.Agent.TrayApp.Services;
 public sealed class CapturedPhotoBuffer
 {
     public byte[]? Bytes { get; set; }
+    public FacePhotoValidateResultPayload? LastValidation { get; set; }
 }

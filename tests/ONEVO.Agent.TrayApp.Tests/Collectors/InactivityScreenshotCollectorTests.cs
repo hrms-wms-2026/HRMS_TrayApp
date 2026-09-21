@@ -22,6 +22,7 @@ public sealed class InactivityScreenshotCollectorTests
     private readonly FakeInactivityPromptService _prompt = new();
     private readonly FakeScreenshotCaptureService _capture = new();
     private readonly RecordingPipeClient _pipe = new();
+    private readonly SessionDayMetrics _dayMetrics = new();
     private readonly InactivityScreenshotCollector _sut;
 
     public InactivityScreenshotCollectorTests()
@@ -32,7 +33,8 @@ public sealed class InactivityScreenshotCollectorTests
             _prompt,
             _capture,
             _pipe,
-            TimeSpan.FromHours(1)); // huge poll interval — tests drive EvaluateAsync directly
+            TimeSpan.FromHours(1), // huge poll interval — tests drive EvaluateAsync directly
+            dayMetrics: _dayMetrics);
     }
 
     [Theory]
@@ -108,6 +110,9 @@ public sealed class InactivityScreenshotCollectorTests
         Assert.Equal(2, submitted.Attempt.MonitorCount);
         Assert.Equal("image/jpeg", submitted.Attempt.ContentType);
         Assert.Null(submitted.Attempt.FailureCode);
+        var stored = Assert.Single(_dayMetrics.GetAllowedScreenshots());
+        Assert.Equal(submitted.Attempt.AttemptId, stored.AttemptId);
+        Assert.Equal(new byte[] { 1, 2, 3, 4 }, stored.JpegBytes);
     }
 
     [Fact]
@@ -158,6 +163,7 @@ public sealed class InactivityScreenshotCollectorTests
         var submitted = Assert.Single(_pipe.Submitted);
         Assert.Equal(InactivityCaptureOutcomes.Declined, submitted.Attempt.Outcome);
         Assert.Equal(0, submitted.JpegLength);
+        Assert.Empty(_dayMetrics.GetAllowedScreenshots());
     }
 
     [Fact]
@@ -518,6 +524,10 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
         string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct) =>
         Task.FromResult<WorkLocationConfirmResultPayload?>(null);
+
+    public Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
+        string format, byte[] jpegBytes, CancellationToken ct) =>
+        Task.FromResult<FacePhotoValidateResultPayload?>(null);
 
     // Unused by these tests — kept so the fake can raise pipe events if a future test needs it.
     internal void RaiseDisconnected() => OnDisconnected?.Invoke();

@@ -165,7 +165,7 @@ public class AgentWorkerCollectionSubmitTests
     }
 
     [Fact]
-    public async Task FacePhoto_Rejected_When_CameraVerificationDisabled_Even_If_ActivitySignalEnabled()
+    public async Task FacePhoto_Rejected_When_CameraAndPhotoRequiredDisabled()
     {
         var buffer = ActivityRecordBuffer.CreateInMemory();
         var policyCache = new PolicyCache();
@@ -179,6 +179,23 @@ public class AgentWorkerCollectionSubmitTests
         var ack = await SubmitAsync(worker, record);
 
         Assert.Equal(0, ack.AcceptedCount);
+    }
+
+    [Fact]
+    public async Task FacePhoto_Accepted_When_PhotoRequiredEnabled_Even_If_CameraVerificationDisabled()
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        var policyCache = new PolicyCache();
+        policyCache.Set(MakePolicy(activitySignal: true, camera: false) with { PhotoRequiredEnabled = true });
+        var worker = BuildActiveWorker(policyCache, buffer);
+
+        var record = MakeRecord(
+            CollectionRecordTypes.FacePhoto,
+            CollectionSchemaVersions.FacePhotoV1,
+            new FacePhotoPayload { Format = "jpeg", Data = Convert.ToBase64String(new byte[] { 1, 2, 3 }) });
+        var ack = await SubmitAsync(worker, record);
+
+        Assert.Equal(1, ack.AcceptedCount);
     }
 
     [Fact]
