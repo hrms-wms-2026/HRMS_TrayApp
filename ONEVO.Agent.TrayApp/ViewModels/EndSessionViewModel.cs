@@ -304,10 +304,11 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
         WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
         BreakSessionsDisplay, [.. TopApps],
-        _dayMetrics.GetAllowedScreenshots()
+        _dayMetrics.GetActivityChecks()
             .Select(s => new DailySummaryPdfScreenshot(
                 s.CapturedAt.ToLocalTime().ToString("h:mm tt"),
-                s.JpegBytes))
+                s.JpegBytes,
+                s.IsSkipped))
             .ToList());
 
     [RelayCommand]

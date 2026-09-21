@@ -132,19 +132,37 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     private void LoadScreenshots()
     {
         Screenshots.Clear();
-        foreach (var shot in _dayMetrics.GetAllowedScreenshots())
+        foreach (var shot in _dayMetrics.GetActivityChecks())
         {
             var jpeg = shot.JpegBytes;
             Screenshots.Add(new DailyScreenshotItem(
                 shot.CapturedAt.ToLocalTime().ToString("h:mm tt"),
                 jpeg,
-                TryPreview(jpeg)));
+                shot.IsSkipped ? null : TryPreview(jpeg),
+                shot.IsSkipped));
         }
 
         HasScreenshots = Screenshots.Count > 0;
-        ScreenshotsCaption = HasScreenshots
-            ? $"{Screenshots.Count} screenshot{(Screenshots.Count == 1 ? "" : "s")} you allowed during activity checks."
-            : "No activity-check screenshots today. Allow on the prompt to capture one.";
+        ScreenshotsCaption = BuildScreenshotsCaption(Screenshots);
+    }
+
+    private static string BuildScreenshotsCaption(IReadOnlyList<DailyScreenshotItem> items)
+    {
+        var allowed = 0;
+        var skipped = 0;
+        foreach (var item in items)
+        {
+            if (item.IsSkipped) skipped++;
+            else allowed++;
+        }
+
+        if (allowed == 0 && skipped == 0)
+            return "No activity-check screenshots today. Allow on the prompt to capture one.";
+        if (skipped == 0)
+            return $"{allowed} screenshot{(allowed == 1 ? "" : "s")} you allowed during activity checks.";
+        if (allowed == 0)
+            return $"{skipped} skipped activity check{(skipped == 1 ? "" : "s")}.";
+        return $"{allowed} screenshot{(allowed == 1 ? "" : "s")} allowed, {skipped} skipped.";
     }
 
     private static ImageSource? TryPreview(byte[] jpeg)
@@ -258,7 +276,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
                 StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
                 WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
                 BreakSessionsDisplay, [.. TopApps],
-                Screenshots.Select(s => new DailySummaryPdfScreenshot(s.TimeDisplay, s.JpegBytes)).ToList()));
+                Screenshots.Select(s => new DailySummaryPdfScreenshot(s.TimeDisplay, s.JpegBytes, s.IsSkipped)).ToList()));
             Message = $"Summary saved to {path}";
             ErrorMessage = null;
         }
@@ -297,4 +315,11 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     }
 }
 
-public sealed record DailyScreenshotItem(string TimeDisplay, byte[] JpegBytes, ImageSource? Preview);
+public sealed record DailyScreenshotItem(
+    string TimeDisplay,
+    byte[] JpegBytes,
+    ImageSource? Preview,
+    bool IsSkipped = false)
+{
+    public string NoteText => IsSkipped ? "Screenshot skipped" : string.Empty;
+}

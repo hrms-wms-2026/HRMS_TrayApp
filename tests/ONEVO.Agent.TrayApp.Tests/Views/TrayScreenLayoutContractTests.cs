@@ -354,6 +354,9 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("<ScrollView", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Activity Screenshots", xaml, StringComparison.Ordinal);
         Assert.Contains("Binding Screenshots", xaml, StringComparison.Ordinal);
+        Assert.Contains("Screenshot skipped", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding IsSkipped", xaml, StringComparison.Ordinal);
+        Assert.Contains("StatusRedSoft", xaml, StringComparison.Ordinal);
         Assert.Contains("illustration_meditation.png", xaml, StringComparison.Ordinal);
         Assert.Contains("SplitDonutChart", xaml, StringComparison.Ordinal);
         Assert.Contains("MultiSegmentDonutChart", xaml, StringComparison.Ordinal);

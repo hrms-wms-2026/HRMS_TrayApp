@@ -5,7 +5,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-public sealed record DailySummaryPdfScreenshot(string TimeDisplay, byte[] JpegBytes);
+public sealed record DailySummaryPdfScreenshot(string TimeDisplay, byte[] JpegBytes, bool IsSkipped = false);
 
 public sealed record DailySummaryPdfData(
     string StatusText,
@@ -110,18 +110,35 @@ public static class DailySummaryPdfBuilder
                     var shots = data.Screenshots ?? [];
                     if (shots.Count > 0)
                     {
+                        var allowedCount = shots.Count(s => !s.IsSkipped);
+                        var skippedCount = shots.Count - allowedCount;
                         col.Item().PaddingTop(8).Text("Activity Screenshots").FontSize(12).Bold();
-                        col.Item().Text($"{shots.Count} captured after you allowed an activity check.")
+                        col.Item().Text(BuildPdfScreenshotsCaption(allowedCount, skippedCount))
                             .FontSize(9).FontColor(Colors.Grey.Medium);
 
                         foreach (var shot in shots)
                         {
-                            if (shot.JpegBytes is not { Length: >= 2 }
-                                || shot.JpegBytes[0] != 0xFF
-                                || shot.JpegBytes[1] != 0xD8)
+                            var captured = shot;
+                            if (captured.IsSkipped)
+                            {
+                                col.Item().Row(row =>
+                                {
+                                    row.RelativeItem().Height(110)
+                                        .Background(Colors.Red.Lighten4)
+                                        .Border(1).BorderColor(Colors.Red.Medium)
+                                        .AlignCenter().AlignMiddle()
+                                        .Text("Screenshot skipped")
+                                        .FontSize(11).FontColor(Colors.Red.Darken2).Bold();
+                                    row.ConstantItem(72).AlignMiddle().Text(captured.TimeDisplay).FontSize(9);
+                                });
+                                continue;
+                            }
+
+                            if (captured.JpegBytes is not { Length: >= 2 }
+                                || captured.JpegBytes[0] != 0xFF
+                                || captured.JpegBytes[1] != 0xD8)
                                 continue;
 
-                            var captured = shot;
                             col.Item().Row(row =>
                             {
                                 row.RelativeItem().Height(110).Image(captured.JpegBytes).FitArea();
@@ -152,6 +169,15 @@ public static class DailySummaryPdfBuilder
         var path = Path.Combine(dir, $"OneXso-Daily-Summary-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(path, Build(data), ct);
         return path;
+    }
+
+    private static string BuildPdfScreenshotsCaption(int allowedCount, int skippedCount)
+    {
+        if (skippedCount == 0)
+            return $"{allowedCount} captured after you allowed an activity check.";
+        if (allowedCount == 0)
+            return $"{skippedCount} skipped activity check{(skippedCount == 1 ? "" : "s")}.";
+        return $"{allowedCount} captured, {skippedCount} skipped.";
     }
 
     private sealed class SummaryTile(string label, string value) : IComponent
