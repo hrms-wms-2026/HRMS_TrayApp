@@ -283,6 +283,46 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public async Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.UpdateCheckRequest,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(new UpdateCheckRequestPayload(currentVersion))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(20));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Update check timed out waiting for UpdateCheckResult");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<UpdateCheckResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task<LifecycleResultPayload?> SendLifecycleAsync(
         LifecycleAction action,
         CancellationToken ct,
@@ -609,6 +649,48 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             }
 
             return reply.Payload?.Deserialize<FacePhotoValidateResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
+    public async Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LegalAcceptanceSubmit,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new LegalAcceptanceSubmitPayload(acceptances))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("LegalAcceptanceSubmit timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<LegalAcceptanceResultPayload>();
         }
         finally
         {

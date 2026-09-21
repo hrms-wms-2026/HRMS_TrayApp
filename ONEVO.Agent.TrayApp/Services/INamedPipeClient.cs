@@ -51,6 +51,9 @@ public interface INamedPipeClient
     /// </summary>
     Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct);
 
+    /// <summary>Asks the Service to check for a newer installer and waits for UpdateCheckResult (or timeout).</summary>
+    Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct);
+
     /// <summary>
     /// Submits one inactivity capture attempt's metadata (and, for a <c>captured</c> outcome, its
     /// JPEG bytes) via Task 1's start/chunk/complete evidence-transfer envelopes, and waits for the
@@ -107,4 +110,11 @@ public interface INamedPipeClient
     /// </summary>
     Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
         string format, byte[] jpegBytes, CancellationToken ct);
+
+    /// <summary>
+    /// Submits every pending legal document the employee accepted on the consent screen in one
+    /// action and waits for the correlated LegalAcceptanceResult (or timeout).
+    /// </summary>
+    Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct);
 }

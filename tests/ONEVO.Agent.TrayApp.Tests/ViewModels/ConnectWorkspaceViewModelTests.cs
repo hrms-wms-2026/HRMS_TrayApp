@@ -1,3 +1,4 @@
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
 
@@ -170,6 +171,50 @@ public sealed class ConnectWorkspaceViewModelTests
     }
 
     [Fact]
+    public async Task VerifyAndConnectCommand_WhenLegalAcceptanceRequired_StashesPendingDocuments()
+    {
+        var pendingDoc = new ONEVO.Agent.Shared.IPC.PendingLegalDocumentPayload(
+            "privacy_policy", "2.0", "Privacy Policy", null, "/api/v1/legal/documents/privacy_policy/2.0");
+        var pipe = new FakeNamedPipeClient
+        {
+            NextEnrollmentResult = new ONEVO.Agent.Shared.IPC.EnrollmentResultPayload
+            {
+                Success = true,
+                RequiresLegalAcceptance = true,
+                PendingLegalDocuments = new[] { pendingDoc }
+            }
+        };
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        vm.ActivationCode = "ABC123";
+
+        await vm.VerifyAndConnectCommand.ExecuteAsync(null);
+
+        var stored = preferences.Get(SessionPreferenceKeys.PendingLegalDocumentsJson, string.Empty);
+        Assert.Contains("privacy_policy", stored);
+    }
+
+    [Fact]
+    public async Task VerifyAndConnectCommand_WhenLegalAcceptanceNotRequired_DoesNotStashPendingDocuments()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextEnrollmentResult = new ONEVO.Agent.Shared.IPC.EnrollmentResultPayload
+            {
+                Success = true,
+                RequiresLegalAcceptance = false
+            }
+        };
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        vm.ActivationCode = "ABC123";
+
+        await vm.VerifyAndConnectCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, preferences.Get(SessionPreferenceKeys.PendingLegalDocumentsJson, string.Empty));
+    }
+
+    [Fact]
     public async Task ConnectViaBrowserCommand_Success_SetsWaitingState()
     {
         var pipe = new FakeNamedPipeClient();
@@ -216,6 +261,27 @@ public sealed class ConnectWorkspaceViewModelTests
         Assert.False(vm.IsWaitingForBrowserApproval);
         Assert.True(vm.IsConnected);
         Assert.Contains("EMP-0001", vm.ConnectionLabel);
+    }
+
+    [Fact]
+    public async Task OnDevicePairingResult_WhenLegalAcceptanceRequired_StashesPendingDocuments()
+    {
+        var pendingDoc = new ONEVO.Agent.Shared.IPC.PendingLegalDocumentPayload(
+            "privacy_policy", "2.0", "Privacy Policy", null, "/api/v1/legal/documents/privacy_policy/2.0");
+        var pipe = new FakeNamedPipeClient();
+        var preferences = new FakePreferencesStore();
+        var vm = new ConnectWorkspaceViewModel(pipe, preferences);
+        await vm.ConnectViaBrowserCommand.ExecuteAsync(null);
+
+        pipe.SimulateDevicePairingResult(new ONEVO.Agent.Shared.IPC.DevicePairingResultPayload
+        {
+            Success = true,
+            RequiresLegalAcceptance = true,
+            PendingLegalDocuments = new[] { pendingDoc }
+        });
+
+        var stored = preferences.Get(SessionPreferenceKeys.PendingLegalDocumentsJson, string.Empty);
+        Assert.Contains("privacy_policy", stored);
     }
 
     [Fact]

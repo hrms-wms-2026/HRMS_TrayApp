@@ -1,11 +1,13 @@
 namespace ONEVO.Agent.Service.Api;
 
+using System.Linq;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
@@ -147,6 +149,100 @@ public sealed class OnevoApiClient
             return false;
         }
     }
+
+    /// <summary>
+    /// Asks the backend whether a newer installer exists. Anonymous endpoint; never throws —
+    /// failures come back as Success=false so an update check can never break the agent.
+    /// </summary>
+    public async Task<UpdateCheckResultPayload> CheckForUpdateAsync(string currentVersion, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        var url = $"{AgentApiRoutes.TrayReleaseCheck}?current={Uri.EscapeDataString(currentVersion)}&channel=stable";
+
+        try
+        {
+            using var response = await client.GetAsync(url, ct);
+            if (!response.IsSuccessStatusCode)
+                return Failed($"HTTP_{(int)response.StatusCode}");
+
+            var body = await response.Content.ReadFromJsonAsync<UpdateCheckWire>(cancellationToken: ct);
+            if (body is null)
+                return Failed("EMPTY_RESPONSE");
+
+            if (!body.UpdateAvailable || body.Latest is null)
+                return new UpdateCheckResultPayload(true, false, false, null, null, null, 0, null, null);
+
+            if (!Uri.TryCreate(body.Latest.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                return Failed("INSECURE_URL");
+
+            return new UpdateCheckResultPayload(
+                true, true, body.Mandatory,
+                body.Latest.Version, body.Latest.DownloadUrl, body.Latest.Sha256,
+                body.Latest.FileSizeBytes, body.Latest.ReleaseNotes, null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.TrayReleaseCheck);
+            return Failed("SERVICE_UNAVAILABLE");
+        }
+
+        static UpdateCheckResultPayload Failed(string code) =>
+            new(false, false, false, null, null, null, 0, null, code);
+    }
+
+    private sealed record UpdateCheckWire(
+        [property: JsonPropertyName("update_available")] bool UpdateAvailable,
+        [property: JsonPropertyName("mandatory")] bool Mandatory,
+        [property: JsonPropertyName("latest")] UpdateLatestWire? Latest);
+
+    private sealed record UpdateLatestWire(
+        [property: JsonPropertyName("version")] string Version,
+        [property: JsonPropertyName("download_url")] string DownloadUrl,
+        [property: JsonPropertyName("sha256")] string Sha256,
+        [property: JsonPropertyName("file_size_bytes")] long FileSizeBytes,
+        [property: JsonPropertyName("release_notes")] string? ReleaseNotes);
+
+    /// <summary>
+    /// Accept the pending legal documents shown on the tray consent screen. AuthPendingLegalController
+    /// is [AllowAnonymous] and authenticates via this challenge/CSRF pair (not the device JWT) — the
+    /// same mechanism the web login flow uses, minted alongside the enroll/refresh response that
+    /// reported RequiresLegalAcceptance. The controller reads the challenge from a literal cookie, so
+    /// it's sent as a raw Cookie header rather than through a CookieContainer.
+    /// </summary>
+    public async Task<bool> CompleteLegalAcceptanceAsync(
+        string legalChallenge,
+        string legalCsrfToken,
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances,
+        CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.LegalAcceptanceComplete)
+        {
+            Content = JsonContent.Create(new AcceptPendingLegalDocumentsBody(
+                acceptances.Select(a => new LegalAcceptanceItemBody(a.DocumentType, a.Version, "accepted")).ToArray()))
+        };
+        request.Headers.Add("Cookie", $"onevo_legal_pending={legalChallenge}");
+        request.Headers.Add("X-CSRF-Token", legalCsrfToken);
+
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.LegalAcceptanceComplete);
+            return false;
+        }
+    }
+
+    private sealed record LegalAcceptanceItemBody(
+        [property: JsonPropertyName("document_type")] string DocumentType,
+        [property: JsonPropertyName("version")] string Version,
+        [property: JsonPropertyName("decision")] string Decision);
+
+    private sealed record AcceptPendingLegalDocumentsBody(
+        [property: JsonPropertyName("acceptances")] IReadOnlyList<LegalAcceptanceItemBody> Acceptances);
 
     /// <summary>Fetch the effective monitoring policy for this device (§Task3). Auth: Bearer Device JWT.</summary>
     public async Task<PolicyResult> GetEffectivePolicyAsync(string accessToken, CancellationToken ct)
@@ -849,6 +945,16 @@ public sealed record PendingNotificationPayload(
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("message")] string Message);
 
+/// <summary>Wire-format mirror of the backend's PendingLegalDocumentDto.</summary>
+public sealed record PendingLegalDocument(
+    [property: JsonPropertyName("document_type")] string DocumentType,
+    [property: JsonPropertyName("version")] string Version,
+    [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("effective_at")] DateTimeOffset? EffectiveAt,
+    [property: JsonPropertyName("content_url")] string? ContentUrl,
+    [property: JsonPropertyName("content_endpoint")] string ContentEndpoint,
+    [property: JsonPropertyName("content_hash")] string? ContentHash);
+
 /// <summary>Wire-format mirror of the backend's TrayAuthResponseDto.</summary>
 public sealed record TrayAuthPayload(
     [property: JsonPropertyName("access_token")] string AccessToken,
@@ -863,7 +969,11 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("work_mode_label")] string? WorkModeLabel = null,
     [property: JsonPropertyName("office_name")] string? OfficeName = null,
     [property: JsonPropertyName("organization_name")] string? OrganizationName = null,
-    [property: JsonPropertyName("tenant_slug")] string? TenantSlug = null);
+    [property: JsonPropertyName("tenant_slug")] string? TenantSlug = null,
+    [property: JsonPropertyName("legal_acceptance_required")] bool RequiresLegalAcceptance = false,
+    [property: JsonPropertyName("pending_legal_documents")] IReadOnlyList<PendingLegalDocument>? PendingLegalDocuments = null,
+    [property: JsonPropertyName("legal_challenge")] string? LegalChallenge = null,
+    [property: JsonPropertyName("legal_csrf_token")] string? LegalCsrfToken = null);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
 

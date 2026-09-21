@@ -75,6 +75,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<INamedPipeClient>(sp =>
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<IUpdateChecker, UpdateChecker>();
+        builder.Services.AddSingleton<UpdateNotifier>();
         builder.Services.AddSingleton<NotificationActivationRouter>();
         builder.Services.AddSingleton<ActivityCheckPromptHub>();
         builder.Services.AddSingleton<WindowsInactivityPromptService>();
@@ -119,6 +121,7 @@ public static class MauiProgram
 
         // ViewModels
         builder.Services.AddTransient<ConnectWorkspaceViewModel>();
+        builder.Services.AddTransient<LegalConsentViewModel>();
         builder.Services.AddTransient<PrepareWorkspaceViewModel>();
         builder.Services.AddTransient<WorkLocationViewModel>();
         builder.Services.AddTransient<ReviewSetupViewModel>();
@@ -135,6 +138,7 @@ public static class MauiProgram
 
         // Views
         builder.Services.AddTransient<ConnectWorkspacePage>();
+        builder.Services.AddTransient<LegalConsentPage>();
         builder.Services.AddTransient<PrepareWorkspacePage>();
         builder.Services.AddTransient<WorkLocationPage>();
         builder.Services.AddTransient<ReviewSetupPage>();

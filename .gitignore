@@ -18,3 +18,9 @@ packages/
 Thumbs.db
 Desktop.ini
 .worktrees/
+
+# Signing certificates (never commit)
+*.pfx
+
+# Local MSIX build output
+publish/

@@ -146,6 +146,15 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             NextLogoutResult ?? new LogoutResultPayload(true, null));
     }
 
+    /// <summary>Canned update-check result. Null = the Service did not answer.</summary>
+    public UpdateCheckResultPayload? NextUpdateCheckResult { get; set; }
+
+    public Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.UpdateCheckRequest });
+        return Task.FromResult(NextUpdateCheckResult);
+    }
+
     /// <summary>Optional canned result for StartBiometricEnrollmentAsync. Null = auto-success.</summary>
     public BiometricEnrollmentSessionReadyPayload? NextEnrollmentSessionResult { get; set; }
 
@@ -318,6 +327,33 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
         return Task.FromResult<FacePhotoValidateResultPayload?>(
             new FacePhotoValidateResultPayload(
                 true, null, true, true, true, true, true, 92f, null));
+    }
+
+    /// <summary>Optional canned result for SendLegalAcceptanceSubmitAsync. Null = auto-success.</summary>
+    public LegalAcceptanceResultPayload? NextLegalAcceptanceResult { get; set; }
+
+    /// <summary>When true, SendLegalAcceptanceSubmitAsync resolves to null - the shape the real
+    /// client returns on a pipe timeout / no LegalAcceptanceResult reply.</summary>
+    public bool LegalAcceptanceSubmitReturnsNull { get; set; }
+
+    public List<IReadOnlyList<LegalAcceptanceItemPayload>> LegalAcceptanceSubmitCalls { get; } = [];
+
+    public Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct)
+    {
+        LegalAcceptanceSubmitCalls.Add(acceptances);
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.LegalAcceptanceSubmit,
+            Payload = System.Text.Json.JsonSerializer.SerializeToElement(
+                new LegalAcceptanceSubmitPayload(acceptances))
+        });
+
+        if (LegalAcceptanceSubmitReturnsNull)
+            return Task.FromResult<LegalAcceptanceResultPayload?>(null);
+
+        return Task.FromResult<LegalAcceptanceResultPayload?>(
+            NextLegalAcceptanceResult ?? new LegalAcceptanceResultPayload(true, null));
     }
 
     public void SimulateDisconnect()              => OnDisconnected?.Invoke();

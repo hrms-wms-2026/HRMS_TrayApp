@@ -266,3 +266,12 @@ Typically: `C:\Users\<you>\AppData\Local\ONEVO\Agent\agent_activity.db`
 - Without JWT, data **still stays in SQLite** (not lost on restart).
 - Inspect with any SQLite tool: `sqlite3 agent_activity.db "SELECT COUNT(*) FROM collection_records;"`
 
+
+## Releasing
+
+1. Merge to `main` with green CI.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z` — the Release workflow builds, signs, uploads to R2 and registers the build as an **inactive beta** in the platform DB.
+3. In the Platform Admin app → System Config → Tray Releases: activate the beta, test on a real machine (machine must trust the signing cert), then **Promote to stable**.
+4. To roll back: deactivate the bad release (previous stable becomes "latest" again). To force everyone forward, set a release's *minimum supported version*.
+
+Required repo secrets/variables are listed in `.github/workflows/release.yml`'s header comment.

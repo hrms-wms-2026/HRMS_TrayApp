@@ -493,6 +493,9 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct) =>
         Task.FromResult<LogoutResultPayload?>(null);
 
+    public Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct) =>
+        Task.FromResult<UpdateCheckResultPayload?>(null);
+
     public Task<bool> SubmitInactivityAttemptAsync(
         InactivityCaptureAttemptPayload attempt, ReadOnlyMemory<byte> jpegBytes, CancellationToken ct)
     {
@@ -528,6 +531,10 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
         string format, byte[] jpegBytes, CancellationToken ct) =>
         Task.FromResult<FacePhotoValidateResultPayload?>(null);
+
+    public Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct) =>
+        Task.FromResult<LegalAcceptanceResultPayload?>(null);
 
     // Unused by these tests — kept so the fake can raise pipe events if a future test needs it.
     internal void RaiseDisconnected() => OnDisconnected?.Invoke();

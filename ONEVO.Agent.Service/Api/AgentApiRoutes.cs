@@ -27,6 +27,7 @@ public static class AgentApiRoutes
     public const string DeviceAuthorizationStart = "/api/v1/monitoring/device-authorization/start";
     public const string DeviceAuthorizationToken = "/api/v1/monitoring/device-authorization/token";
     public const string ActivationHeartbeat = "/api/v1/monitoring/activation/heartbeat";
+    public const string TrayReleaseCheck = "/api/v1/tray/releases/check";
 
     public const string BiometricEnrollmentAttemptCreate   = "/api/v1/monitoring/biometrics/enrollment-attempts";
     public const string BiometricEnrollmentAttemptComplete = "/api/v1/monitoring/biometrics/enrollment-attempts/{0}/complete";
@@ -36,4 +37,8 @@ public static class AgentApiRoutes
     public const string LocationChangeRequestPending = "/api/v1/monitoring/location-change-requests/pending";
 
     public const string WorkLocationConfirmSubmit = "/api/v1/monitoring/tray/work-location/confirm";
+
+    // Not under /monitoring — this is the same pre-session legal-acceptance endpoint the web
+    // login flow's complete-login step already uses.
+    public const string LegalAcceptanceComplete = "/api/v1/legal/acceptances/complete-login";
 }

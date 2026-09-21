@@ -1,0 +1,125 @@
+# Release: builds a signed MSIX from a vX.Y.Z tag, uploads it to Cloudflare R2, and registers it
+# in the ONEVO platform as an INACTIVE BETA release (an admin activates/promotes it in the
+# Platform Admin app -> System Config -> Tray Releases).
+#
+# Required repository SECRETS:
+#   R2_ACCESS_KEY_ID        R2 API token (Object Read & Write on the installer bucket)
+#   R2_SECRET_ACCESS_KEY    R2 API token secret
+#   R2_ENDPOINT             https://<accountid>.r2.cloudflarestorage.com
+#   RELEASE_INGEST_TOKEN    same value as the backend's TrayReleases__IngestToken
+#   SIGNING_PFX_BASE64      base64 of the signing .pfx  ([Convert]::ToBase64String([IO.File]::ReadAllBytes('dev-cert.pfx')))
+#   SIGNING_PFX_PASSWORD    password of that .pfx
+# Required repository VARIABLES:
+#   R2_BUCKET               e.g. onevo-installers
+#   R2_PUBLIC_BASE_URL      public base URL of the bucket (r2.dev URL for testing, custom domain for production)
+#   ONEVO_API_BASE          admin API host, e.g. https://admin.<yourdomain>
+#
+# The publisher below must equal the signing certificate's subject.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart('v')
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Tag must look like vX.Y.Z, got '${{ github.ref_name }}'" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # Must match global.json (rollForward: disable requires exact SDK).
+          global-json-file: global.json
+          dotnet-version: "10.0.300"
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-windows --skip-manifest-update
+
+      - name: Run tests
+        run: |
+          dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj --configuration Release
+          dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj --configuration Release
+          dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --configuration Release
+
+      - name: Restore signing certificate
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\signing.pfx", [Convert]::FromBase64String($env:PFX_B64))
+        env:
+          PFX_B64: ${{ secrets.SIGNING_PFX_BASE64 }}
+
+      - name: Build signed MSIX
+        shell: pwsh
+        run: |
+          ./build-msix.ps1 -Version "${{ steps.ver.outputs.version }}" `
+            -CertFile "$env:RUNNER_TEMP\signing.pfx" -CertPassword $env:PFX_PASSWORD
+        env:
+          PFX_PASSWORD: ${{ secrets.SIGNING_PFX_PASSWORD }}
+
+      - name: Locate artifact, rename, hash
+        id: art
+        shell: pwsh
+        run: |
+          $src = Get-ChildItem publish\msix -Recurse -Filter *.msix | Select-Object -First 1
+          if (-not $src) { throw "No .msix produced" }
+          $name = "ONEVO-${{ steps.ver.outputs.version }}.msix"
+          Copy-Item $src.FullName $name
+          $sha = (Get-FileHash $name -Algorithm SHA256).Hash.ToLower()
+          "name=$name"            >> $env:GITHUB_OUTPUT
+          "sha=$sha"              >> $env:GITHUB_OUTPUT
+          "size=$((Get-Item $name).Length)" >> $env:GITHUB_OUTPUT
+
+      - name: Upload to R2
+        shell: pwsh
+        run: |
+          aws s3 cp "${{ steps.art.outputs.name }}" `
+            "s3://${{ vars.R2_BUCKET }}/tray/${{ steps.ver.outputs.version }}/${{ steps.art.outputs.name }}" `
+            --endpoint-url "${{ secrets.R2_ENDPOINT }}" `
+            --content-type "application/msix"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+
+      - name: Register release (inactive beta)
+        shell: pwsh
+        run: |
+          $body = @{
+            version               = "${{ steps.ver.outputs.version }}"
+            channel               = "beta"
+            downloadUrl           = "${{ vars.R2_PUBLIC_BASE_URL }}/tray/${{ steps.ver.outputs.version }}/${{ steps.art.outputs.name }}"
+            sha256                = "${{ steps.art.outputs.sha }}"
+            fileSizeBytes         = [long]"${{ steps.art.outputs.size }}"
+            publisher             = "CN=ONEVO"
+            minimumWindowsVersion = "10.0.19041.0"
+            minSupportedVersion   = $null
+            releaseNotes          = "Built from ${{ github.ref_name }} (${{ github.sha }})"
+            isActive              = $false
+          } | ConvertTo-Json
+          Invoke-RestMethod -Method Post `
+            -Uri "${{ vars.ONEVO_API_BASE }}/admin/v1/tray-releases/ingest" `
+            -Headers @{ "X-Release-Token" = $env:INGEST_TOKEN } `
+            -ContentType "application/json" -Body $body
+        env:
+          INGEST_TOKEN: ${{ secrets.RELEASE_INGEST_TOKEN }}
+
+      - name: Keep a copy on the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.art.outputs.name }}
+          path: ${{ steps.art.outputs.name }}
+          retention-days: 30

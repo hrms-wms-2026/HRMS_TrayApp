@@ -39,6 +39,12 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: result of a sign-out attempt.</summary>
     public const string LogoutResult = "LogoutResult";
 
+    /// <summary>Tray → Service: ask the backend whether a newer installer exists.</summary>
+    public const string UpdateCheckRequest = "UpdateCheckRequest";
+
+    /// <summary>Service → Tray: result of an update check.</summary>
+    public const string UpdateCheckResult = "UpdateCheckResult";
+
     /// <summary>Tray → Service: begin an evidence transfer for one inactivity capture attempt.</summary>
     public const string EvidenceTransferStart = "EvidenceTransferStart";
 
@@ -107,6 +113,12 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: DetectFaces + CompareFaces result used to allow clock-in or force a retake.</summary>
     public const string FacePhotoValidateResult = "FacePhotoValidateResult";
+
+    /// <summary>Tray → Service: employee accepted the pending legal documents shown on the consent screen.</summary>
+    public const string LegalAcceptanceSubmit = "LegalAcceptanceSubmit";
+
+    /// <summary>Service → Tray: result of a LegalAcceptanceSubmit call.</summary>
+    public const string LegalAcceptanceResult = "LegalAcceptanceResult";
 }
 
 public enum LifecycleAction
@@ -176,6 +188,15 @@ public sealed record NotificationPushPayload
 
 public sealed record ActivationCodeSubmitPayload(string Code);
 
+/// <summary>Wire-format mirror of the backend's PendingLegalDocumentDto — just enough for the
+/// tray consent screen to list a document and let the employee open it.</summary>
+public sealed record PendingLegalDocumentPayload(
+    string DocumentType,
+    string Version,
+    string Title,
+    string? ContentUrl,
+    string ContentEndpoint);
+
 public sealed record EnrollmentResultPayload
 {
     public required bool Success { get; init; }
@@ -188,9 +209,24 @@ public sealed record EnrollmentResultPayload
     public string? WorkModeLabel { get; init; }
     public string? OfficeName { get; init; }
     public string? OrganizationName { get; init; }
+    public bool RequiresLegalAcceptance { get; init; }
+    public IReadOnlyList<PendingLegalDocumentPayload>? PendingLegalDocuments { get; init; }
 }
 
 public sealed record LogoutResultPayload(bool Success, string? ErrorCode);
+
+public sealed record UpdateCheckRequestPayload(string CurrentVersion);
+
+public sealed record UpdateCheckResultPayload(
+    bool Success,
+    bool UpdateAvailable,
+    bool Mandatory,
+    string? LatestVersion,
+    string? DownloadUrl,
+    string? Sha256,
+    long FileSizeBytes,
+    string? ReleaseNotes,
+    string? ErrorCode);
 
 public sealed record BiometricEnrollmentStartPayload;
 
@@ -237,6 +273,8 @@ public sealed record DevicePairingResultPayload
     public string? WorkModeLabel { get; init; }
     public string? OfficeName { get; init; }
     public string? OrganizationName { get; init; }
+    public bool RequiresLegalAcceptance { get; init; }
+    public IReadOnlyList<PendingLegalDocumentPayload>? PendingLegalDocuments { get; init; }
 }
 
 /// <summary>Minimal shape the tray UI needs for a location change request — just enough to drive
@@ -281,3 +319,11 @@ public sealed record FacePhotoValidateResultPayload(
     bool CanProceed,
     float? Similarity,
     string? FailureReason);
+
+public sealed record LegalAcceptanceItemPayload(string DocumentType, string Version);
+
+/// <summary>Tray → Service: the employee accepted every document shown on the consent screen in
+/// one action (the backend requires the full pending set in a single call, not one at a time).</summary>
+public sealed record LegalAcceptanceSubmitPayload(IReadOnlyList<LegalAcceptanceItemPayload> Acceptances);
+
+public sealed record LegalAcceptanceResultPayload(bool Success, string? ErrorCode);
