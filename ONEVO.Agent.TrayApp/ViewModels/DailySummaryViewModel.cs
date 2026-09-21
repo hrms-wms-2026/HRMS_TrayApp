@@ -2,6 +2,7 @@ namespace ONEVO.Agent.TrayApp.ViewModels;
 
 using System.Collections.ObjectModel;
 using ONEVO.Agent.Shared.IPC;
+using ONEVO.Agent.TrayApp.Controls;
 using ONEVO.Agent.TrayApp.Services;
 
 public sealed partial class DailySummaryViewModel : BaseViewModel
@@ -39,9 +40,18 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     [ObservableProperty] private string _highlightProgress = "You stayed focused and made meaningful progress.";
     [ObservableProperty] private string _highlightFocus = "Keep building consistent focus time.";
     [ObservableProperty] private string _highlightWindow = "";
+    [ObservableProperty] private string _highlightProgressTitle = "Progress";
+    [ObservableProperty] private string _mostProductiveCaption = "Most Productive Period";
     [ObservableProperty] private string _breakSessionsCaption = "0 sessions";
+    [ObservableProperty] private bool _hasBreaks;
+    [ObservableProperty] private bool _hasScreenshots;
+    [ObservableProperty] private string _screenshotsCaption = "No activity-check screenshots today.";
+    [ObservableProperty] private IReadOnlyList<DonutSegment> _appDonutSegments = [];
 
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
+    public ObservableCollection<DailyScreenshotItem> Screenshots { get; } = [];
+
+    private static readonly string[] AppPalette = ["#6366F1", "#22C55E", "#14B8A6", "#F97316", "#9CA3AF"];
 
     public DailySummaryViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics, IAppIconCache iconCache)
     {
@@ -90,6 +100,8 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         foreach (var app in source.TopApps)
             TopApps.Add(app);
 
+        LoadScreenshots();
+
         Headline = "Here's how your day went. Keep up the excellent work!";
         ExcellentDayCaption = string.IsNullOrWhiteSpace(EmployeeName)
             ? "Excellent day!"
@@ -113,7 +125,38 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         TopApps.Clear();
         foreach (var app in source.TopApps)
             TopApps.Add(app);
+        LoadScreenshots();
         ApplyDerived();
+    }
+
+    private void LoadScreenshots()
+    {
+        Screenshots.Clear();
+        foreach (var shot in _dayMetrics.GetAllowedScreenshots())
+        {
+            var jpeg = shot.JpegBytes;
+            Screenshots.Add(new DailyScreenshotItem(
+                shot.CapturedAt.ToLocalTime().ToString("h:mm tt"),
+                jpeg,
+                TryPreview(jpeg)));
+        }
+
+        HasScreenshots = Screenshots.Count > 0;
+        ScreenshotsCaption = HasScreenshots
+            ? $"{Screenshots.Count} screenshot{(Screenshots.Count == 1 ? "" : "s")} you allowed during activity checks."
+            : "No activity-check screenshots today. Allow on the prompt to capture one.";
+    }
+
+    private static ImageSource? TryPreview(byte[] jpeg)
+    {
+        try
+        {
+            return ImageSource.FromStream(() => new MemoryStream(jpeg));
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void ApplyDerived()
@@ -150,13 +193,16 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
             ? "Great job taking regular breaks."
             : "A short break can help you recharge tomorrow.";
 
-        HighlightProgress = activeShare >= 80
-            ? $"Great Progress. You stayed focused {activeShare}% of tracked time."
-            : $"You stayed focused {activeShare}% of tracked time.";
+        HasBreaks = n > 0;
+        HighlightProgressTitle = activeShare >= 80 ? "Great Progress" : "Keep going";
+        HighlightProgress = $"You stayed focused {activeShare}% of tracked time.";
         HighlightFocus = $"Focus time {Compact(focus)}.";
         HighlightWindow = ClockInDisplay != "—" && ClockOutDisplay != "—"
-            ? $"Most Productive  {ClockInDisplay} – {ClockOutDisplay}"
+            ? $"{ClockInDisplay} – {ClockOutDisplay}"
             : string.Empty;
+        MostProductiveCaption = string.IsNullOrEmpty(HighlightWindow)
+            ? "Most Productive Period"
+            : $"Most Productive Period  {HighlightWindow}";
 
         var totalApp = TimeSpan.Zero;
         foreach (var app in TopApps)
@@ -167,15 +213,27 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
 
         if (totalApp > TimeSpan.Zero)
         {
-            var withShare = TopApps.Select(app =>
+            var withShare = TopApps.Select((app, i) =>
             {
                 var dur = TimeSpan.TryParse(app.Duration, out var d) ? d : TimeSpan.Zero;
                 var pct = (int)Math.Round(100.0 * dur.TotalSeconds / totalApp.TotalSeconds);
-                return app with { Percent = $"{pct}%" };
+                return app with
+                {
+                    Percent = $"{pct}%",
+                    ColorHex = AppPalette[i % AppPalette.Length],
+                    Fraction = dur.TotalSeconds / totalApp.TotalSeconds,
+                };
             }).ToList();
             TopApps.Clear();
             foreach (var app in withShare)
                 TopApps.Add(app);
+            AppDonutSegments = withShare
+                .Select(app => new DonutSegment(app.ColorHex, (float)app.Fraction))
+                .ToArray();
+        }
+        else
+        {
+            AppDonutSegments = [new DonutSegment("#E5E7EB", 1f)];
         }
     }
 
@@ -199,7 +257,8 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
             var path = await DailySummaryPdfBuilder.WriteToDownloadsAsync(new DailySummaryPdfData(
                 StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
                 WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
-                BreakSessionsDisplay, [.. TopApps]));
+                BreakSessionsDisplay, [.. TopApps],
+                Screenshots.Select(s => new DailySummaryPdfScreenshot(s.TimeDisplay, s.JpegBytes)).ToList()));
             Message = $"Summary saved to {path}";
             ErrorMessage = null;
         }
@@ -237,3 +296,5 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         catch { /* browser unavailable */ }
     }
 }
+
+public sealed record DailyScreenshotItem(string TimeDisplay, byte[] JpegBytes, ImageSource? Preview);

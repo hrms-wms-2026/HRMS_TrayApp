@@ -5,7 +5,10 @@ using ONEVO.Agent.Shared.IPC;
 
 public sealed class SessionDayMetrics : ISessionDayMetrics
 {
+    internal const int MaxAllowedScreenshots = 12;
+
     private readonly ConcurrentDictionary<string, TimeSpan> _appSeconds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<SessionScreenshot> _screenshots = [];
     private readonly object _gate = new();
     private TimeSpan _idle;
     private SessionSnapshot? _lastCompleted;
@@ -42,6 +45,19 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             _idle += idlePortion;
     }
 
+    public void AddAllowedScreenshot(Guid attemptId, DateTimeOffset capturedAt, ReadOnlyMemory<byte> jpegBytes)
+    {
+        if (jpegBytes.IsEmpty)
+            return;
+
+        lock (_gate)
+        {
+            _screenshots.Add(new SessionScreenshot(attemptId, capturedAt, jpegBytes.ToArray()));
+            while (_screenshots.Count > MaxAllowedScreenshots)
+                _screenshots.RemoveAt(0);
+        }
+    }
+
     public void ResetDay()
     {
         _appSeconds.Clear();
@@ -49,6 +65,7 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
         {
             _idle = TimeSpan.Zero;
             _lastCompleted = null;
+            _screenshots.Clear();
         }
     }
 
@@ -58,4 +75,10 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             .OrderByDescending(x => x.Value)
             .Take(Math.Max(1, take))
             .ToList();
+
+    public IReadOnlyList<SessionScreenshot> GetAllowedScreenshots()
+    {
+        lock (_gate)
+            return _screenshots.ToArray();
+    }
 }

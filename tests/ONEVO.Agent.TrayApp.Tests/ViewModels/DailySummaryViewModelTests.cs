@@ -29,9 +29,30 @@ public sealed class DailySummaryViewModelTests
         Assert.Equal("8h 00m", vm.ActiveCompactDisplay);
         Assert.Equal("30m", vm.BreakCompactDisplay);
         Assert.Equal("2 breaks", vm.BreakSessionsCaption);
+        Assert.True(vm.HasBreaks);
+        Assert.Equal("Great Progress", vm.HighlightProgressTitle);
         Assert.True(vm.ActiveShareFraction > 0);
         Assert.Contains("focused", vm.InsightFocus, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("regular breaks", vm.InsightBreaks, StringComparison.OrdinalIgnoreCase);
+        Assert.False(vm.HasScreenshots);
+        Assert.Empty(vm.Screenshots);
+    }
+
+    [Fact]
+    public void OnAppearing_MapsAllowedScreenshotsIntoGallery()
+    {
+        var metrics = new ONEVO.Agent.TrayApp.Services.SessionDayMetrics();
+        var capturedAt = new DateTimeOffset(2026, 9, 18, 10, 5, 0, TimeSpan.FromHours(5.5));
+        metrics.AddAllowedScreenshot(Guid.NewGuid(), capturedAt, new byte[] { 1, 2, 3, 4 });
+
+        var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), metrics);
+        vm.OnAppearing();
+
+        var shot = Assert.Single(vm.Screenshots);
+        Assert.True(vm.HasScreenshots);
+        Assert.Equal(new byte[] { 1, 2, 3, 4 }, shot.JpegBytes);
+        Assert.Equal(capturedAt.ToLocalTime().ToString("h:mm tt"), shot.TimeDisplay);
+        Assert.Contains("1 screenshot", vm.ScreenshotsCaption, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -44,6 +44,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     private readonly IInactivityPromptService _promptService;
     private readonly IScreenshotCaptureService _captureService;
     private readonly INamedPipeClient _pipeClient;
+    private readonly ISessionDayMetrics? _dayMetrics;
     private readonly TimeSpan _pollInterval;
     private readonly TimeSpan _idleDropCancelDelay;
 
@@ -84,13 +85,15 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
         IScreenshotCaptureService captureService,
         INamedPipeClient pipeClient,
         TimeSpan? pollInterval = null,
-        TimeSpan? idleDropCancelDelay = null)
+        TimeSpan? idleDropCancelDelay = null,
+        ISessionDayMetrics? dayMetrics = null)
     {
         _logger = logger;
         _idleTimeProvider = idleTimeProvider;
         _promptService = promptService;
         _captureService = captureService;
         _pipeClient = pipeClient;
+        _dayMetrics = dayMetrics;
         _pollInterval = pollInterval ?? TimeSpan.FromSeconds(5);
         // Toast Allow/Skip clicks reset Windows last-input time. A short grace lets
         // NotificationInvoked deliver Allowed/Declined before we treat the idle drop
@@ -136,6 +139,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
 
         _loopTask = PollLoopAsync(loopCts.Token);
         _logger.LogInformation("{Name}: started (policy {Version})", Name, policy.Version);
+        BootLog($"started threshold={_idleThresholdSeconds}s policy={policy.Version} screenshot={policy.ScreenshotEnabled} inactivity={policy.InactivityScreenshotEnabled}");
         return Task.CompletedTask;
     }
 
@@ -383,6 +387,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
                     capturedAt = captureResult.CapturedAt ?? DateTimeOffset.UtcNow;
                     contentType = "image/jpeg";
                     sha256 = captureResult.Sha256;
+                    _dayMetrics?.AddAllowedScreenshot(attemptId, capturedAt.Value, jpegBytes);
                 }
                 else
                 {

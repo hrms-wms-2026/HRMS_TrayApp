@@ -494,6 +494,84 @@ public class OnevoApiClientTests
     }
 
     [Fact]
+    public async Task ValidateFacePhotoAsync_Success_MapsCamelCaseQualityFlags()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                lightingOk = true,
+                faceVisible = true,
+                noSunglassesOrMask = true,
+                isMatch = true,
+                canProceed = true,
+                similarityScore = 100f,
+                failureReason = (string?)null
+            })
+        });
+        var client = Build(handler);
+
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(result.CanProceed);
+        Assert.True(result.LightingOk);
+        Assert.True(result.FaceVisible);
+        Assert.True(result.NoSunglassesOrMask);
+    }
+
+    [Fact]
+    public async Task ValidateFacePhotoAsync_Success_MapsQualityFlagsAndCanProceed()
+    {
+        HttpRequestMessage? captured = null;
+        var handler = new StubHandler(request =>
+        {
+            captured = request;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new
+                {
+                    lighting_ok = true,
+                    face_visible = true,
+                    no_sunglasses_or_mask = false,
+                    is_match = false,
+                    can_proceed = false,
+                    similarity_score = (float?)null,
+                    failure_reason = "sunglasses_or_mask"
+                })
+            };
+        });
+        var client = Build(handler);
+
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(result.LightingOk);
+        Assert.True(result.FaceVisible);
+        Assert.False(result.NoSunglassesOrMask);
+        Assert.False(result.CanProceed);
+        Assert.Equal("sunglasses_or_mask", result.FailureReason);
+        Assert.Equal(HttpMethod.Post, captured!.Method);
+        Assert.Equal(AgentApiRoutes.FacePhotoValidate, captured.RequestUri!.AbsolutePath);
+        Assert.Equal("Bearer", captured.Headers.Authorization!.Scheme);
+        Assert.Equal("device-jwt", captured.Headers.Authorization.Parameter);
+        Assert.StartsWith("multipart/form-data", captured.Content!.Headers.ContentType!.MediaType);
+    }
+
+    [Fact]
+    public async Task ValidateFacePhotoAsync_Unauthorized_ReturnsUnavailable()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        var client = Build(handler);
+
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("UNAUTHORIZED", result.ErrorCode);
+        Assert.False(result.CanProceed);
+    }
+
+    [Fact]
     public async Task GetEffectivePolicyAsync_Success_MapsWorkModeMethodFlagsAndAllowedRadiusMeters()
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)

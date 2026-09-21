@@ -41,65 +41,57 @@
 
     <ScrollView Grid.Row="1">
       <VerticalStackLayout Spacing="10">
-        <Grid ColumnDefinitions="*,*,*,*,*,*" ColumnSpacing="8">
-          <Border Style="{StaticResource SetupResultCard}" Padding="10,10">
-            <VerticalStackLayout Spacing="4">
-              <Image Source="icon3d_clock.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Start" />
-              <Label Text="Total Focus Time" Style="{StaticResource StatLabel}" />
-              <Label Text="{Binding FocusCompactDisplay}" Style="{StaticResource StatValue}" FontSize="18" />
-              <Label Text="Focused hours" Style="{StaticResource DeltaNeutral}" />
-            </VerticalStackLayout>
+        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+          <Border Style="{StaticResource SetupResultCard}" Padding="14,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Image Source="icon3d_clock.png" WidthRequest="36" HeightRequest="36" Aspect="AspectFit" VerticalOptions="Start" />
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Total Focus Time" Style="{StaticResource StatLabel}" />
+                <Label Text="{Binding FocusCompactDisplay}" Style="{StaticResource StatValue}" FontSize="22" />
+                <Label Text="Focused hours" Style="{StaticResource DeltaNeutral}" />
+              </VerticalStackLayout>
+            </Grid>
           </Border>
-          <Border Grid.Column="1" Style="{StaticResource SetupResultCard}" Padding="10,10">
-            <VerticalStackLayout Spacing="4">
-              <Image Source="icon3d_monitor.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Start" />
-              <Label Text="Active Time" Style="{StaticResource StatLabel}" />
-              <Label Text="{Binding ActiveCompactDisplay}" Style="{StaticResource StatValue}" FontSize="18" />
-              <Label Text="{Binding ActiveShareCaption}" Style="{StaticResource DeltaPositive}" />
-            </VerticalStackLayout>
+          <Border Grid.Column="1" Style="{StaticResource SetupResultCard}" Padding="14,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Image Source="icon3d_monitor.png" WidthRequest="36" HeightRequest="36" Aspect="AspectFit" VerticalOptions="Start" />
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Active Time" Style="{StaticResource StatLabel}" />
+                <Label Text="{Binding ActiveCompactDisplay}" Style="{StaticResource StatValue}" FontSize="22" />
+                <Label Text="{Binding ActiveShareCaption}" Style="{StaticResource DeltaPositive}" />
+              </VerticalStackLayout>
+            </Grid>
           </Border>
-          <Border Grid.Column="2" Style="{StaticResource SetupResultCard}" Padding="10,10">
-            <VerticalStackLayout Spacing="4">
-              <Image Source="icon3d_coffee.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Start" />
-              <Label Text="Idle Time" Style="{StaticResource StatLabel}" />
-              <Label Text="{Binding IdleCompactDisplay}" Style="{StaticResource StatValue}" FontSize="18" />
-              <Label Text="{Binding IdleShareCaption}" Style="{StaticResource DeltaNeutral}" />
-            </VerticalStackLayout>
+          <Border Grid.Column="2" Style="{StaticResource SetupResultCard}" Padding="14,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Image Source="icon3d_coffee.png" WidthRequest="36" HeightRequest="36" Aspect="AspectFit" VerticalOptions="Start" />
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Idle Time" Style="{StaticResource StatLabel}" />
+                <Label Text="{Binding IdleCompactDisplay}" Style="{StaticResource StatValue}" FontSize="22" />
+                <Label Text="{Binding IdleShareCaption}" Style="{StaticResource DeltaNeutral}" />
+              </VerticalStackLayout>
+            </Grid>
           </Border>
-          <Border Grid.Column="3" Style="{StaticResource SetupResultCard}" Padding="10,10">
-            <VerticalStackLayout Spacing="4">
-              <Image Source="icon3d_stopwatch.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Start" />
-              <Label Text="Total Break Time" Style="{StaticResource StatLabel}" />
-              <Label Text="{Binding BreakCompactDisplay}" Style="{StaticResource StatValue}" FontSize="18" />
-              <Label Text="{Binding BreakSessionsCaption}" Style="{StaticResource DeltaNeutral}" />
-            </VerticalStackLayout>
-          </Border>
-          <Border Grid.Column="4" Style="{StaticResource SetupResultCard}" Padding="10,10">
-            <VerticalStackLayout Spacing="4">
-              <Image Source="icon3d_people.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Start" />
-              <Label Text="Meetings Time" Style="{StaticResource StatLabel}" />
-              <Label Text="0h 00m" Style="{StaticResource StatValue}" FontSize="18" />
-              <Label Text="See dashboard" Style="{StaticResource DeltaNeutral}" />
-            </VerticalStackLayout>
-          </Border>
-          <Border Grid.Column="5" Style="{StaticResource SetupResultCard}" Padding="10,10">
-            <VerticalStackLayout Spacing="4">
-              <Image Source="icon3d_tasks.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Start" />
-              <Label Text="Tasks Completed" Style="{StaticResource StatLabel}" />
-              <Label Text="—" Style="{StaticResource StatValue}" FontSize="18" />
-              <Label Text="See dashboard" Style="{StaticResource DeltaNeutral}" />
-            </VerticalStackLayout>
+          <Border Grid.Column="3" Style="{StaticResource SetupResultCard}" Padding="14,12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <Image Source="icon3d_stopwatch.png" WidthRequest="36" HeightRequest="36" Aspect="AspectFit" VerticalOptions="Start" />
+              <VerticalStackLayout Grid.Column="1" Spacing="2">
+                <Label Text="Total Break Time" Style="{StaticResource StatLabel}" />
+                <Label Text="{Binding BreakCompactDisplay}" Style="{StaticResource StatValue}" FontSize="22" />
+                <Label Text="{Binding BreakSessionsCaption}" Style="{StaticResource DeltaNeutral}" />
+              </VerticalStackLayout>
+            </Grid>
           </Border>
         </Grid>
 
-        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8" HeightRequest="210">
+        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8" HeightRequest="232">
           <Border Style="{StaticResource SetupResultCard}" Padding="12,10">
             <Grid RowDefinitions="Auto,*,Auto">
               <HorizontalStackLayout Spacing="6">
                 <Image Source="icon3d_clipboard.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
                 <Label Text="Session Snapshot" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
               </HorizontalStackLayout>
-              <VerticalStackLayout Grid.Row="1" Spacing="8" Margin="0,8,0,0">
+              <VerticalStackLayout Grid.Row="1" Spacing="10" Margin="0,10,0,0" VerticalOptions="Center">
                 <Grid ColumnDefinitions="*,Auto">
                   <Label Text="Clock in" Style="{StaticResource StatLabel}" />
                   <Label Grid.Column="1" Text="{Binding ClockInDisplay}" Style="{StaticResource ListTimestamp}" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" />
@@ -113,7 +105,7 @@
                   <Label Grid.Column="1" Text="{Binding ProductiveTimeDisplay}" Style="{StaticResource ListTimestamp}" TextColor="{StaticResource TextPrimary}" FontAttributes="Bold" />
                 </Grid>
               </VerticalStackLayout>
-              <Label Grid.Row="2" Text="View dashboard" FontSize="12" TextColor="{StaticResource Primary}" Margin="0,6,0,0">
+              <Label Grid.Row="2" Text="View dashboard" FontSize="12" TextColor="{StaticResource Primary}" Margin="0,8,0,0">
                 <Label.GestureRecognizers>
                   <TapGestureRecognizer Command="{Binding ViewInsightsCommand}" />
                 </Label.GestureRecognizers>
@@ -127,19 +119,29 @@
                 <Image Source="icon3d_chart.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
                 <Label Text="Focus vs Idle Time" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
               </HorizontalStackLayout>
-              <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="10" Margin="0,6,0,0">
-                <Grid WidthRequest="110" HeightRequest="110">
-                  <controls:SplitDonutChart PrimaryFraction="{Binding ActiveShareFraction}" />
+              <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,8,0,0">
+                <Grid WidthRequest="140" HeightRequest="140" VerticalOptions="Center">
+                  <controls:SplitDonutChart PrimaryFraction="{Binding ActiveShareFraction}" WidthRequest="140" HeightRequest="140" />
                   <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="0">
-                    <Label Text="{Binding FocusCompactDisplay}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="Center" />
+                    <Label Text="{Binding FocusCompactDisplay}" FontSize="16" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" HorizontalTextAlignment="Center" />
                     <Label Text="Total Time" FontSize="11" TextColor="{StaticResource TextMuted}" HorizontalTextAlignment="Center" />
                   </VerticalStackLayout>
                 </Grid>
-                <VerticalStackLayout Spacing="8" VerticalOptions="Center">
-                  <Label Text="{Binding ActiveCompactDisplay, StringFormat='Active Time  {0}'}" FontSize="12" TextColor="{StaticResource TextPrimary}" />
-                  <Label Text="{Binding ActiveShareCaption}" Style="{StaticResource DeltaPositive}" />
-                  <Label Text="{Binding IdleCompactDisplay, StringFormat='Idle Time  {0}'}" FontSize="12" TextColor="{StaticResource TextPrimary}" />
-                  <Label Text="{Binding IdleShareCaption}" Style="{StaticResource DeltaNeutral}" />
+                <VerticalStackLayout Spacing="10" VerticalOptions="Center">
+                  <HorizontalStackLayout Spacing="8">
+                    <Border WidthRequest="10" HeightRequest="10" StrokeThickness="0" StrokeShape="RoundRectangle 5" BackgroundColor="#14B8A6" VerticalOptions="Center" />
+                    <VerticalStackLayout Spacing="0">
+                      <Label Text="{Binding ActiveCompactDisplay, StringFormat='Active Time  {0}'}" FontSize="12" TextColor="{StaticResource TextPrimary}" />
+                      <Label Text="{Binding ActiveShareCaption}" Style="{StaticResource DeltaPositive}" />
+                    </VerticalStackLayout>
+                  </HorizontalStackLayout>
+                  <HorizontalStackLayout Spacing="8">
+                    <Border WidthRequest="10" HeightRequest="10" StrokeThickness="0" StrokeShape="RoundRectangle 5" BackgroundColor="#FDBA74" VerticalOptions="Center" />
+                    <VerticalStackLayout Spacing="0">
+                      <Label Text="{Binding IdleCompactDisplay, StringFormat='Idle Time  {0}'}" FontSize="12" TextColor="{StaticResource TextPrimary}" />
+                      <Label Text="{Binding IdleShareCaption}" Style="{StaticResource DeltaNeutral}" />
+                    </VerticalStackLayout>
+                  </HorizontalStackLayout>
                 </VerticalStackLayout>
               </Grid>
             </Grid>
@@ -151,54 +153,44 @@
                 <Image Source="icon3d_coffee.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
                 <Label Text="Break Sessions" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
               </HorizontalStackLayout>
-              <VerticalStackLayout Grid.Row="1" Spacing="8" Margin="0,8,0,0">
+              <VerticalStackLayout Grid.Row="1" Spacing="8" Margin="0,10,0,0" VerticalOptions="Center">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                  <Image Source="icon3d_coffee.png" WidthRequest="22" HeightRequest="22" Aspect="AspectFit" VerticalOptions="Center" />
-                  <VerticalStackLayout Grid.Column="1">
+                  <Image Source="icon3d_coffee.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFit" VerticalOptions="Start" />
+                  <VerticalStackLayout Grid.Column="1" Spacing="2">
                     <Label Text="{Binding BreakSessionsCaption}" Style="{StaticResource ListItem}" />
                     <Label Text="{Binding BreakTimeDisplay, StringFormat='Total {0}'}" Style="{StaticResource DeltaNeutral}" />
+                    <Label Text="No breaks logged in this session." FontSize="12" TextColor="{StaticResource TextMuted}"
+                           IsVisible="{Binding HasBreaks, Converter={StaticResource InvertBoolConverter}}" />
                   </VerticalStackLayout>
                 </Grid>
               </VerticalStackLayout>
             </Grid>
           </Border>
-
-          <Border Grid.Column="3" Style="{StaticResource SetupResultCard}" Padding="12,10">
-            <Grid RowDefinitions="Auto,*">
-              <HorizontalStackLayout Spacing="6">
-                <Image Source="icon3d_people.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
-                <Label Text="Meetings" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
-              </HorizontalStackLayout>
-              <VerticalStackLayout Grid.Row="1" Spacing="6" Margin="0,8,0,0">
-                <Label Text="Meetings live in the OneXso dashboard calendar." FontSize="13" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
-                <Label Text="View full calendar" FontSize="12" TextColor="{StaticResource Primary}">
-                  <Label.GestureRecognizers>
-                    <TapGestureRecognizer Command="{Binding ViewInsightsCommand}" />
-                  </Label.GestureRecognizers>
-                </Label>
-              </VerticalStackLayout>
-            </Grid>
-          </Border>
         </Grid>
 
-        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8" HeightRequest="210">
+        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8" HeightRequest="232">
           <Border Style="{StaticResource SetupResultCard}" Padding="12,10">
             <Grid RowDefinitions="Auto,*">
               <HorizontalStackLayout Spacing="6">
                 <Image Source="icon3d_monitor.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
                 <Label Text="Top Applications" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
               </HorizontalStackLayout>
-              <VerticalStackLayout Grid.Row="1" BindableLayout.ItemsSource="{Binding TopApps}" Spacing="6" Margin="0,8,0,0">
-                <BindableLayout.ItemTemplate>
-                  <DataTemplate x:DataType="vm:TopAppItem">
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                      <Label Text="{Binding Name}" Style="{StaticResource ListItem}" />
-                      <Label Grid.Column="1" Text="{Binding Duration}" Style="{StaticResource ListTimestamp}" />
-                      <Label Grid.Column="2" Text="{Binding Percent}" FontSize="12" TextColor="{StaticResource TextMuted}" WidthRequest="36" HorizontalTextAlignment="End" />
-                    </Grid>
-                  </DataTemplate>
-                </BindableLayout.ItemTemplate>
-              </VerticalStackLayout>
+              <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,8,0,0">
+                <controls:MultiSegmentDonutChart Segments="{Binding AppDonutSegments}" WidthRequest="108" HeightRequest="108" VerticalOptions="Center" />
+                <VerticalStackLayout Grid.Column="1" BindableLayout.ItemsSource="{Binding TopApps}" Spacing="6" VerticalOptions="Center">
+                  <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TopAppItem">
+                      <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+                        <Border WidthRequest="8" HeightRequest="8" StrokeThickness="0" StrokeShape="RoundRectangle 4"
+                                BackgroundColor="{Binding Swatch}" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="{Binding Name}" Style="{StaticResource ListItem}" LineBreakMode="TailTruncation" />
+                        <Label Grid.Column="2" Text="{Binding Duration}" Style="{StaticResource ListTimestamp}" />
+                        <Label Grid.Column="3" Text="{Binding Percent}" FontSize="12" TextColor="{StaticResource TextMuted}" WidthRequest="36" HorizontalTextAlignment="End" />
+                      </Grid>
+                    </DataTemplate>
+                  </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+              </Grid>
             </Grid>
           </Border>
 
@@ -209,9 +201,22 @@
                 <Label Text="Work Pattern Insights" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
               </HorizontalStackLayout>
               <VerticalStackLayout Grid.Row="1" Spacing="8" Margin="0,8,0,0">
-                <Label Text="{Binding InsightFocus}" FontSize="13" TextColor="{StaticResource TextPrimary}" LineBreakMode="WordWrap" />
-                <Label Text="{Binding InsightIdle}" FontSize="13" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
-                <Label Text="{Binding InsightBreaks}" FontSize="13" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <Image Source="icon3d_clock.png" WidthRequest="16" HeightRequest="16" Aspect="AspectFit" VerticalOptions="Start" Margin="0,2,0,0" />
+                  <Label Grid.Column="1" Text="{Binding MostProductiveCaption}" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" LineBreakMode="WordWrap" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <Image Source="icon3d_chart.png" WidthRequest="16" HeightRequest="16" Aspect="AspectFit" VerticalOptions="Start" Margin="0,2,0,0" />
+                  <Label Grid.Column="1" Text="{Binding InsightFocus}" FontSize="12" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <Image Source="icon3d_coffee.png" WidthRequest="16" HeightRequest="16" Aspect="AspectFit" VerticalOptions="Start" Margin="0,2,0,0" />
+                  <Label Grid.Column="1" Text="{Binding InsightIdle}" FontSize="12" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+                </Grid>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                  <Image Source="icon3d_star.png" WidthRequest="16" HeightRequest="16" Aspect="AspectFit" VerticalOptions="Start" Margin="0,2,0,0" />
+                  <Label Grid.Column="1" Text="{Binding InsightBreaks}" FontSize="12" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+                </Grid>
               </VerticalStackLayout>
             </Grid>
           </Border>
@@ -222,10 +227,26 @@
                 <Image Source="icon3d_star.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
                 <Label Text="Personal Highlights" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
               </HorizontalStackLayout>
-              <VerticalStackLayout Grid.Row="1" Spacing="8" Margin="0,8,0,0">
-                <Label Text="{Binding HighlightProgress}" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" LineBreakMode="WordWrap" />
-                <Label Text="{Binding HighlightFocus}" FontSize="13" TextColor="{StaticResource TextPrimary}" LineBreakMode="WordWrap" />
-                <Label Text="{Binding HighlightWindow}" FontSize="13" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+              <VerticalStackLayout Grid.Row="1" Spacing="6" Margin="0,8,0,0">
+                <Border BackgroundColor="{StaticResource StatusGreenSoft}" StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="8,6">
+                  <VerticalStackLayout Spacing="1">
+                    <Label Text="{Binding HighlightProgressTitle}" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusGreen}" />
+                    <Label Text="{Binding HighlightProgress}" FontSize="11" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+                  </VerticalStackLayout>
+                </Border>
+                <Border BackgroundColor="{StaticResource AccentSoft}" StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="8,6">
+                  <VerticalStackLayout Spacing="1">
+                    <Label Text="Focus Champion" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+                    <Label Text="{Binding HighlightFocus}" FontSize="11" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+                  </VerticalStackLayout>
+                </Border>
+                <Border BackgroundColor="{StaticResource PrimarySoft}" StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="8,6"
+                        IsVisible="{Binding HighlightWindow, Converter={StaticResource IsNotNullConverter}}">
+                  <VerticalStackLayout Spacing="1">
+                    <Label Text="Most Productive" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource StatusBlue}" />
+                    <Label Text="{Binding HighlightWindow}" FontSize="11" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
+                  </VerticalStackLayout>
+                </Border>
               </VerticalStackLayout>
             </Grid>
           </Border>
@@ -236,9 +257,9 @@
                 <Image Source="icon3d_heart.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
                 <Label Text="Reflection &amp; Wellbeing" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
               </HorizontalStackLayout>
-              <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,8,0,0">
-                <Image Source="icon3d_meditation.png" WidthRequest="56" HeightRequest="56" Aspect="AspectFit" VerticalOptions="Start" />
-                <VerticalStackLayout Grid.Column="1" Spacing="6">
+              <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,6,0,0">
+                <Image Source="illustration_meditation.png" WidthRequest="108" HeightRequest="108" Aspect="AspectFit" VerticalOptions="Center" />
+                <VerticalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
                   <Label Text="Every productive day brings you closer to your goals. Take a moment to relax and recharge."
                          FontSize="12" TextColor="{StaticResource TextSecondary}" LineBreakMode="WordWrap" />
                   <Border Style="{StaticResource TrayPrimaryActionBorder}" StrokeShape="RoundRectangle 14" HeightRequest="34" HorizontalOptions="Start">
@@ -252,6 +273,30 @@
             </Grid>
           </Border>
         </Grid>
+
+        <Border Style="{StaticResource SetupResultCard}" Padding="12,10">
+          <Grid RowDefinitions="Auto,Auto,*">
+            <HorizontalStackLayout Spacing="6">
+              <Image Source="icon3d_desktop.png" WidthRequest="18" HeightRequest="18" Aspect="AspectFit" VerticalOptions="Center" />
+              <Label Text="Activity Screenshots" Style="{StaticResource SectionTitle}" FontSize="14" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+            <Label Grid.Row="1" Text="{Binding ScreenshotsCaption}" FontSize="12" TextColor="{StaticResource TextSecondary}" Margin="0,6,0,0" LineBreakMode="WordWrap" />
+            <ScrollView Grid.Row="2" Orientation="Horizontal" IsVisible="{Binding HasScreenshots}" Margin="0,8,0,0">
+              <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Screenshots}" Spacing="8">
+                <BindableLayout.ItemTemplate>
+                  <DataTemplate x:DataType="vm:DailyScreenshotItem">
+                    <VerticalStackLayout WidthRequest="168" Spacing="4">
+                      <Border StrokeShape="RoundRectangle 10" HeightRequest="96" Stroke="{StaticResource Separator}">
+                        <Image Source="{Binding Preview}" Aspect="AspectFill" HeightRequest="96" WidthRequest="168" />
+                      </Border>
+                      <Label Text="{Binding TimeDisplay}" FontSize="11" TextColor="{StaticResource TextMuted}" />
+                    </VerticalStackLayout>
+                  </DataTemplate>
+                </BindableLayout.ItemTemplate>
+              </HorizontalStackLayout>
+            </ScrollView>
+          </Grid>
+        </Border>
       </VerticalStackLayout>
     </ScrollView>
 

@@ -614,6 +614,48 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public async Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
+        string format, byte[] jpegBytes, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.FacePhotoValidate,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes)))
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Face photo validate timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<FacePhotoValidateResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
         IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct)
     {
@@ -737,21 +779,11 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                 if (envelope is null)
                     continue;
 
-                // Complete any pending request/response pair first.
+                // Complete any pending request/response pair first. Match on correlation
+                // id only — new reply types (e.g. FacePhotoValidateResult) must not sit
+                // in _pending until the 25s timeout just because this list was not updated.
                 if (!string.IsNullOrEmpty(envelope.CorrelationId)
-                    && _pending.TryGetValue(envelope.CorrelationId, out var pending)
-                    && envelope.Type is IpcMessageTypes.LifecycleResult
-                        or IpcMessageTypes.StatusResponse
-                        or IpcMessageTypes.CollectionRecordAck
-                        or IpcMessageTypes.EnrollmentResult
-                        or IpcMessageTypes.LogoutResult
-                        or IpcMessageTypes.BiometricEnrollmentSessionReady
-                        or IpcMessageTypes.BiometricEnrollmentResult
-                        or IpcMessageTypes.DevicePairingStarted
-                        or IpcMessageTypes.LocationChangeSubmitResult
-                        or IpcMessageTypes.LocationChangePendingResult
-                        or IpcMessageTypes.LocationChangeRespondResult
-                        or IpcMessageTypes.WorkLocationConfirmResult)
+                    && _pending.TryGetValue(envelope.CorrelationId, out var pending))
                 {
                     pending.TrySetResult(envelope);
                 }

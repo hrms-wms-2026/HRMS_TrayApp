@@ -29,7 +29,10 @@ public sealed class PolicySyncService : BackgroundService
     // TokenRefreshService's own "refresh well before expiry" margin (45 min for a 60-min token).
     // Internal (not private) so PolicySyncServiceTests can assert the margin directly — see
     // RefreshInterval_LeavesMarginBeforeBackendPolicyValidity.
-    internal static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(45);
+    // 2 minutes matches the backend toggle-cache TTL after Save defaults, so an admin
+    // changing Activity check threshold (e.g. 1 minute) reaches a clocked-in tray without
+    // waiting out the previous 45-minute ValidUntil-margin cadence.
+    internal static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan JwtPollInterval = TimeSpan.FromSeconds(15);
 
     private readonly ILogger<PolicySyncService> _logger;

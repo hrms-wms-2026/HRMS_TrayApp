@@ -17,6 +17,44 @@ public sealed class ActiveSessionViewModelTests
         Assert.Equal("Working", vm.StatusText);
         Assert.False(vm.IsBreakConfirmVisible);
         Assert.Equal("", vm.HintMessage);
+        Assert.False(vm.IsActivityCheckVisible);
+    }
+
+    [Fact]
+    public async Task ActivityCheck_Allow_RoutesToRouterAndHidesOverlay()
+    {
+        var hub = new ActivityCheckPromptHub();
+        var router = new NotificationActivationRouter();
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient(), hub, router);
+        var attemptId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var wait = router.WaitAsync(attemptId, default);
+
+        hub.RaiseShown(new ActivityCheckPrompt(attemptId, "Allow a screenshot of all connected monitors?"));
+
+        Assert.True(vm.IsActivityCheckVisible);
+        Assert.Contains("screenshot", vm.ActivityCheckMessage, StringComparison.OrdinalIgnoreCase);
+
+        vm.AllowActivityCheckCommand.Execute(null);
+
+        var decision = await wait;
+        Assert.Equal(InactivityPromptDecision.Allowed, decision);
+        Assert.False(vm.IsActivityCheckVisible);
+    }
+
+    [Fact]
+    public async Task ActivityCheck_Skip_RoutesDeclined()
+    {
+        var hub = new ActivityCheckPromptHub();
+        var router = new NotificationActivationRouter();
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient(), hub, router);
+        var attemptId = Guid.NewGuid();
+        var wait = router.WaitAsync(attemptId, default);
+
+        hub.RaiseShown(new ActivityCheckPrompt(attemptId, "body"));
+        vm.SkipActivityCheckCommand.Execute(null);
+
+        Assert.Equal(InactivityPromptDecision.Declined, await wait);
+        Assert.False(vm.IsActivityCheckVisible);
     }
 
     [Fact]

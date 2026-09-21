@@ -46,6 +46,7 @@
     <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0B1F4B" BaseSize="128,128" />
     <MauiImage Include="Resources\Images\*" />
     <MauiImage Update="Resources\Images\icon_*.svg" BaseSize="24,24" Resize="True" />
+    <MauiImage Update="Resources\Images\illustration_meditation.png" BaseSize="256,256" />
     <MauiFont Include="Resources\Fonts\*" />
   </ItemGroup>
 

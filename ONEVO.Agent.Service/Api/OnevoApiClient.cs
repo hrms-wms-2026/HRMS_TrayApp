@@ -559,6 +559,63 @@ public sealed class OnevoApiClient
             : new CompleteEnrollmentResult(true, null, payload.Status);
     }
 
+    /// <summary>Preview a clock-in selfie against AWS DetectFaces + CompareFaces. Auth: Bearer Device JWT.</summary>
+    public async Task<FacePhotoValidateApiResult> ValidateFacePhotoAsync(
+        string accessToken, string format, byte[] jpegBytes, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var multipart = new MultipartFormDataContent();
+        using var fileContent = new ByteArrayContent(jpegBytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue($"image/{format}");
+        multipart.Add(fileContent, "face_scan", $"preview.{format}");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.FacePhotoValidate)
+        {
+            Content = multipart
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.FacePhotoValidate);
+            return FacePhotoValidateApiResult.Unavailable();
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                return FacePhotoValidateApiResult.Unavailable(
+                    response.StatusCode == HttpStatusCode.Unauthorized ? "UNAUTHORIZED" : "SERVICE_UNAVAILABLE");
+            }
+
+            FacePhotoValidateApiResult parsed;
+            try
+            {
+                await using var stream = await response.Content.ReadAsStreamAsync(ct);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+                parsed = ReadFacePreview(doc.RootElement);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.FacePhotoValidate);
+                return FacePhotoValidateApiResult.Unavailable();
+            }
+
+            _logger.LogInformation(
+                "Face preview result can_proceed={CanProceed} lighting={Lighting} face={Face} obstruction={Obstruction} match={Match} reason={Reason}",
+                parsed.CanProceed, parsed.LightingOk, parsed.FaceVisible, parsed.NoSunglassesOrMask,
+                parsed.IsMatch, parsed.FailureReason);
+
+            return parsed;
+        }
+    }
+
     /// <summary>Submits a "Request location change" action. Auth: Bearer Device JWT.</summary>
     public async Task<LocationChangeRequestResult> SubmitLocationChangeRequestAsync(
         string accessToken, double latitude, double longitude, double? accuracyMeters, string reason, CancellationToken ct)
@@ -833,6 +890,53 @@ public sealed class OnevoApiClient
 
     private sealed record PendingNotificationsResponse(
         [property: JsonPropertyName("notifications")] List<PendingNotificationPayload> Notifications);
+
+    private static FacePhotoValidateApiResult ReadFacePreview(JsonElement root)
+    {
+        return new FacePhotoValidateApiResult(
+            true,
+            null,
+            ReadBool(root, "lighting_ok", "lightingOk"),
+            ReadBool(root, "face_visible", "faceVisible"),
+            ReadBool(root, "no_sunglasses_or_mask", "noSunglassesOrMask"),
+            ReadBool(root, "is_match", "isMatch"),
+            ReadBool(root, "can_proceed", "canProceed"),
+            ReadFloat(root, "similarity_score", "similarityScore"),
+            ReadString(root, "failure_reason", "failureReason"));
+    }
+
+    private static bool ReadBool(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value)
+                && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False))
+                return value.GetBoolean();
+        }
+        return false;
+    }
+
+    private static float? ReadFloat(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetSingle(out var number))
+                return number;
+        }
+        return null;
+    }
+
+    private static string? ReadString(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+                return value.GetString();
+        }
+        return null;
+    }
 }
 
 public sealed record PendingNotificationPayload(
@@ -968,3 +1072,27 @@ public sealed record LocationChangeRequestResult(
     bool Success, string? ErrorCode, LocationChangeRequestPayload? Request, string? Detail = null);
 
 public sealed record WorkLocationConfirmResult(bool Success, string? ErrorCode);
+
+public sealed record FacePhotoValidationPayload(
+    [property: JsonPropertyName("lighting_ok")] bool LightingOk,
+    [property: JsonPropertyName("face_visible")] bool FaceVisible,
+    [property: JsonPropertyName("no_sunglasses_or_mask")] bool NoSunglassesOrMask,
+    [property: JsonPropertyName("is_match")] bool IsMatch,
+    [property: JsonPropertyName("can_proceed")] bool CanProceed,
+    [property: JsonPropertyName("similarity_score")] float? SimilarityScore,
+    [property: JsonPropertyName("failure_reason")] string? FailureReason);
+
+public sealed record FacePhotoValidateApiResult(
+    bool Success,
+    string? ErrorCode,
+    bool LightingOk,
+    bool FaceVisible,
+    bool NoSunglassesOrMask,
+    bool IsMatch,
+    bool CanProceed,
+    float? Similarity,
+    string? FailureReason)
+{
+    public static FacePhotoValidateApiResult Unavailable(string errorCode = "SERVICE_UNAVAILABLE") =>
+        new(false, errorCode, false, false, false, false, false, null, null);
+}

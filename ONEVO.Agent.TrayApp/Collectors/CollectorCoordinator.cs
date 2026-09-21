@@ -101,7 +101,7 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
         {
             _policy = policy;
         }
-        BootLog($"Policy received Version={policy.Version} Activity={policy.ActivitySignalEnabled}");
+        BootLog($"Policy received Version={policy.Version} Activity={policy.ActivitySignalEnabled} Screenshot={policy.ScreenshotEnabled} InactivityShot={policy.InactivityScreenshotEnabled} IdleMin={policy.IdleThresholdMinutes}");
         _ = ReconcileAsync();
     }
 

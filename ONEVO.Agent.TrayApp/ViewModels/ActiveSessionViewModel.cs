@@ -12,6 +12,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private readonly ISessionDayMetrics _dayMetrics;
     private readonly ICollectorLifecycleCoordinator _lifecycleCoordinator;
     private readonly ILocationService _location;
+    private readonly ActivityCheckPromptHub? _activityCheckHub;
+    private readonly NotificationActivationRouter? _activityCheckRouter;
     private IDispatcherTimer? _uiTimer;
     private DateTimeOffset? _clockInAt;
     private TimeSpan _accumulatedBreak;
@@ -66,17 +68,30 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty] private bool _isRespondingToLocationChangePrompt;
     private Guid? _pendingLocationChangeRequestId;
 
+    [ObservableProperty] private bool _isActivityCheckVisible;
+    [ObservableProperty] private string _activityCheckMessage = "";
+    private Guid? _pendingActivityCheckId;
+
     public ActiveSessionViewModel(
         INamedPipeClient pipe,
         ISessionDayMetrics dayMetrics,
         ICollectorLifecycleCoordinator lifecycleCoordinator,
-        ILocationService location)
+        ILocationService location,
+        ActivityCheckPromptHub? activityCheckHub = null,
+        NotificationActivationRouter? activityCheckRouter = null)
     {
         Title = "Active Session";
         _pipe = pipe;
         _dayMetrics = dayMetrics;
         _lifecycleCoordinator = lifecycleCoordinator;
         _location = location;
+        _activityCheckHub = activityCheckHub;
+        _activityCheckRouter = activityCheckRouter;
+        if (_activityCheckHub is not null)
+        {
+            _activityCheckHub.Shown += OnActivityCheckShown;
+            _activityCheckHub.Closed += OnActivityCheckClosed;
+        }
     }
 
     public bool ShowWorkingActions => !IsOnBreak;
@@ -91,6 +106,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     public ActiveSessionViewModel(
         INamedPipeClient pipe, ISessionDayMetrics dayMetrics, ICollectorLifecycleCoordinator lifecycleCoordinator)
         : this(pipe, dayMetrics, lifecycleCoordinator, NoOpLocationService.Instance) { }
+
+    /// <summary>Test helper — activity-check overlay + router.</summary>
+    public ActiveSessionViewModel(
+        INamedPipeClient pipe, ActivityCheckPromptHub hub, NotificationActivationRouter router)
+        : this(pipe, new SessionDayMetrics(), NoOpCollectorLifecycleCoordinator.Instance, NoOpLocationService.Instance, hub, router) { }
 
     public void OnAppearing()
     {
@@ -636,6 +656,60 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         }
     }
 
+    private void OnActivityCheckShown(ActivityCheckPrompt prompt)
+    {
+        void Apply()
+        {
+            _pendingActivityCheckId = prompt.AttemptId;
+            ActivityCheckMessage = prompt.Body;
+            IsActivityCheckVisible = true;
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null)
+            dispatcher.Dispatch(Apply);
+        else
+            Apply();
+    }
+
+    private void OnActivityCheckClosed(Guid attemptId)
+    {
+        void Hide()
+        {
+            if (_pendingActivityCheckId == attemptId)
+            {
+                IsActivityCheckVisible = false;
+                _pendingActivityCheckId = null;
+            }
+        }
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null)
+            dispatcher.Dispatch(Hide);
+        else
+            Hide();
+    }
+
+    [RelayCommand]
+    private void AllowActivityCheck()
+    {
+        if (_pendingActivityCheckId is not { } id || _activityCheckRouter is null)
+            return;
+        _activityCheckRouter.Route($"attempt={id:D};decision=allow");
+        IsActivityCheckVisible = false;
+        _pendingActivityCheckId = null;
+    }
+
+    [RelayCommand]
+    private void SkipActivityCheck()
+    {
+        if (_pendingActivityCheckId is not { } id || _activityCheckRouter is null)
+            return;
+        _activityCheckRouter.Route($"attempt={id:D};decision=skip");
+        IsActivityCheckVisible = false;
+        _pendingActivityCheckId = null;
+    }
+
     private void OnPolicyReceivedForClockOutVisibility(AgentPolicy _) => OnPropertyChanged(nameof(ShowClockOutAction));
 
     private void OnPolicyReceivedForLocationChangeVisibility(AgentPolicy policy) =>
@@ -652,6 +726,12 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
     public async ValueTask DisposeAsync()
     {
+        if (_activityCheckHub is not null)
+        {
+            _activityCheckHub.Shown -= OnActivityCheckShown;
+            _activityCheckHub.Closed -= OnActivityCheckClosed;
+        }
+
         if (_subscribed)
         {
             _pipe.OnStatusReceived -= OnStatus;

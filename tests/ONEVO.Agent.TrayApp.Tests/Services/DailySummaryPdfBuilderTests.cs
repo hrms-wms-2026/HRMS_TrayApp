@@ -35,4 +35,21 @@ public sealed class DailySummaryPdfBuilderTests
         Assert.NotEmpty(bytes);
         Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
     }
+
+    [Fact]
+    public void Build_WithAllowedScreenshot_ProducesValidPdf()
+    {
+        using var bmp = new System.Drawing.Bitmap(8, 8);
+        using var ms = new MemoryStream();
+        bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+        var jpeg = ms.ToArray();
+
+        var bytes = DailySummaryPdfBuilder.Build(SampleData() with
+        {
+            Screenshots = [new DailySummaryPdfScreenshot("10:05 AM", jpeg)]
+        });
+
+        Assert.NotEmpty(bytes);
+        Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
+    }
 }

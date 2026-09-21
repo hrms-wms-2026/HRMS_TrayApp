@@ -37,13 +37,16 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         $"No keyboard or mouse activity was detected for {(int)idleFor.TotalMinutes} minutes. Allow a screenshot of all connected monitors?";
 
     private readonly NotificationActivationRouter _router;
+    private readonly ActivityCheckPromptHub _hub;
     private readonly ILogger<WindowsInactivityPromptService> _logger;
 
     public WindowsInactivityPromptService(
         NotificationActivationRouter router,
+        ActivityCheckPromptHub hub,
         ILogger<WindowsInactivityPromptService> logger)
     {
         _router = router;
+        _hub = hub;
         _logger = logger;
 
         try
@@ -64,6 +67,9 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         TimeSpan expiresIn,
         CancellationToken ct)
     {
+        var body = BuildNotificationBody(idleFor);
+        _hub.RaiseShown(new ActivityCheckPrompt(attemptId, body));
+
         try
         {
             Show(attemptId, expiresIn, idleFor);
@@ -91,6 +97,7 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         finally
         {
             Dismiss(attemptId);
+            _hub.RaiseClosed(attemptId);
         }
     }
 
@@ -120,6 +127,8 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         var notification = new AppNotificationBuilder()
             .AddText(NotificationTitle)
             .AddText(BuildNotificationBody(idleFor))
+            .SetScenario(AppNotificationScenario.Reminder)
+            .SetDuration(AppNotificationDuration.Long)
             .AddButton(new AppNotificationButton("Allow")
                 .AddArgument("attempt", attempt)
                 .AddArgument("decision", "allow"))

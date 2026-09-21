@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp;
 
+using Microsoft.Extensions.Logging;
 using ONEVO.Agent.TrayApp.Collectors;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
@@ -77,6 +78,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<IUpdateChecker, UpdateChecker>();
         builder.Services.AddSingleton<UpdateNotifier>();
         builder.Services.AddSingleton<NotificationActivationRouter>();
+        builder.Services.AddSingleton<ActivityCheckPromptHub>();
         builder.Services.AddSingleton<WindowsInactivityPromptService>();
         builder.Services.AddSingleton<IInactivityPromptService>(sp =>
             sp.GetRequiredService<WindowsInactivityPromptService>());
@@ -104,7 +106,13 @@ public static class MauiProgram
             sp.GetRequiredService<MeetingDetector>());
         builder.Services.AddSingleton<IIdleTimeProvider, WindowsIdleTimeProvider>();
         builder.Services.AddSingleton<Capture.IScreenshotCaptureService, Capture.VirtualDesktopScreenshotCaptureService>();
-        builder.Services.AddSingleton<InactivityScreenshotCollector>();
+        builder.Services.AddSingleton(sp => new InactivityScreenshotCollector(
+            sp.GetRequiredService<ILogger<InactivityScreenshotCollector>>(),
+            sp.GetRequiredService<IIdleTimeProvider>(),
+            sp.GetRequiredService<IInactivityPromptService>(),
+            sp.GetRequiredService<Capture.IScreenshotCaptureService>(),
+            sp.GetRequiredService<INamedPipeClient>(),
+            dayMetrics: sp.GetRequiredService<ISessionDayMetrics>()));
         builder.Services.AddSingleton<IAgentCollector>(sp =>
             sp.GetRequiredService<InactivityScreenshotCollector>());
         builder.Services.AddSingleton<CollectorCoordinator>();

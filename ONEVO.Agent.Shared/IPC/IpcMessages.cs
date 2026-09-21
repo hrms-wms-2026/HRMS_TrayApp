@@ -108,6 +108,12 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: result of a WorkLocationConfirm call.</summary>
     public const string WorkLocationConfirmResult = "WorkLocationConfirmResult";
 
+    /// <summary>Tray → Service: preview a clock-in/out selfie against AWS before lifecycle.</summary>
+    public const string FacePhotoValidate = "FacePhotoValidate";
+
+    /// <summary>Service → Tray: DetectFaces + CompareFaces result used to allow clock-in or force a retake.</summary>
+    public const string FacePhotoValidateResult = "FacePhotoValidateResult";
+
     /// <summary>Tray → Service: employee accepted the pending legal documents shown on the consent screen.</summary>
     public const string LegalAcceptanceSubmit = "LegalAcceptanceSubmit";
 
@@ -300,6 +306,19 @@ public sealed record WorkLocationConfirmPayload(
     string LocationType, double? Latitude, double? Longitude, double? AccuracyMeters);
 
 public sealed record WorkLocationConfirmResultPayload(bool Success, string? ErrorCode);
+
+public sealed record FacePhotoValidatePayload(string Format, string Data);
+
+public sealed record FacePhotoValidateResultPayload(
+    bool Success,
+    string? ErrorCode,
+    bool LightingOk,
+    bool FaceVisible,
+    bool NoSunglassesOrMask,
+    bool IsMatch,
+    bool CanProceed,
+    float? Similarity,
+    string? FailureReason);
 
 public sealed record LegalAcceptanceItemPayload(string DocumentType, string Version);
 

@@ -6,7 +6,16 @@ using System.Text;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
-public sealed record TopAppItem(string Name, string Duration, ImageSource? IconSource = null, string Percent = "");
+public sealed record TopAppItem(
+    string Name,
+    string Duration,
+    ImageSource? IconSource = null,
+    string Percent = "",
+    string ColorHex = "#6366F1",
+    double Fraction = 0)
+{
+    public Color Swatch => Color.FromArgb(string.IsNullOrWhiteSpace(ColorHex) ? "#6366F1" : ColorHex);
+}
 
 /// <summary>No-op icon cache for call sites that don't need real icons (unit tests).</summary>
 public sealed class NullAppIconCache : IAppIconCache
@@ -294,7 +303,12 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     internal DailySummaryPdfData ToPdfData() => new(
         StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
         WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
-        BreakSessionsDisplay, [.. TopApps]);
+        BreakSessionsDisplay, [.. TopApps],
+        _dayMetrics.GetAllowedScreenshots()
+            .Select(s => new DailySummaryPdfScreenshot(
+                s.CapturedAt.ToLocalTime().ToString("h:mm tt"),
+                s.JpegBytes))
+            .ToList());
 
     [RelayCommand]
     private static void OpenDashboard()

@@ -307,6 +307,28 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             new WorkLocationConfirmResultPayload(true, null));
     }
 
+    /// <summary>Optional canned result for ValidateFacePhotoAsync. Null = auto-pass.</summary>
+    public FacePhotoValidateResultPayload? NextFacePhotoValidateResult { get; set; }
+
+    public Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
+        string format, byte[] jpegBytes, CancellationToken ct)
+    {
+        CallOrder.Add("validate");
+        SentEnvelopes.Add(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.FacePhotoValidate,
+            Payload = JsonSerializer.SerializeToElement(
+                new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes)))
+        });
+
+        if (NextFacePhotoValidateResult is not null)
+            return Task.FromResult<FacePhotoValidateResultPayload?>(NextFacePhotoValidateResult);
+
+        return Task.FromResult<FacePhotoValidateResultPayload?>(
+            new FacePhotoValidateResultPayload(
+                true, null, true, true, true, true, true, 92f, null));
+    }
+
     /// <summary>Optional canned result for SendLegalAcceptanceSubmitAsync. Null = auto-success.</summary>
     public LegalAcceptanceResultPayload? NextLegalAcceptanceResult { get; set; }
 

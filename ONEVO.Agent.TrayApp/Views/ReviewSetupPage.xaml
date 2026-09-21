@@ -8,7 +8,7 @@
              Shell.NavBarIsVisible="False"
              Title="OneXso WorkPulse">
 
-  <Grid RowDefinitions="*,Auto" Padding="72,24,72,12">
+  <Grid RowDefinitions="*,Auto" Padding="48,16,48,10">
     <Grid.Background>
       <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="{StaticResource BackgroundWashStart}" Offset="0" />
@@ -17,98 +17,120 @@
       </LinearGradientBrush>
     </Grid.Background>
 
-    <!-- Centered 680px column so the confirm pill is the same width as the card
-         (a Center-sized stack was shrinking the button to its label). -->
+    <Ellipse WidthRequest="520" HeightRequest="520"
+             HorizontalOptions="Start" VerticalOptions="Start" Margin="-180,-140,0,0"
+             Opacity="0.95" InputTransparent="True">
+      <Ellipse.Fill>
+        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+          <GradientStop Color="{StaticResource GlassGlowPrimary}" Offset="0" />
+          <GradientStop Color="#00175CFF" Offset="1" />
+        </RadialGradientBrush>
+      </Ellipse.Fill>
+    </Ellipse>
+    <Ellipse WidthRequest="460" HeightRequest="460"
+             HorizontalOptions="End" VerticalOptions="End" Margin="0,0,-160,-120"
+             Opacity="0.9" InputTransparent="True">
+      <Ellipse.Fill>
+        <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+          <GradientStop Color="{StaticResource GlassGlowAccent}" Offset="0" />
+          <GradientStop Color="#006D28D9" Offset="1" />
+        </RadialGradientBrush>
+      </Ellipse.Fill>
+    </Ellipse>
+
+    <!-- 680px column. Title + card + CTA are separate rows so Confirm never
+         sits on the footer the way a single centered stack does when the window is short. -->
     <Grid Grid.Row="0" ColumnDefinitions="*,680,*">
-    <VerticalStackLayout Grid.Column="1"
-                         Spacing="0"
-                         VerticalOptions="Center"
-                         HorizontalOptions="Fill">
-      <Label HorizontalOptions="Center" Margin="0,0,0,6">
-        <Label.FormattedText>
-          <FormattedString>
-            <Span Text="Confirm Your " FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
-            <Span Text="Details" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
-          </FormattedString>
-        </Label.FormattedText>
-      </Label>
-      <Label Text="Please review your information before continuing."
-             Style="{StaticResource PageSubtitle}"
-             Margin="0,0,0,20" />
-
-      <Border Style="{StaticResource SetupResultCard}"
-              Padding="24,8"
-              Margin="0,0,0,20"
-              HorizontalOptions="Fill">
-        <VerticalStackLayout Spacing="0">
-          <controls:ReviewDetailRow Icon="{StaticResource IconPerson}"
-                                    LabelText="Full Name"
-                                    Value="{Binding FullName}" />
-          <controls:ReviewDetailRow Icon="{StaticResource IconMail}"
-                                    LabelText="Email"
-                                    Value="{Binding WorkEmail}" />
-          <controls:ReviewDetailRow Icon="{StaticResource IconBadge}"
-                                    LabelText="Employee ID"
-                                    Value="{Binding EmployeeId}" />
-          <controls:ReviewDetailRow Icon="{StaticResource IconWork}"
-                                    LabelText="Department"
-                                    Value="{Binding Department}" />
-          <controls:ReviewDetailRow Icon="{StaticResource IconLocation}"
-                                    LabelText="Registered Office"
-                                    Value="{Binding RegisteredOffice}" />
-          <controls:ReviewDetailRow Icon="{StaticResource IconMonitor}"
-                                    LabelText="Work Mode"
-                                    Value="{Binding WorkMode}" />
-          <controls:ReviewDetailRow Icon="{StaticResource IconShield}"
-                                    LabelText="Face Verification"
-                                    Value="{Binding FaceVerificationStatusText}" />
-          <controls:ReviewDetailRow Icon="{StaticResource IconLaptop}"
-                                    LabelText="This Device"
-                                    Value="{Binding ThisDevice}"
-                                    ShowDivider="False" />
+      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto">
+        <VerticalStackLayout Spacing="4" Margin="0,8,0,0">
+          <Label HorizontalOptions="Center">
+            <Label.FormattedText>
+              <FormattedString>
+                <Span Text="Confirm Your " FontSize="28" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                <Span Text="Details" FontSize="28" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" />
+              </FormattedString>
+            </Label.FormattedText>
+          </Label>
+          <Label Text="Please review your information before continuing."
+                 Style="{StaticResource PageSubtitle}" />
         </VerticalStackLayout>
-      </Border>
 
-      <Border Style="{StaticResource TrayPrimaryActionBorder}"
-              HorizontalOptions="Fill"
-              HeightRequest="48"
-              Margin="0,0,0,8">
-        <Border.Background>
-          <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-            <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
-            <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
-            <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
-          </LinearGradientBrush>
-        </Border.Background>
-        <Grid>
-          <Button Command="{Binding ConfirmAndContinueCommand}"
-                  Style="{StaticResource TrayPrimaryActionOverlay}"
-                  HeightRequest="48"
-                  Text=""
-                  SemanticProperties.Description="Confirm and Continue" />
-          <HorizontalStackLayout InputTransparent="True"
-                                 HorizontalOptions="Center"
-                                 VerticalOptions="Center"
-                                 Spacing="8">
-            <Label Text="{StaticResource IconShield}"
-                   FontFamily="Segoe MDL2 Assets"
-                   FontSize="16"
-                   TextColor="White"
-                   VerticalOptions="Center" />
-            <Label Text="Confirm &amp; Continue"
-                   Style="{StaticResource ButtonLabel}" />
-          </HorizontalStackLayout>
-        </Grid>
-      </Border>
+        <Border Grid.Row="1"
+                Style="{StaticResource SetupResultCard}"
+                Padding="22,10"
+                Margin="0,18,0,16"
+                VerticalOptions="Center"
+                HorizontalOptions="Fill">
+          <VerticalStackLayout Spacing="0">
+            <controls:ReviewDetailRow Icon="{StaticResource IconPerson}"
+                                      LabelText="Full Name"
+                                      Value="{Binding FullName}" />
+            <controls:ReviewDetailRow Icon="{StaticResource IconMail}"
+                                      LabelText="Email"
+                                      Value="{Binding WorkEmail}" />
+            <controls:ReviewDetailRow Icon="{StaticResource IconBadge}"
+                                      LabelText="Employee ID"
+                                      Value="{Binding EmployeeId}" />
+            <controls:ReviewDetailRow Icon="{StaticResource IconWork}"
+                                      LabelText="Department"
+                                      Value="{Binding Department}" />
+            <controls:ReviewDetailRow Icon="{StaticResource IconLocation}"
+                                      LabelText="Registered Office"
+                                      Value="{Binding RegisteredOffice}" />
+            <controls:ReviewDetailRow Icon="{StaticResource IconMonitor}"
+                                      LabelText="Work Mode"
+                                      Value="{Binding WorkMode}" />
+            <controls:ReviewDetailRow Icon="{StaticResource IconShield}"
+                                      LabelText="Face Verification"
+                                      Value="{Binding FaceVerificationStatusText}" />
+            <controls:ReviewDetailRow Icon="{StaticResource IconLaptop}"
+                                      LabelText="This Device"
+                                      Value="{Binding ThisDevice}"
+                                      ShowDivider="False" />
+          </VerticalStackLayout>
+        </Border>
 
-      <Button Text="←  Back"
-              Command="{Binding BackCommand}"
-              BackgroundColor="Transparent"
-              TextColor="{StaticResource Primary}"
-              FontSize="14"
-              FontAttributes="Bold"
-              HorizontalOptions="Center" />
-    </VerticalStackLayout>
+        <VerticalStackLayout Grid.Row="2" Spacing="6" Margin="0,0,0,4">
+          <Border Style="{StaticResource TrayPrimaryActionBorder}"
+                  HorizontalOptions="Fill"
+                  HeightRequest="48">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                <GradientStop Color="{StaticResource ConnectButtonStart}" Offset="0" />
+                <GradientStop Color="{StaticResource ConnectButtonMid}" Offset="0.55" />
+                <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
+              </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+              <Button Command="{Binding ConfirmAndContinueCommand}"
+                      Style="{StaticResource TrayPrimaryActionOverlay}"
+                      HeightRequest="48"
+                      Text=""
+                      SemanticProperties.Description="Confirm and Continue" />
+              <HorizontalStackLayout InputTransparent="True"
+                                     HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     Spacing="8">
+                <Label Text="{StaticResource IconShield}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="16"
+                       TextColor="White"
+                       VerticalOptions="Center" />
+                <Label Text="Confirm &amp; Continue"
+                       Style="{StaticResource ButtonLabel}" />
+              </HorizontalStackLayout>
+            </Grid>
+          </Border>
+
+          <Button Text="←  Back"
+                  Command="{Binding BackCommand}"
+                  BackgroundColor="Transparent"
+                  TextColor="{StaticResource Primary}"
+                  FontSize="14"
+                  FontAttributes="Bold"
+                  HorizontalOptions="Center" />
+        </VerticalStackLayout>
+      </Grid>
     </Grid>
 
     <controls:FooterStatusBar Grid.Row="1"

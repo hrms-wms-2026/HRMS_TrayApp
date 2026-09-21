@@ -61,6 +61,10 @@ public class PolicySyncServiceTests
             $"RefreshInterval ({PolicySyncService.RefreshInterval}) must leave real margin before " +
             $"the backend's {backendValidityWindow} policy validity window, or every scheduled " +
             "refresh will race an already-expired policy.");
+        Assert.True(
+            PolicySyncService.RefreshInterval <= TimeSpan.FromMinutes(2),
+            $"RefreshInterval ({PolicySyncService.RefreshInterval}) must pick up an admin Activity check " +
+            "threshold change within 2 minutes (backend toggle-cache TTL), not the old 45-minute cadence.");
     }
 
     [Fact]
