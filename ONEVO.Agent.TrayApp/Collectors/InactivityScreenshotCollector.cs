@@ -404,6 +404,9 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
                     InactivityPromptDecision.ActivityResumed => InactivityCaptureOutcomes.ActivityResumed,
                     _ => InactivityCaptureOutcomes.MonitoringStopped
                 };
+
+                if (decision == InactivityPromptDecision.Declined)
+                    _dayMetrics?.AddSkippedScreenshot(attemptId, decisionAt);
             }
 
             var attempt = new InactivityCaptureAttemptPayload

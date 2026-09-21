@@ -3,10 +3,14 @@ namespace ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.Shared.IPC;
 
 /// <summary>
-/// One activity-check screenshot the employee allowed this session. Bytes stay in
-/// process memory for Daily Summary / PDF only — they are not written to logs.
+/// One activity-check tile for Daily Summary / PDF. Allowed shots keep JPEG bytes in
+/// process memory only; skipped checks are a red note with no image.
 /// </summary>
-public sealed record SessionScreenshot(Guid AttemptId, DateTimeOffset CapturedAt, byte[] JpegBytes);
+public sealed record SessionScreenshot(
+    Guid AttemptId,
+    DateTimeOffset CapturedAt,
+    byte[] JpegBytes,
+    bool IsSkipped = false);
 
 /// <summary>
 /// In-memory day metrics for the Tray end-of-day summary (local session).
@@ -24,11 +28,15 @@ public interface ISessionDayMetrics
 
     void AddAllowedScreenshot(Guid attemptId, DateTimeOffset capturedAt, ReadOnlyMemory<byte> jpegBytes);
 
+    void AddSkippedScreenshot(Guid attemptId, DateTimeOffset skippedAt);
+
     void ResetDay();
 
     IReadOnlyList<(string Name, TimeSpan Duration)> GetTopApps(int take = 5);
 
     IReadOnlyList<SessionScreenshot> GetAllowedScreenshots();
+
+    IReadOnlyList<SessionScreenshot> GetActivityChecks();
 
     TimeSpan TotalIdle { get; }
 }

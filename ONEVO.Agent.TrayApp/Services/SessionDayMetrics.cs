@@ -6,6 +6,7 @@ using ONEVO.Agent.Shared.IPC;
 public sealed class SessionDayMetrics : ISessionDayMetrics
 {
     internal const int MaxAllowedScreenshots = 12;
+    internal const int MaxActivityChecks = MaxAllowedScreenshots;
 
     private readonly ConcurrentDictionary<string, TimeSpan> _appSeconds = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<SessionScreenshot> _screenshots = [];
@@ -51,11 +52,20 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             return;
 
         lock (_gate)
-        {
-            _screenshots.Add(new SessionScreenshot(attemptId, capturedAt, jpegBytes.ToArray()));
-            while (_screenshots.Count > MaxAllowedScreenshots)
-                _screenshots.RemoveAt(0);
-        }
+            AppendActivityCheck(new SessionScreenshot(attemptId, capturedAt, jpegBytes.ToArray()));
+    }
+
+    public void AddSkippedScreenshot(Guid attemptId, DateTimeOffset skippedAt)
+    {
+        lock (_gate)
+            AppendActivityCheck(new SessionScreenshot(attemptId, skippedAt, [], IsSkipped: true));
+    }
+
+    private void AppendActivityCheck(SessionScreenshot item)
+    {
+        _screenshots.Add(item);
+        while (_screenshots.Count > MaxActivityChecks)
+            _screenshots.RemoveAt(0);
     }
 
     public void ResetDay()
@@ -77,6 +87,12 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             .ToList();
 
     public IReadOnlyList<SessionScreenshot> GetAllowedScreenshots()
+    {
+        lock (_gate)
+            return _screenshots.Where(s => !s.IsSkipped).ToArray();
+    }
+
+    public IReadOnlyList<SessionScreenshot> GetActivityChecks()
     {
         lock (_gate)
             return _screenshots.ToArray();

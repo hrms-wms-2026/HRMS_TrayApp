@@ -56,6 +56,25 @@ public sealed class DailySummaryViewModelTests
     }
 
     [Fact]
+    public void OnAppearing_MapsSkippedAttemptAsRedNote()
+    {
+        var metrics = new ONEVO.Agent.TrayApp.Services.SessionDayMetrics();
+        var skippedAt = new DateTimeOffset(2026, 9, 18, 10, 7, 0, TimeSpan.FromHours(5.5));
+        metrics.AddSkippedScreenshot(Guid.NewGuid(), skippedAt);
+
+        var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), metrics);
+        vm.OnAppearing();
+
+        var note = Assert.Single(vm.Screenshots);
+        Assert.True(vm.HasScreenshots);
+        Assert.True(note.IsSkipped);
+        Assert.Empty(note.JpegBytes);
+        Assert.Equal("Screenshot skipped", note.NoteText);
+        Assert.Equal(skippedAt.ToLocalTime().ToString("h:mm tt"), note.TimeDisplay);
+        Assert.Contains("skipped", vm.ScreenshotsCaption, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task DownloadSummaryCommand_WritesPdfFile()
     {
         var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), new ONEVO.Agent.TrayApp.Services.SessionDayMetrics());

@@ -52,4 +52,17 @@ public sealed class DailySummaryPdfBuilderTests
         Assert.NotEmpty(bytes);
         Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
     }
+
+    [Fact]
+    public void Build_WithSkippedScreenshot_ProducesValidPdf()
+    {
+        var bytes = DailySummaryPdfBuilder.Build(SampleData() with
+        {
+            Screenshots = [new DailySummaryPdfScreenshot("10:07 AM", [], IsSkipped: true)]
+        });
+
+        Assert.NotEmpty(bytes);
+        Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
+        Assert.True(bytes.Length > DailySummaryPdfBuilder.Build(SampleData() with { Screenshots = [] }).Length);
+    }
 }

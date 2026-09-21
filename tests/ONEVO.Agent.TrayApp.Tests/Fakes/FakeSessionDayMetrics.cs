@@ -15,6 +15,8 @@ public sealed class FakeSessionDayMetrics : ISessionDayMetrics
 
     public List<SessionScreenshot> AllowedScreenshots { get; } = [];
 
+    public List<SessionScreenshot> ActivityChecks { get; } = [];
+
     public void RememberCompletedSession(SessionSnapshot session) => LastCompletedSession = session;
 
     public void AddAppUsageSample(string processName, TimeSpan sampleWindow) { }
@@ -29,7 +31,14 @@ public sealed class FakeSessionDayMetrics : ISessionDayMetrics
     {
         if (jpegBytes.IsEmpty)
             return;
-        AllowedScreenshots.Add(new SessionScreenshot(attemptId, capturedAt, jpegBytes.ToArray()));
+        var shot = new SessionScreenshot(attemptId, capturedAt, jpegBytes.ToArray());
+        AllowedScreenshots.Add(shot);
+        ActivityChecks.Add(shot);
+    }
+
+    public void AddSkippedScreenshot(Guid attemptId, DateTimeOffset skippedAt)
+    {
+        ActivityChecks.Add(new SessionScreenshot(attemptId, skippedAt, [], IsSkipped: true));
     }
 
     public void ResetDay()
@@ -37,9 +46,12 @@ public sealed class FakeSessionDayMetrics : ISessionDayMetrics
         TotalIdle = TimeSpan.Zero;
         LastCompletedSession = null;
         AllowedScreenshots.Clear();
+        ActivityChecks.Clear();
     }
 
     public IReadOnlyList<(string Name, TimeSpan Duration)> GetTopApps(int take = 5) => [];
 
     public IReadOnlyList<SessionScreenshot> GetAllowedScreenshots() => AllowedScreenshots;
+
+    public IReadOnlyList<SessionScreenshot> GetActivityChecks() => ActivityChecks;
 }

@@ -164,6 +164,10 @@ public sealed class InactivityScreenshotCollectorTests
         Assert.Equal(InactivityCaptureOutcomes.Declined, submitted.Attempt.Outcome);
         Assert.Equal(0, submitted.JpegLength);
         Assert.Empty(_dayMetrics.GetAllowedScreenshots());
+        var note = Assert.Single(_dayMetrics.GetActivityChecks());
+        Assert.True(note.IsSkipped);
+        Assert.Equal(submitted.Attempt.AttemptId, note.AttemptId);
+        Assert.Empty(note.JpegBytes);
     }
 
     [Fact]

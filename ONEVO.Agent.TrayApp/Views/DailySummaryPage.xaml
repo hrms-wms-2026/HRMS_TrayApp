@@ -287,7 +287,30 @@
                   <DataTemplate x:DataType="vm:DailyScreenshotItem">
                     <VerticalStackLayout WidthRequest="168" Spacing="4">
                       <Border StrokeShape="RoundRectangle 10" HeightRequest="96" Stroke="{StaticResource Separator}">
-                        <Image Source="{Binding Preview}" Aspect="AspectFill" HeightRequest="96" WidthRequest="168" />
+                        <Border.Triggers>
+                          <DataTrigger TargetType="Border" Binding="{Binding IsSkipped}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource StatusRedSoft}" />
+                            <Setter Property="Stroke" Value="{StaticResource StatusRed}" />
+                          </DataTrigger>
+                        </Border.Triggers>
+                        <Grid>
+                          <Image Source="{Binding Preview}"
+                                 Aspect="AspectFill"
+                                 HeightRequest="96"
+                                 WidthRequest="168"
+                                 IsVisible="{Binding IsSkipped, Converter={StaticResource InvertBoolConverter}}" />
+                          <VerticalStackLayout IsVisible="{Binding IsSkipped}"
+                                               Padding="10"
+                                               Spacing="2"
+                                               VerticalOptions="Center">
+                            <Label Text="Screenshot skipped"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource StatusRed}"
+                                   HorizontalTextAlignment="Center"
+                                   LineBreakMode="WordWrap" />
+                          </VerticalStackLayout>
+                        </Grid>
                       </Border>
                       <Label Text="{Binding TimeDisplay}" FontSize="11" TextColor="{StaticResource TextMuted}" />
                     </VerticalStackLayout>
