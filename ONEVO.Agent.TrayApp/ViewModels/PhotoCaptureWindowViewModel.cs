@@ -26,6 +26,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
     [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
+    [NotifyPropertyChangedFor(nameof(ShowLiveFrame))]
+    [NotifyPropertyChangedFor(nameof(ShowCameraFallback))]
     private bool _isCaptured;
 
     [ObservableProperty]
@@ -71,6 +73,14 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     [ObservableProperty] private bool    _isScanAnimating;
     [ObservableProperty] private object? _previewFrameSource;
     [ObservableProperty] private byte[]? _capturedPhotoBytes;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowLiveFrame))]
+    [NotifyPropertyChangedFor(nameof(ShowCameraFallback))]
+    private byte[]? _livePreviewBytes;
+
+    public bool ShowLiveFrame => !IsCaptured && LivePreviewBytes is { Length: > 0 };
+    public bool ShowCameraFallback => !IsCaptured && LivePreviewBytes is not { Length: > 0 };
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
@@ -145,15 +155,28 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
     public async Task StartPreviewAsync()
     {
+        _camera.PreviewFrame -= OnPreviewFrame;
+        _camera.PreviewFrame += OnPreviewFrame;
         PreviewFrameSource = await _camera.StartPreviewAsync();
-        IsScanAnimating = true;
+        // The sweep reads as a cut across the mouth while the employee is lining up.
+        IsScanAnimating = false;
     }
 
     public async Task StopPreviewAsync()
     {
+        _camera.PreviewFrame -= OnPreviewFrame;
         IsScanAnimating = false;
+        LivePreviewBytes = null;
         PreviewFrameSource = null; // signals handler to release MediaPlayer first
         await _camera.StopPreviewAsync();
+    }
+
+    private void OnPreviewFrame(object? sender, byte[] jpeg)
+    {
+        if (IsCaptured || jpeg is not { Length: > 0 })
+            return;
+
+        LivePreviewBytes = jpeg;
     }
 
     [RelayCommand]
@@ -183,6 +206,9 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             IsCapturing     = false;
             IsScanAnimating = false;
         }
+
+        if (IsCaptured)
+            await TryValidateCapturedPhotoAsync();
     }
 
     private bool CanContinue => IsCaptured && !IsValidating;
@@ -192,7 +218,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     {
         if (_captureContext == "clockout")
         {
-            if (!await TryValidateCapturedPhotoAsync())
+            if (!await EnsureAwsQualityPassedAsync())
                 return;
 
             CaptureStatusText = "Completing clock-out...";
@@ -212,7 +238,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
         if (_captureContext == "clockin")
         {
-            if (!await TryValidateCapturedPhotoAsync())
+            if (!await EnsureAwsQualityPassedAsync())
                 return;
 
             _photoBuffer.Bytes = _capturedBytes;
@@ -243,6 +269,9 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             return;
         }
 
+        if (!await EnsureAwsQualityPassedAsync())
+            return;
+
         await SubmitFacePhotoRecordAsync();
 
         try { Preferences.Set("onevo.face_verified", true); }
@@ -265,6 +294,21 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         _photoBuffer.LastValidation = null;
     }
 
+    /// <summary>
+    /// Enrollment and clock-in share one AWS Rekognition result.
+    /// A failed check stays on screen until the employee retakes.
+    /// </summary>
+    private async Task<bool> EnsureAwsQualityPassedAsync()
+    {
+        if (_photoBuffer.LastValidation is { CanProceed: true })
+            return true;
+
+        if (_photoBuffer.LastValidation is not null)
+            return false;
+
+        return await TryValidateCapturedPhotoAsync();
+    }
+
     private async Task<bool> TryValidateCapturedPhotoAsync()
     {
         if (_capturedBytes is not { Length: > 0 })
@@ -280,7 +324,10 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             var result = await _pipe.ValidateFacePhotoAsync("jpeg", _capturedBytes, CancellationToken.None);
             ApplyValidation(result);
             if (result is { Success: true, CanProceed: true })
+            {
+                CaptureStatusText = "Face captured successfully.";
                 return true;
+            }
 
             CaptureStatusText = BuildRetakeMessage(result);
             return false;

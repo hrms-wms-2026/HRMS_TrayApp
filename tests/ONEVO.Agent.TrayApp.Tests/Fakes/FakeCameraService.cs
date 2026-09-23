@@ -4,6 +4,10 @@ namespace ONEVO.Agent.TrayApp.Tests.Fakes;
 
 public sealed class FakeCameraService : ICameraService
 {
+    public event EventHandler<byte[]>? PreviewFrame;
+
+    public void PublishPreview(byte[] jpeg) => PreviewFrame?.Invoke(this, jpeg);
+
     public bool ShouldReturnPhoto { get; set; } = true;
     public int CallCount { get; private set; }
     public int PreviewStartCount { get; private set; }

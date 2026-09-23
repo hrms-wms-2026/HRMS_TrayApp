@@ -29,6 +29,13 @@ public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
                     ? ImageSource.FromStream(() => new MemoryStream(bytes))
                     : null;
             }
+            else if (e.PropertyName == nameof(PhotoCaptureWindowViewModel.LivePreviewBytes))
+            {
+                var bytes = vm.LivePreviewBytes;
+                LivePreviewImage.Source = bytes is { Length: > 0 }
+                    ? ImageSource.FromStream(() => new MemoryStream(bytes))
+                    : null;
+            }
         };
     }
 

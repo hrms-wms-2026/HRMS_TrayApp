@@ -210,10 +210,53 @@ public sealed class PhotoCaptureWindowViewModelTests
         await vm.ContinueCommand.ExecuteAsync(null);
         Assert.True(vm.HasValidationResult);
 
+        pipe.NextFacePhotoValidateResult = null;
         await vm.CapturePhotoCommand.ExecuteAsync(null);
 
-        Assert.False(vm.HasValidationResult);
-        Assert.False(vm.LightingFailed);
+        Assert.True(vm.LightingPassed);
+        Assert.True(vm.FaceVisiblePassed);
+        Assert.True(vm.NoObstructionPassed);
+    }
+
+    [Fact]
+    public async Task Continue_Enrollment_UsesAwsChecksBeforeSavingFace()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient();
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(["validate", "submit"], pipe.CallOrder);
+        Assert.True(vm.LightingPassed);
+        Assert.True(vm.FaceVisiblePassed);
+        Assert.True(vm.NoObstructionPassed);
+        Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+    }
+
+    [Fact]
+    public async Task Continue_Enrollment_DoesNotSaveFaceWhenAwsRejectsLighting()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, false, true, true, false, false, null, "poor_lighting")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(["validate"], pipe.CallOrder);
+        Assert.Empty(pipe.Submitted);
+        Assert.False(vm.LightingPassed);
+        Assert.True(vm.FaceVisiblePassed);
+        Assert.True(vm.NoObstructionPassed);
+        Assert.Equal("", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
     }
 
     [Fact]

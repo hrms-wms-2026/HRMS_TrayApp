@@ -2,6 +2,9 @@ namespace ONEVO.Agent.TrayApp.Services;
 
 public interface ICameraService
 {
+    /// <summary>JPEG frames for the circular live preview. Raised on the UI thread.</summary>
+    event EventHandler<byte[]>? PreviewFrame;
+
     Task<byte[]?> CapturePhotoAsync(CancellationToken ct = default);
 
     /// <summary>

@@ -153,7 +153,13 @@
                   FrameSource="{Binding PreviewFrameSource}"
                   HorizontalOptions="Fill"
                   VerticalOptions="Fill"
-                  IsVisible="{Binding IsCaptured, Converter={StaticResource InvertBoolConverter}}" />
+                  IsVisible="{Binding ShowCameraFallback}" />
+
+              <Image x:Name="LivePreviewImage"
+                     Aspect="AspectFill"
+                     HorizontalOptions="Fill"
+                     VerticalOptions="Fill"
+                     IsVisible="{Binding ShowLiveFrame}" />
 
               <Image x:Name="CapturedPhotoPreview"
                      Aspect="AspectFill"
