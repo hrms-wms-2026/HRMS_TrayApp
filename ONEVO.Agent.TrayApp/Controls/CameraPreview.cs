@@ -7,7 +7,7 @@ public sealed class CameraPreview : View
         BindableProperty.Create(nameof(FrameSource), typeof(object), typeof(CameraPreview), null);
 
     /// <summary>
-    /// Platform-specific frame source.
+    /// Platform-specific preview source.
     /// Set to a <c>Windows.Media.Capture.Frames.MediaFrameSource</c> to start live preview.
     /// Set to null to stop.
     /// </summary>
