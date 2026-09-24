@@ -31,6 +31,10 @@ public sealed class DailySummaryViewModelTests
         Assert.Equal("2 breaks", vm.BreakSessionsCaption);
         Assert.True(vm.HasBreaks);
         Assert.Equal("Great Progress", vm.HighlightProgressTitle);
+        Assert.Equal(0, vm.IdleShareFraction);
+        Assert.Equal("↑ 100% tracked", vm.FocusTrendCaption);
+        Assert.True(vm.IsFocusTrendPositive);
+        Assert.Contains("highly focused", vm.InsightFocus, StringComparison.OrdinalIgnoreCase);
         Assert.True(vm.ActiveShareFraction > 0);
         Assert.Contains("focused", vm.InsightFocus, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("regular breaks", vm.InsightBreaks, StringComparison.OrdinalIgnoreCase);

@@ -20,6 +20,9 @@ public static class Constants
     /// <summary>Default activity capture interval (seconds). Max backend interval is 300.</summary>
     public const int DefaultActivitySnapshotIntervalSeconds = 60;
 
+    /// <summary>How often a working session captures a screenshot for Daily activity.</summary>
+    public const int PeriodicScreenshotIntervalSeconds = 60;
+
     /// <summary>Max keyboard/mouse events counted per interval before soft-cap (privacy + overflow).</summary>
     public const int MaxEventsPerInterval = 100_000;
 

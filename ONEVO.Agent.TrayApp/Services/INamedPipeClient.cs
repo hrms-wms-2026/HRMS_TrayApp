@@ -68,6 +68,14 @@ public interface INamedPipeClient
         ReadOnlyMemory<byte> jpegBytes,
         CancellationToken ct) => Task.FromResult(false);
 
+    /// <summary>
+    /// Uploads one working-hours screenshot in IPC chunks and waits for the service to accept it.
+    /// </summary>
+    Task<bool> SubmitPeriodicScreenshotAsync(
+        DateTimeOffset capturedAt,
+        ReadOnlyMemory<byte> jpegBytes,
+        CancellationToken ct) => Task.FromResult(false);
+
     /// <summary>Requests a new enrollment liveness session and waits for BiometricEnrollmentSessionReady (or timeout).</summary>
     Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct);
 

@@ -19,7 +19,8 @@ public sealed class TrayScreenLayoutContractTests
         yield return ["ONEVO.Agent.TrayApp/Views/IdentityVerificationPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml"];
-        // Daily Summary is the original dense dashboard and uses a page-level ScrollView.
+        // Daily Summary is a fixed one-screen dashboard. Its only ScrollView is the
+        // horizontal screenshot strip, asserted in DailySummaryPage_FitsOneScreen.
     }
 
     [Fact]
@@ -281,7 +282,13 @@ public sealed class TrayScreenLayoutContractTests
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml");
         Assert.Contains("workspace_active.png", xaml, StringComparison.Ordinal);
         Assert.Contains("Open Dashboard", xaml, StringComparison.Ordinal);
-        Assert.Contains("Start Break Later", xaml, StringComparison.Ordinal);
+        Assert.Contains("SemanticProperties.Description=\"Edit work location\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("IconEdit", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Edit\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Request Location Change\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("SemanticProperties.Description=\"Start Break\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<Label Text=\"Start Break\" Style=\"{StaticResource ButtonLabelOutline}\" />", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Start Break Later", xaml, StringComparison.Ordinal);
         Assert.Contains("Clock Out", xaml, StringComparison.Ordinal);
         Assert.Contains("IconPower", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("BackgroundColor=\"Transparent\" TextColor=\"{StaticResource StatusRed}\"", xaml, StringComparison.Ordinal);
@@ -333,42 +340,69 @@ public sealed class TrayScreenLayoutContractTests
     }
 
     [Fact]
-    public void DailySummaryPage_HasDownloadAndBack()
+    public void DailySummaryPage_FitsOneScreen()
     {
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml");
         Assert.Contains("Daily ", xaml, StringComparison.Ordinal);
         Assert.Contains("Summary", xaml, StringComparison.Ordinal);
-        Assert.Contains("Download PDF", xaml, StringComparison.Ordinal);
-        Assert.Contains("Top Applications", xaml, StringComparison.Ordinal);
+        Assert.Contains("Total Focus Time", xaml, StringComparison.Ordinal);
+        Assert.Contains("Active Time", xaml, StringComparison.Ordinal);
+        Assert.Contains("Idle Time", xaml, StringComparison.Ordinal);
+        Assert.Contains("Total Break Time", xaml, StringComparison.Ordinal);
+        Assert.Contains("Work Pattern Insights", xaml, StringComparison.Ordinal);
+        Assert.Contains("App Used Time", xaml, StringComparison.Ordinal);
+        Assert.Contains("Most Productive Period", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Screenshots\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Snapshots from your active working hours", xaml, StringComparison.Ordinal);
+        Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("View Full Report", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Done\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("View My Insights", xaml, StringComparison.Ordinal);
-        Assert.Contains("Focus vs Idle Time", xaml, StringComparison.Ordinal);
-        Assert.Contains("Break Sessions", xaml, StringComparison.Ordinal);
-        Assert.Contains("Personal Highlights", xaml, StringComparison.Ordinal);
-        Assert.Contains("Reflection &amp; Wellbeing", xaml, StringComparison.Ordinal);
+        Assert.Contains("View insights ›", xaml, StringComparison.Ordinal);
         Assert.Contains("icon3d_clock.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon3d_monitor.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon3d_coffee.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon3d_stopwatch.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon3d_trophy.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("<ScrollView", xaml, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Activity Screenshots", xaml, StringComparison.Ordinal);
+        Assert.Contains("FractionBar", xaml, StringComparison.Ordinal);
+        Assert.Contains("MultiSegmentDonutChart", xaml, StringComparison.Ordinal);
         Assert.Contains("Binding Screenshots", xaml, StringComparison.Ordinal);
         Assert.Contains("Screenshot skipped", xaml, StringComparison.Ordinal);
         Assert.Contains("Binding IsSkipped", xaml, StringComparison.Ordinal);
         Assert.Contains("StatusRedSoft", xaml, StringComparison.Ordinal);
-        Assert.Contains("illustration_meditation.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("SplitDonutChart", xaml, StringComparison.Ordinal);
-        Assert.Contains("MultiSegmentDonutChart", xaml, StringComparison.Ordinal);
         Assert.Contains("ColumnDefinitions=\"*,*,*,*\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ColumnDefinitions=\"*,*,*\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"*,1.15*\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Orientation=\"Horizontal\"", xaml, StringComparison.Ordinal);
+        Assert.Equal(1, CountOf(xaml, "<ScrollView"));
         Assert.DoesNotContain("ColumnDefinitions=\"*,*,*,*,*,*\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("SplitDonutChart", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Session Snapshot", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Focus vs Idle Time", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Break Sessions", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Top Applications", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Personal Highlights", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Reflection", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("illustration_meditation.png", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Download PDF", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("View My Insights", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Meetings Time", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Tasks Completed", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"Meetings\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("icon3d_people.png", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("icon3d_tasks.png", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("icon3d_meditation.png", xaml, StringComparison.Ordinal);
+    }
+
+    private static int CountOf(string text, string token)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(token, index, StringComparison.OrdinalIgnoreCase)) >= 0)
+        {
+            count++;
+            index += token.Length;
+        }
+
+        return count;
     }
 
     [Fact]

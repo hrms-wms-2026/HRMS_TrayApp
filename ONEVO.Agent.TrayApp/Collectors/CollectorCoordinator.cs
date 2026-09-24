@@ -107,7 +107,12 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
 
     private void OnWellnessNotificationReceived(NotificationPushPayload payload)
     {
-        if (string.Equals(payload.Type, "LongIdleAlert", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(payload.Type, "BreakAllowanceExceeded", StringComparison.OrdinalIgnoreCase)
+            && BreakAllowanceAlert.Shown)
+            return;
+
+        if (string.Equals(payload.Type, "LongIdleAlert", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(payload.Type, "BreakAllowanceExceeded", StringComparison.OrdinalIgnoreCase))
             _notificationService.ShowWarning(payload.Title, payload.Message);
         else
             _notificationService.ShowInfo(payload.Title, payload.Message);

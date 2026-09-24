@@ -20,6 +20,7 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public AgentPolicy? LastKnownPolicy { get; set; }
 
     public List<IReadOnlyList<CollectionRecord>> Submitted { get; } = [];
+    public List<int> PeriodicScreenshotBytes { get; } = [];
 
     /// <summary>Convenience view over <see cref="Submitted"/> for tests asserting on device-state
     /// snapshot payloads specifically (e.g. GPS-fix sampling in DeviceStateCollector).</summary>
@@ -38,6 +39,15 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     public LifecycleResultPayload? NextLifecycleResult { get; set; }
 
     public Task StartAsync(CancellationToken ct) => Task.CompletedTask;
+
+    public Task<bool> SubmitPeriodicScreenshotAsync(
+        DateTimeOffset capturedAt,
+        ReadOnlyMemory<byte> jpegBytes,
+        CancellationToken ct)
+    {
+        PeriodicScreenshotBytes.Add(jpegBytes.Length);
+        return Task.FromResult(true);
+    }
 
     public Task SubmitCollectionRecordsAsync(IReadOnlyList<CollectionRecord> records, CancellationToken ct)
     {

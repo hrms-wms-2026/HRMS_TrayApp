@@ -720,6 +720,54 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         CancellationToken ct) =>
         _evidenceTransferClient.SubmitAsync(attempt, jpegBytes, ct);
 
+    public async Task<bool> SubmitPeriodicScreenshotAsync(
+        DateTimeOffset capturedAt,
+        ReadOnlyMemory<byte> jpegBytes,
+        CancellationToken ct)
+    {
+        if (jpegBytes.IsEmpty || _writer is null)
+            return false;
+
+        var captureId = Guid.NewGuid();
+        var chunkCount = (int)Math.Ceiling(jpegBytes.Length / (double)Constants.EvidenceChunkSizeBytes);
+        var ackTask = WaitForEvidenceAckAsync(captureId, ct);
+
+        await WriteEnvelopeAsync(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.PeriodicScreenshotStart,
+            CorrelationId = captureId.ToString("N"),
+            Payload = JsonSerializer.SerializeToElement(
+                new PeriodicScreenshotStartPayload(captureId, capturedAt, jpegBytes.Length, chunkCount))
+        }, ct).ConfigureAwait(false);
+
+        var index = 0;
+        var offset = 0;
+        while (offset < jpegBytes.Length)
+        {
+            var length = Math.Min(Constants.EvidenceChunkSizeBytes, jpegBytes.Length - offset);
+            var slice = jpegBytes.Slice(offset, length);
+            await WriteEnvelopeAsync(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.PeriodicScreenshotChunk,
+                CorrelationId = captureId.ToString("N"),
+                Payload = JsonSerializer.SerializeToElement(
+                    new PeriodicScreenshotChunkPayload(captureId, index, Convert.ToBase64String(slice.Span)))
+            }, ct).ConfigureAwait(false);
+            offset += length;
+            index++;
+        }
+
+        await WriteEnvelopeAsync(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.PeriodicScreenshotComplete,
+            CorrelationId = captureId.ToString("N"),
+            Payload = JsonSerializer.SerializeToElement(new PeriodicScreenshotCompletePayload(captureId))
+        }, ct).ConfigureAwait(false);
+
+        var ack = await ackTask.ConfigureAwait(false);
+        return ack?.Accepted == true;
+    }
+
     private async Task<EvidenceTransferAckPayload?> WaitForEvidenceAckAsync(Guid attemptId, CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<EvidenceTransferAckPayload?>(TaskCreationOptions.RunContinuationsAsynchronously);

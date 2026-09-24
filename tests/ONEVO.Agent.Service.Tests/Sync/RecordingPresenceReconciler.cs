@@ -34,4 +34,9 @@ public sealed class RecordingPresenceReconciler : IPresenceReconciler
         Calls.Add("BreakEnded");
         return true;
     }
+
+    public void ApplyBreakAllowance(bool canStartBreak, int? allowanceMinutes, int completedBreakMinutes)
+    {
+        Calls.Add("BreakAllowance");
+    }
 }

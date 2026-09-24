@@ -33,6 +33,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<EvidenceSpoolStore>();
         services.AddSingleton<EvidenceTransferAssembler>();
         services.AddSingleton<InactivityEvidenceHandler>();
+        services.AddSingleton<PeriodicScreenshotHandler>();
         services.AddSingleton<ActivityRecordBuffer>(sp =>
         {
             var opts = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
@@ -119,7 +120,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<AgentWorker>();
         services.AddSingleton<IPresenceReconciler>(sp => sp.GetRequiredService<AgentWorker>());
         services.AddHostedService(sp => sp.GetRequiredService<AgentWorker>());
-        services.AddHostedService<ActivitySyncService>();
+        services.AddSingleton<ActivitySyncService>();
+        services.AddHostedService(sp => sp.GetRequiredService<ActivitySyncService>());
         services.AddHostedService<HeartbeatService>();
         services.AddHostedService<TokenRefreshService>();
         // Registered right after TokenRefreshService per the Task 3 plan ("after token
@@ -128,7 +130,8 @@ var host = Host.CreateDefaultBuilder(args)
         // BackgroundServices (each runs its own ExecuteAsync as soon as the host starts), and
         // reordering it was not requested. PolicySyncService's own "before activity sync" is
         // achieved instead by its immediate-fetch-on-JWT behavior (see PolicySyncService.cs).
-        services.AddHostedService<PolicySyncService>();
+        services.AddSingleton<PolicySyncService>();
+        services.AddHostedService(sp => sp.GetRequiredService<PolicySyncService>());
         services.AddHostedService<NotificationPollingService>();
         services.AddHostedService<AttendanceStatusSyncService>();
         // packages-guide §1 — SignalR remote commands (waits for JWT)

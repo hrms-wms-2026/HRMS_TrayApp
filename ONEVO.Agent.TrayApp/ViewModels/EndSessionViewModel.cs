@@ -12,9 +12,12 @@ public sealed record TopAppItem(
     ImageSource? IconSource = null,
     string Percent = "",
     string ColorHex = "#6366F1",
-    double Fraction = 0)
+    double Fraction = 0,
+    string DisplayDuration = "")
 {
     public Color Swatch => Color.FromArgb(string.IsNullOrWhiteSpace(ColorHex) ? "#6366F1" : ColorHex);
+
+    public string DurationText => string.IsNullOrWhiteSpace(DisplayDuration) ? Duration : DisplayDuration;
 }
 
 /// <summary>No-op icon cache for call sites that don't need real icons (unit tests).</summary>

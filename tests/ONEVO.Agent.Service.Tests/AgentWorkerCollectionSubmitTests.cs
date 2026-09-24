@@ -6,6 +6,7 @@ using ONEVO.Agent.Service.Configuration;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Service.Sync;
 using ONEVO.Agent.Service.Tests.Security;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
@@ -27,7 +28,10 @@ namespace ONEVO.Agent.Service.Tests;
 [Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerCollectionSubmitTests
 {
-    private static AgentWorker BuildActiveWorker(PolicyCache policyCache, ActivityRecordBuffer buffer)
+    private static AgentWorker BuildActiveWorker(
+        PolicyCache policyCache,
+        ActivityRecordBuffer buffer,
+        IActivityBufferFlush? flush = null)
     {
         var stateMachine = new AgentStateMachine();
         stateMachine.TryTransition(MonitoringState.Stopped, out _);
@@ -48,7 +52,8 @@ public class AgentWorkerCollectionSubmitTests
             null!, // EnrollmentCoordinator — not touched by HandleCollectionSubmitAsync
             null!, // InactivityEvidenceHandler — not touched by HandleCollectionSubmitAsync
             null!, // EvidenceSpoolStore — not touched by HandleCollectionSubmitAsync
-            new PendingLegalChallengeStore()
+            new PendingLegalChallengeStore(),
+            activitySync: flush
         );
     }
 
@@ -163,6 +168,55 @@ public class AgentWorkerCollectionSubmitTests
         var ack = await SubmitAsync(worker, record);
 
         Assert.Equal(1, ack.AcceptedCount);
+    }
+
+    [Fact]
+    public async Task AppUsage_Accepted_FlushesLocalBufferImmediately()
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        var policyCache = new PolicyCache();
+        policyCache.Set(MakePolicy(appUsage: true));
+        var flush = new RecordingFlush();
+        var worker = BuildActiveWorker(policyCache, buffer, flush);
+
+        var record = MakeRecord(
+            CollectionRecordTypes.AppUsageSnapshot,
+            CollectionSchemaVersions.AppUsageSnapshotV1,
+            new AppUsageSnapshotPayload { CapturedAt = DateTimeOffset.UtcNow, ProcessName = "chrome.exe" });
+        var ack = await SubmitAsync(worker, record);
+
+        Assert.Equal(1, ack.AcceptedCount);
+        Assert.Equal(1, flush.Calls);
+    }
+
+    [Fact]
+    public async Task AppUsage_Rejected_DoesNotFlush()
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        var policyCache = new PolicyCache();
+        policyCache.Set(MakePolicy(activitySignal: true, appUsage: false));
+        var flush = new RecordingFlush();
+        var worker = BuildActiveWorker(policyCache, buffer, flush);
+
+        var record = MakeRecord(
+            CollectionRecordTypes.AppUsageSnapshot,
+            CollectionSchemaVersions.AppUsageSnapshotV1,
+            new AppUsageSnapshotPayload { CapturedAt = DateTimeOffset.UtcNow, ProcessName = "chrome.exe" });
+        var ack = await SubmitAsync(worker, record);
+
+        Assert.Equal(0, ack.AcceptedCount);
+        Assert.Equal(0, flush.Calls);
+    }
+
+    private sealed class RecordingFlush : IActivityBufferFlush
+    {
+        public int Calls { get; private set; }
+
+        public Task FlushAsync(CancellationToken ct)
+        {
+            Calls++;
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]

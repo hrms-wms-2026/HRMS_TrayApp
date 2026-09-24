@@ -34,6 +34,9 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     [ObservableProperty] private string _activeShareCaption = "0%";
     [ObservableProperty] private string _idleShareCaption = "0%";
     [ObservableProperty] private double _activeShareFraction = 1;
+    [ObservableProperty] private double _idleShareFraction;
+    [ObservableProperty] private string _focusTrendCaption = "Focused hours";
+    [ObservableProperty] private bool _isFocusTrendPositive;
     [ObservableProperty] private string _insightFocus = "Stay focused — every hour counts.";
     [ObservableProperty] private string _insightIdle = "Idle time is tracked so you can improve tomorrow.";
     [ObservableProperty] private string _insightBreaks = "Regular breaks help you recharge.";
@@ -51,7 +54,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
     public ObservableCollection<DailyScreenshotItem> Screenshots { get; } = [];
 
-    private static readonly string[] AppPalette = ["#6366F1", "#22C55E", "#14B8A6", "#F97316", "#9CA3AF"];
+    private static readonly string[] AppPalette = ["#3B82F6", "#6366F1", "#22C55E", "#F59E0B", "#94A3B8"];
 
     public DailySummaryViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics, IAppIconCache iconCache)
     {
@@ -197,13 +200,31 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         ActiveShareCaption = $"{activeShare}%";
         IdleShareCaption = $"{100 - activeShare}%";
         ActiveShareFraction = activeShare / 100.0;
+        IdleShareFraction = (100 - activeShare) / 100.0;
+        if (tracked.TotalSeconds <= 0)
+        {
+            FocusTrendCaption = "Focused hours";
+            IsFocusTrendPositive = false;
+        }
+        else if (activeShare >= 50)
+        {
+            FocusTrendCaption = $"↑ {activeShare}% tracked";
+            IsFocusTrendPositive = true;
+        }
+        else
+        {
+            FocusTrendCaption = $"{activeShare}% tracked";
+            IsFocusTrendPositive = false;
+        }
         BreakSessionsCaption = int.TryParse(BreakSessionsDisplay, out var n)
             ? $"{n} break{(n == 1 ? "" : "s")}"
             : BreakSessionsDisplay;
 
-        InsightFocus = work.TotalMinutes >= 1
-            ? $"You were focused for {Compact(work)} today."
-            : "Stay focused — every hour counts.";
+        InsightFocus = work.TotalMinutes < 1
+            ? "Stay focused — every hour counts."
+            : activeShare >= 80
+                ? $"You were highly focused for {Compact(work)} today."
+                : $"You were focused for {Compact(work)} today.";
         InsightIdle = idle.TotalMinutes >= 1
             ? $"Idle time was {Compact(idle)}. A short stretch can help you reset."
             : "Very little idle time — great concentration.";
@@ -240,6 +261,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
                     Percent = $"{pct}%",
                     ColorHex = AppPalette[i % AppPalette.Length],
                     Fraction = dur.TotalSeconds / totalApp.TotalSeconds,
+                    DisplayDuration = Compact(dur),
                 };
             }).ToList();
             TopApps.Clear();

@@ -33,6 +33,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     private readonly InactivityEvidenceHandler _inactivityEvidence;
     private readonly EvidenceSpoolStore _evidenceSpool;
     private readonly PendingLegalChallengeStore _pendingLegalChallenge;
+    private readonly PeriodicScreenshotHandler? _periodicScreenshots;
+    private readonly IActivityBufferFlush? _activitySync;
     private CancellationTokenSource? _pairingCts;
 
     public AgentWorker(
@@ -50,7 +52,9 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         EnrollmentCoordinator enrollmentCoordinator,
         InactivityEvidenceHandler inactivityEvidence,
         EvidenceSpoolStore evidenceSpool,
-        PendingLegalChallengeStore pendingLegalChallenge)
+        PendingLegalChallengeStore pendingLegalChallenge,
+        PeriodicScreenshotHandler? periodicScreenshots = null,
+        IActivityBufferFlush? activitySync = null)
     {
         _logger = logger;
         _pipeServer = pipeServer;
@@ -67,6 +71,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         _inactivityEvidence = inactivityEvidence;
         _evidenceSpool = evidenceSpool;
         _pendingLegalChallenge = pendingLegalChallenge;
+        _periodicScreenshots = periodicScreenshots;
+        _activitySync = activitySync;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -319,6 +325,61 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             case IpcMessageTypes.EvidenceTransferComplete:
                 await HandleEvidenceTransferCompleteAsync(envelope, reply);
                 break;
+
+            case IpcMessageTypes.PeriodicScreenshotStart:
+                HandlePeriodicScreenshotStart(envelope);
+                break;
+
+            case IpcMessageTypes.PeriodicScreenshotChunk:
+                HandlePeriodicScreenshotChunk(envelope);
+                break;
+
+            case IpcMessageTypes.PeriodicScreenshotComplete:
+                await HandlePeriodicScreenshotCompleteAsync(envelope, reply);
+                break;
+        }
+    }
+
+    private void HandlePeriodicScreenshotStart(IpcEnvelope envelope)
+    {
+        var payload = envelope.Payload?.Deserialize<PeriodicScreenshotStartPayload>();
+        if (payload is null || _periodicScreenshots is null) return;
+        _periodicScreenshots.HandleStart(payload, DateTimeOffset.UtcNow);
+    }
+
+    private void HandlePeriodicScreenshotChunk(IpcEnvelope envelope)
+    {
+        var payload = envelope.Payload?.Deserialize<PeriodicScreenshotChunkPayload>();
+        if (payload is null || _periodicScreenshots is null) return;
+        _periodicScreenshots.HandleChunk(payload, DateTimeOffset.UtcNow);
+    }
+
+    private async Task HandlePeriodicScreenshotCompleteAsync(
+        IpcEnvelope envelope,
+        Func<IpcEnvelope, Task> reply)
+    {
+        var payload = envelope.Payload?.Deserialize<PeriodicScreenshotCompletePayload>();
+        var ack = payload is null || _periodicScreenshots is null
+            ? new EvidenceTransferAckPayload(payload?.CaptureId ?? Guid.Empty, false, "invalid_payload")
+            : _periodicScreenshots.HandleComplete(payload.CaptureId, DateTimeOffset.UtcNow);
+
+        await reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.EvidenceTransferAck,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(ack)
+        });
+
+        if (!ack.Accepted || _activitySync is null)
+            return;
+
+        try
+        {
+            await _activitySync.FlushAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Immediate screenshot upload failed CaptureId={CaptureId}", ack.AttemptId);
         }
     }
 
@@ -682,6 +743,19 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         return true;
     }
 
+    public void ApplyBreakAllowance(bool canStartBreak, int? allowanceMinutes, int completedBreakMinutes)
+    {
+        _presenceSession.SetBreakAllowance(canStartBreak, allowanceMinutes, completedBreakMinutes);
+        try
+        {
+            _ = _pipeServer.BroadcastAsync(BuildStatusEnvelope(correlationId: null));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to broadcast break allowance");
+        }
+    }
+
     /// <summary>
     /// Queues the completed session onto the same durable buffer used for activity/app-usage/
     /// device-state records, so it gets the existing offline-safe retry and ordering for free
@@ -888,6 +962,18 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to broadcast status after idle change");
+            }
+        }
+
+        if (accepted > 0 && _activitySync is not null)
+        {
+            try
+            {
+                await _activitySync.FlushAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Immediate collection upload failed");
             }
         }
     }

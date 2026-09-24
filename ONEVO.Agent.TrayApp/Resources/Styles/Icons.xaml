@@ -41,4 +41,5 @@
     <x:String x:Key="IconCloud">&#xE753;</x:String>
     <x:String x:Key="IconSearch">&#xE721;</x:String>
     <x:String x:Key="IconChevron">&#xE76C;</x:String>
+    <x:String x:Key="IconEdit">&#xE70F;</x:String>
 </ResourceDictionary>

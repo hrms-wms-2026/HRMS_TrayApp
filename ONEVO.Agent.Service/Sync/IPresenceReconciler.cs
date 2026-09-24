@@ -12,4 +12,8 @@ public interface IPresenceReconciler
     /// <summary>Reconciles local state back to Active when the backend reports no open break. No-op
     /// (returns true) if already Active/not paused for a break.</summary>
     bool ApplyPresenceBreakEnded(DateTimeOffset now);
+
+    /// <summary>Stores the company break allowance so the tray can lock Start Break
+    /// and notify as soon as today's break time passes it.</summary>
+    void ApplyBreakAllowance(bool canStartBreak, int? allowanceMinutes, int completedBreakMinutes);
 }
