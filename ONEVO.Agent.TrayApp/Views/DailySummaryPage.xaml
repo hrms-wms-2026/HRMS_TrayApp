@@ -54,10 +54,14 @@
       </VerticalStackLayout>
       <Border Grid.Column="1" Style="{StaticResource TrayCompactGlassCard}" Padding="12,8" VerticalOptions="Center">
         <HorizontalStackLayout Spacing="6">
+          <Label Text="{StaticResource IconChevron}" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                 TextColor="{StaticResource TextMuted}" VerticalOptions="Center" Rotation="180" />
           <Image Source="icon3d_calendar.png" WidthRequest="16" HeightRequest="16" Aspect="AspectFit" VerticalOptions="Center" />
           <Label Text="{Binding DateDisplay}" FontSize="12" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
           <Label Text="·" FontSize="12" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
           <Label Text="{Binding WeekdayDisplay}" FontSize="12" TextColor="{StaticResource TextSecondary}" VerticalOptions="Center" />
+          <Label Text="{StaticResource IconChevron}" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                 TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
         </HorizontalStackLayout>
       </Border>
     </Grid>
@@ -157,7 +161,7 @@
 
           <Border Grid.Row="1" BackgroundColor="{StaticResource StatusGreenSoft}" StrokeThickness="0"
                   StrokeShape="RoundRectangle 12" Padding="10,8">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+            <Grid ColumnDefinitions="Auto,*,80,Auto" ColumnSpacing="8">
               <Image Source="icon3d_clock.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFit" VerticalOptions="Center" />
               <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                 <Label Text="Most Productive Period" FontSize="12" TextColor="{StaticResource TextSecondary}" />
@@ -165,7 +169,10 @@
                        LineBreakMode="TailTruncation" MaxLines="1"
                        IsVisible="{Binding HighlightWindow, Converter={StaticResource IsNotNullConverter}}" />
               </VerticalStackLayout>
-              <VerticalStackLayout Grid.Column="2" Spacing="0" VerticalOptions="Center">
+              <controls:SparklineChart Grid.Column="2" Points="{Binding FocusSparklinePoints}"
+                                       LineColor="{StaticResource StatusGreen}"
+                                       WidthRequest="80" HeightRequest="32" VerticalOptions="Center" />
+              <VerticalStackLayout Grid.Column="3" Spacing="0" VerticalOptions="Center">
                 <Label Text="{Binding FocusCompactDisplay}" FontSize="16" FontAttributes="Bold"
                        TextColor="{StaticResource StatusGreen}" HorizontalTextAlignment="End" />
                 <Label Text="focused" FontSize="11" TextColor="{StaticResource StatusGreen}" HorizontalTextAlignment="End" />
@@ -280,6 +287,9 @@
                         <Label Text="Screenshot skipped" FontSize="11" FontAttributes="Bold"
                                TextColor="{StaticResource StatusRed}" HorizontalTextAlignment="Center" LineBreakMode="WordWrap" />
                       </VerticalStackLayout>
+                      <BoxView IsVisible="{Binding IsSkipped, Converter={StaticResource InvertBoolConverter}}"
+                               BackgroundColor="{StaticResource PrimaryGradientStart}"
+                               HeightRequest="4" VerticalOptions="Start" HorizontalOptions="Fill" />
                     </Grid>
                   </Border>
                   <HorizontalStackLayout Spacing="4" HorizontalOptions="Center">

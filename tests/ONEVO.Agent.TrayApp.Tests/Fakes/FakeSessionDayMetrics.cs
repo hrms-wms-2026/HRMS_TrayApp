@@ -51,6 +51,8 @@ public sealed class FakeSessionDayMetrics : ISessionDayMetrics
 
     public IReadOnlyList<(string Name, TimeSpan Duration)> GetTopApps(int take = 5) => [];
 
+    public IReadOnlyList<double> GetHourlyFocusFractions() => [];
+
     public IReadOnlyList<SessionScreenshot> GetAllowedScreenshots() => AllowedScreenshots;
 
     public IReadOnlyList<SessionScreenshot> GetActivityChecks() => ActivityChecks;

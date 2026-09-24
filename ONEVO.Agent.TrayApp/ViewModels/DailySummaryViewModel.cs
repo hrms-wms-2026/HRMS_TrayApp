@@ -50,6 +50,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     [ObservableProperty] private bool _hasScreenshots;
     [ObservableProperty] private string _screenshotsCaption = "No activity-check screenshots today.";
     [ObservableProperty] private IReadOnlyList<DonutSegment> _appDonutSegments = [];
+    [ObservableProperty] private IReadOnlyList<float> _focusSparklinePoints = [];
 
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
     public ObservableCollection<DailyScreenshotItem> Screenshots { get; } = [];
@@ -104,6 +105,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
             TopApps.Add(app);
 
         LoadScreenshots();
+        FocusSparklinePoints = _dayMetrics.GetHourlyFocusFractions().Select(f => (float)f).ToList();
 
         Headline = "Here's how your day went. Keep up the excellent work!";
         ExcellentDayCaption = string.IsNullOrWhiteSpace(EmployeeName)
@@ -129,6 +131,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         foreach (var app in source.TopApps)
             TopApps.Add(app);
         LoadScreenshots();
+        FocusSparklinePoints = _dayMetrics.GetHourlyFocusFractions().Select(f => (float)f).ToList();
         ApplyDerived();
     }
 

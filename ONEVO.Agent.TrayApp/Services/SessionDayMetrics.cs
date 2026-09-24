@@ -9,6 +9,7 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
     internal const int MaxActivityChecks = MaxAllowedScreenshots;
 
     private readonly ConcurrentDictionary<string, TimeSpan> _appSeconds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<int, TimeSpan> _hourlyFocus = new();
     private readonly List<SessionScreenshot> _screenshots = [];
     private readonly object _gate = new();
     private TimeSpan _idle;
@@ -30,13 +31,20 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             _lastCompleted = session;
     }
 
-    public void AddAppUsageSample(string processName, TimeSpan sampleWindow)
+    public void AddAppUsageSample(string processName, TimeSpan sampleWindow) =>
+        AddAppUsageSample(processName, sampleWindow, DateTimeOffset.Now);
+
+    /// <summary>Testing seam: lets tests control which hour a sample lands in. Not part of
+    /// <see cref="ISessionDayMetrics"/> — production callers always go through the 2-arg overload,
+    /// which stamps the current local time.</summary>
+    internal void AddAppUsageSample(string processName, TimeSpan sampleWindow, DateTimeOffset at)
     {
         if (string.IsNullOrWhiteSpace(processName) || sampleWindow <= TimeSpan.Zero)
             return;
 
         var key = processName.Trim();
         _appSeconds.AddOrUpdate(key, sampleWindow, (_, prev) => prev + sampleWindow);
+        _hourlyFocus.AddOrUpdate(at.Hour, sampleWindow, (_, prev) => prev + sampleWindow);
     }
 
     public void AddIdleSample(TimeSpan idlePortion)
@@ -71,6 +79,7 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
     public void ResetDay()
     {
         _appSeconds.Clear();
+        _hourlyFocus.Clear();
         lock (_gate)
         {
             _idle = TimeSpan.Zero;
@@ -85,6 +94,22 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             .OrderByDescending(x => x.Value)
             .Take(Math.Max(1, take))
             .ToList();
+
+    public IReadOnlyList<double> GetHourlyFocusFractions()
+    {
+        var snapshot = _hourlyFocus.ToArray();
+        if (snapshot.Length == 0)
+            return [];
+
+        var max = snapshot.Max(kv => kv.Value.TotalSeconds);
+        if (max <= 0)
+            return [];
+
+        return snapshot
+            .OrderBy(kv => kv.Key)
+            .Select(kv => kv.Value.TotalSeconds / max)
+            .ToList();
+    }
 
     public IReadOnlyList<SessionScreenshot> GetAllowedScreenshots()
     {
