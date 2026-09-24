@@ -93,4 +93,53 @@ public sealed class SessionDayMetricsTests
         metrics.ResetDay();
         Assert.Empty(metrics.GetActivityChecks());
     }
+
+    [Fact]
+    public void GetHourlyFocusFractions_EmptyWhenNoSamples()
+    {
+        var metrics = new SessionDayMetrics();
+        Assert.Empty(metrics.GetHourlyFocusFractions());
+    }
+
+    [Fact]
+    public void AddAppUsageSample_BucketsByHour_NormalizedAgainstBusiestHour()
+    {
+        var metrics = new SessionDayMetrics();
+        var nineAm = new DateTimeOffset(2026, 9, 24, 9, 0, 0, TimeSpan.FromHours(5.5));
+        var tenAm = new DateTimeOffset(2026, 9, 24, 10, 0, 0, TimeSpan.FromHours(5.5));
+
+        metrics.AddAppUsageSample("chrome.exe", TimeSpan.FromMinutes(30), nineAm);
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(15), nineAm);
+        metrics.AddAppUsageSample("teams.exe", TimeSpan.FromMinutes(20), tenAm);
+
+        var fractions = metrics.GetHourlyFocusFractions();
+
+        Assert.Equal(2, fractions.Count);
+        Assert.Equal(1.0, fractions[0]);
+        Assert.Equal(20.0 / 45.0, fractions[1], precision: 6);
+    }
+
+    [Fact]
+    public void GetHourlyFocusFractions_OnlyIncludesActiveHours_NoGapFilling()
+    {
+        var metrics = new SessionDayMetrics();
+        var nineAm = new DateTimeOffset(2026, 9, 24, 9, 0, 0, TimeSpan.FromHours(5.5));
+        var twoPm = new DateTimeOffset(2026, 9, 24, 14, 0, 0, TimeSpan.FromHours(5.5));
+
+        metrics.AddAppUsageSample("chrome.exe", TimeSpan.FromMinutes(10), nineAm);
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(5), twoPm);
+
+        var fractions = metrics.GetHourlyFocusFractions();
+
+        Assert.Equal(2, fractions.Count);
+    }
+
+    [Fact]
+    public void ResetDay_ClearsHourlyFocusBuckets()
+    {
+        var metrics = new SessionDayMetrics();
+        metrics.AddAppUsageSample("chrome.exe", TimeSpan.FromMinutes(10), DateTimeOffset.UtcNow);
+        metrics.ResetDay();
+        Assert.Empty(metrics.GetHourlyFocusFractions());
+    }
 }

@@ -34,6 +34,8 @@ public interface ISessionDayMetrics
 
     IReadOnlyList<(string Name, TimeSpan Duration)> GetTopApps(int take = 5);
 
+    IReadOnlyList<double> GetHourlyFocusFractions();
+
     IReadOnlyList<SessionScreenshot> GetAllowedScreenshots();
 
     IReadOnlyList<SessionScreenshot> GetActivityChecks();
