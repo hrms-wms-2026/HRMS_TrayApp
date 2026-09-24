@@ -79,6 +79,23 @@ public sealed class DailySummaryViewModelTests
     }
 
     [Fact]
+    public void OnAppearing_PopulatesFocusSparklinePointsFromHourlyBuckets()
+    {
+        var metrics = new ONEVO.Agent.TrayApp.Services.SessionDayMetrics();
+        var nineAm = new DateTimeOffset(2026, 9, 24, 9, 0, 0, TimeSpan.FromHours(5.5));
+        var tenAm = new DateTimeOffset(2026, 9, 24, 10, 0, 0, TimeSpan.FromHours(5.5));
+        metrics.AddAppUsageSample("chrome.exe", TimeSpan.FromMinutes(45), nineAm);
+        metrics.AddAppUsageSample("teams.exe", TimeSpan.FromMinutes(20), tenAm);
+
+        var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), metrics);
+        vm.OnAppearing();
+
+        Assert.Equal(2, vm.FocusSparklinePoints.Count);
+        Assert.Equal(1f, vm.FocusSparklinePoints[0]);
+        Assert.Equal(20f / 45f, vm.FocusSparklinePoints[1], precision: 5);
+    }
+
+    [Fact]
     public async Task DownloadSummaryCommand_WritesPdfFile()
     {
         var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), new ONEVO.Agent.TrayApp.Services.SessionDayMetrics());
