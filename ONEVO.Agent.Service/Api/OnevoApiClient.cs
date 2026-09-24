@@ -359,7 +359,8 @@ public sealed class OnevoApiClient
 
         return new AttendanceStatusResult(
             true, null, payload.IsClockedIn, payload.ClockedInAtUtc,
-            payload.IsOnBreak, payload.BreakStartedAtUtc);
+            payload.IsOnBreak, payload.BreakStartedAtUtc,
+            payload.CanStartBreak ?? true, payload.BreakAllowanceMinutes, payload.CompletedBreakMinutes);
     }
 
     /// <summary>Clocks in via the tray, backend-enforced. Auth: Bearer Device JWT.</summary>
@@ -1013,7 +1014,10 @@ public sealed record TrayAttendanceStatusPayload(
     [property: JsonPropertyName("is_clocked_in")] bool IsClockedIn,
     [property: JsonPropertyName("clocked_in_at_utc")] DateTimeOffset? ClockedInAtUtc,
     [property: JsonPropertyName("is_on_break")] bool IsOnBreak = false,
-    [property: JsonPropertyName("break_started_at_utc")] DateTimeOffset? BreakStartedAtUtc = null);
+    [property: JsonPropertyName("break_started_at_utc")] DateTimeOffset? BreakStartedAtUtc = null,
+    [property: JsonPropertyName("can_start_break")] bool? CanStartBreak = null,
+    [property: JsonPropertyName("break_allowance_minutes")] int? BreakAllowanceMinutes = null,
+    [property: JsonPropertyName("completed_break_minutes")] int CompletedBreakMinutes = 0);
 
 public sealed record AttendanceStatusResult(
     bool Success,
@@ -1021,7 +1025,10 @@ public sealed record AttendanceStatusResult(
     bool IsClockedIn,
     DateTimeOffset? ClockedInAtUtc,
     bool IsOnBreak = false,
-    DateTimeOffset? BreakStartedAtUtc = null);
+    DateTimeOffset? BreakStartedAtUtc = null,
+    bool CanStartBreak = true,
+    int? BreakAllowanceMinutes = null,
+    int CompletedBreakMinutes = 0);
 
 public sealed record ClockActionResult(bool Success, string? ErrorCode, string? Message);
 

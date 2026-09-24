@@ -79,5 +79,7 @@ public sealed class AttendanceStatusSyncService : BackgroundService
         {
             _reconciler.ApplyPresenceStopped(now);
         }
+
+        _reconciler.ApplyBreakAllowance(result.CanStartBreak, result.BreakAllowanceMinutes, result.CompletedBreakMinutes);
     }
 }

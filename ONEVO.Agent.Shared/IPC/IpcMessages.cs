@@ -57,6 +57,15 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: acknowledgement for a completed (or rejected) evidence transfer.</summary>
     public const string EvidenceTransferAck = "EvidenceTransferAck";
 
+    /// <summary>Tray → Service: begin a working-hours screenshot upload.</summary>
+    public const string PeriodicScreenshotStart = "PeriodicScreenshotStart";
+
+    /// <summary>Tray → Service: one chunk of a working-hours screenshot.</summary>
+    public const string PeriodicScreenshotChunk = "PeriodicScreenshotChunk";
+
+    /// <summary>Tray → Service: all chunks of a working-hours screenshot have been sent.</summary>
+    public const string PeriodicScreenshotComplete = "PeriodicScreenshotComplete";
+
     /// <summary>Tray → Service: employee wants to start biometric enrollment.</summary>
     public const string BiometricEnrollmentStart = "BiometricEnrollmentStart";
 
@@ -144,7 +153,10 @@ public sealed record SessionSnapshot(
     int BreakSessionCount,
     TimeSpan AccumulatedIdle = default,
     bool IsIdle = false,
-    DateTimeOffset? CurrentIdleStartedAt = null);
+    DateTimeOffset? CurrentIdleStartedAt = null,
+    int? BreakAllowanceMinutes = null,
+    int CompletedBreakMinutes = 0,
+    bool CanStartBreak = true);
 
 public sealed record StatusResponsePayload(
     MonitoringState State,

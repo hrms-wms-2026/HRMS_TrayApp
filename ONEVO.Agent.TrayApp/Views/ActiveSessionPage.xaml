@@ -111,7 +111,7 @@
                 </VerticalStackLayout>
               </Grid>
               <BoxView HeightRequest="1" BackgroundColor="{StaticResource Separator}" IsVisible="{Binding ShowWorkingActions}" />
-              <Grid ColumnDefinitions="36,*" Padding="0,10" ColumnSpacing="10" IsVisible="{Binding ShowWorkingActions}">
+              <Grid ColumnDefinitions="36,*,Auto" Padding="0,10" ColumnSpacing="10" IsVisible="{Binding ShowWorkingActions}">
                 <Image Source="icon_pin.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" VerticalOptions="Center">
                   <Image.Triggers>
                     <DataTrigger TargetType="Image" Binding="{Binding WorkLocationDisplay}" Value="Work From Home">
@@ -119,10 +119,31 @@
                     </DataTrigger>
                   </Image.Triggers>
                 </Image>
-                <VerticalStackLayout Grid.Column="1">
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
                   <Label Text="Work Location" Style="{StaticResource StatLabel}" />
                   <Label Text="{Binding WorkLocationDisplay}" Style="{StaticResource FieldValue}" />
                 </VerticalStackLayout>
+                <Border Grid.Column="2"
+                        IsVisible="{Binding CanRequestLocationChange}"
+                        VerticalOptions="Center"
+                        Padding="12,6"
+                        Stroke="{StaticResource BrandTitle}"
+                        StrokeThickness="1.5"
+                        StrokeShape="RoundRectangle 16"
+                        BackgroundColor="{StaticResource CardBackground}">
+                  <Grid>
+                    <Button Command="{Binding RequestLocationChangeCommand}"
+                            BackgroundColor="Transparent"
+                            Text=""
+                            HeightRequest="28"
+                            Padding="0"
+                            SemanticProperties.Description="Edit work location" />
+                    <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="6">
+                      <Label Text="{StaticResource IconEdit}" FontFamily="Segoe MDL2 Assets" FontSize="13" TextColor="{StaticResource BrandTitle}" VerticalOptions="Center" />
+                      <Label Text="Edit" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource BrandTitle}" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                  </Grid>
+                </Border>
               </Grid>
             </VerticalStackLayout>
           </Border>
@@ -150,11 +171,17 @@
               </Grid>
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TraySecondaryActionBorder}" StrokeShape="RoundRectangle 16">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding CanStartBreak}" Value="False">
+                  <Setter Property="Opacity" Value="0.45" />
+                  <Setter Property="InputTransparent" Value="True" />
+                </DataTrigger>
+              </Border.Triggers>
               <Grid>
-                <Button Command="{Binding RequestBreakCommand}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Start Break Later" />
+                <Button Command="{Binding RequestBreakCommand}" IsEnabled="{Binding CanStartBreak}" Style="{StaticResource TrayPrimaryActionOverlay}" Text="" SemanticProperties.Description="Start Break" />
                 <HorizontalStackLayout InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
                   <Label Text="{StaticResource IconClock}" FontFamily="Segoe MDL2 Assets" FontSize="15" TextColor="{StaticResource Primary}" VerticalOptions="Center" />
-                  <Label Text="Start Break Later" Style="{StaticResource ButtonLabelOutline}" />
+                  <Label Text="Start Break" Style="{StaticResource ButtonLabelOutline}" />
                 </HorizontalStackLayout>
               </Grid>
             </Border>
@@ -193,10 +220,6 @@
             </Grid>
           </Border>
 
-          <HorizontalStackLayout Spacing="6" HorizontalOptions="Center" IsVisible="{Binding CanRequestLocationChange}">
-            <Button Text="Request Location Change" Command="{Binding RequestLocationChangeCommand}"
-                    Style="{StaticResource OutlineButton}" FontSize="13" Padding="12,6" HeightRequest="34" />
-          </HorizontalStackLayout>
           <Label Text="{Binding LocationChangeStatusMessage}" TextColor="{StaticResource StatusGreen}" FontSize="13"
                  HorizontalTextAlignment="Center"
                  IsVisible="{Binding LocationChangeStatusMessage, Converter={StaticResource IsNotNullConverter}}" />

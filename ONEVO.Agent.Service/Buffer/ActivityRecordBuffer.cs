@@ -252,6 +252,95 @@ public sealed class ActivityRecordBuffer : IDisposable
         }
     }
 
+    public bool TryEnqueuePeriodicScreenshot(
+        Guid captureId,
+        DateTimeOffset capturedAt,
+        string deviceId,
+        string encryptedSpoolPath,
+        int encryptedSize,
+        DateTimeOffset expiresAt)
+    {
+        lock (_gate)
+        {
+            if (CountUnlocked() >= _maxRecords)
+                return false;
+
+            var eventId = captureId.ToString("N");
+            using var tx = _conn.BeginTransaction();
+
+            using (var exists = _conn.CreateCommand())
+            {
+                exists.Transaction = tx;
+                exists.CommandText = "SELECT COUNT(*) FROM collection_records WHERE event_id = $eventId;";
+                exists.Parameters.AddWithValue("$eventId", eventId);
+                if (Convert.ToInt32(exists.ExecuteScalar()) > 0)
+                {
+                    tx.Commit();
+                    return true;
+                }
+            }
+
+            var payloadJson = JsonSerializer.Serialize(new ScreenshotPayload
+            {
+                CapturedAt = capturedAt,
+                Format = "jpeg",
+                Data = ""
+            });
+            var now = DateTimeOffset.UtcNow.ToString("O");
+
+            using (var insert = _conn.CreateCommand())
+            {
+                insert.Transaction = tx;
+                insert.CommandText =
+                    """
+                    INSERT INTO collection_records
+                        (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status)
+                    VALUES
+                        ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending');
+                    """;
+                insert.Parameters.AddWithValue("$eventId", eventId);
+                insert.Parameters.AddWithValue("$type", CollectionRecordTypes.Screenshot);
+                insert.Parameters.AddWithValue("$schema", CollectionSchemaVersions.ScreenshotV1);
+                insert.Parameters.AddWithValue("$capture", capturedAt.ToUniversalTime().ToString("O"));
+                insert.Parameters.AddWithValue("$device", deviceId);
+                insert.Parameters.AddWithValue("$payload", payloadJson);
+                insert.Parameters.AddWithValue("$created", now);
+                insert.ExecuteNonQuery();
+            }
+
+            using (var spool = _conn.CreateCommand())
+            {
+                spool.Transaction = tx;
+                spool.CommandText =
+                    """
+                    INSERT INTO evidence_spool
+                        (event_id, encrypted_path, encrypted_size, created_at, expires_at)
+                    VALUES
+                        ($eventId, $path, $size, $created, $expires);
+                    """;
+                spool.Parameters.AddWithValue("$eventId", eventId);
+                spool.Parameters.AddWithValue("$path", encryptedSpoolPath);
+                spool.Parameters.AddWithValue("$size", encryptedSize);
+                spool.Parameters.AddWithValue("$created", now);
+                spool.Parameters.AddWithValue("$expires", expiresAt.ToUniversalTime().ToString("O"));
+                spool.ExecuteNonQuery();
+            }
+
+            try
+            {
+                tx.Commit();
+            }
+            catch
+            {
+                tx.Rollback();
+                return false;
+            }
+
+            EnforceSizeLimitUnlocked();
+            return true;
+        }
+    }
+
     public List<BufferedCollectionRecord> PeekPendingBatch(int maxCount)
     {
         lock (_gate)

@@ -17,7 +17,7 @@ using ONEVO.Agent.Shared.Models;
 /// Flushes buffered collection records to backend ingest endpoints.
 /// Uses Device JWT from CredentialStore — never trusts tenant_id in payload.
 /// </summary>
-public sealed class ActivitySyncService : BackgroundService
+public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlush
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -32,6 +32,7 @@ public sealed class ActivitySyncService : BackgroundService
     private readonly EvidenceSpoolStore _spoolStore;
     private readonly AgentOptions _options;
     private readonly PolicyCache? _policyCache;
+    private readonly SemaphoreSlim _flushGate = new(1, 1);
 
     public ActivitySyncService(
         ILogger<ActivitySyncService> logger,
@@ -91,6 +92,19 @@ public sealed class ActivitySyncService : BackgroundService
     }
 
     public async Task FlushAsync(CancellationToken ct)
+    {
+        await _flushGate.WaitAsync(ct);
+        try
+        {
+            await FlushPendingAsync(ct);
+        }
+        finally
+        {
+            _flushGate.Release();
+        }
+    }
+
+    private async Task FlushPendingAsync(CancellationToken ct)
     {
         var peeked = _buffer.PeekPendingBatch(maxCount: 100);
         if (peeked.Count == 0)
@@ -199,6 +213,7 @@ public sealed class ActivitySyncService : BackgroundService
                     break;
 
                 acknowledged.Add(current.RowId);
+                spoolDeletes.Add(current.Record.EventId);
                 index++;
                 continue;
             }
@@ -493,11 +508,13 @@ public sealed class ActivitySyncService : BackgroundService
             {
                 shot = record.Payload.Deserialize<ScreenshotPayload>(JsonOptions);
                 if (shot is null) continue;
-                bytes = Convert.FromBase64String(shot.Data);
+                bytes = string.IsNullOrEmpty(shot.Data)
+                    ? ReadSpooledScreenshot(record.EventId)
+                    : Convert.FromBase64String(shot.Data);
             }
-            catch (Exception ex) when (ex is JsonException or FormatException)
+            catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException or IOException)
             {
-                _logger.LogWarning("Corrupt screenshot record quarantined eventId={EventId}", record.EventId);
+                _logger.LogWarning(ex, "Corrupt screenshot record quarantined eventId={EventId}", record.EventId);
                 continue;
             }
 
@@ -512,6 +529,16 @@ public sealed class ActivitySyncService : BackgroundService
         }
 
         return requeue;
+    }
+
+    private byte[] ReadSpooledScreenshot(string eventId)
+    {
+        var entry = _buffer.GetEvidenceSpoolEntry(eventId);
+        if (entry?.EncryptedPath is null || !Guid.TryParse(eventId, out var captureId))
+            throw new InvalidOperationException("missing_screenshot_spool");
+
+        var protectedBytes = File.ReadAllBytes(entry.EncryptedPath);
+        return _protector.Unprotect(protectedBytes, captureId);
     }
 
     private enum FacePhotoFlushOutcome

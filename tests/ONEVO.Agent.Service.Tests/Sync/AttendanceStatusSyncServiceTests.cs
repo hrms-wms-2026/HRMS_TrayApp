@@ -33,7 +33,7 @@ public class AttendanceStatusSyncServiceTests
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
 
         Assert.True(applyActiveCalled);
-        Assert.Equal(["Active", "BreakEnded"], reconciler.Calls);
+        Assert.Equal(["Active", "BreakEnded", "BreakAllowance"], reconciler.Calls);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class AttendanceStatusSyncServiceTests
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
 
-        Assert.Equal(["Active", "BreakStarted"], reconciler.Calls);
+        Assert.Equal(["Active", "BreakStarted", "BreakAllowance"], reconciler.Calls);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class AttendanceStatusSyncServiceTests
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
 
-        Assert.Equal(["Stopped"], reconciler.Calls);
+        Assert.Equal(["Stopped", "BreakAllowance"], reconciler.Calls);
     }
 
     [Fact]

@@ -174,6 +174,48 @@ public sealed class ActiveSessionViewModelTests
     }
 
     [Fact]
+    public void ApplySession_BreakAllowanceUsed_LocksStartBreak()
+    {
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());
+        vm.ApplySession(new SessionSnapshot(
+            ClockInAt: DateTimeOffset.UtcNow.AddHours(-2),
+            ClockOutAt: null,
+            IsOnBreak: false,
+            CurrentBreakStartedAt: null,
+            AccumulatedBreak: TimeSpan.FromMinutes(60),
+            AccumulatedWork: TimeSpan.FromMinutes(60),
+            ScheduleDisplay: "09:00 AM – 06:00 PM",
+            BreakSessionCount: 1,
+            BreakAllowanceMinutes: 60,
+            CompletedBreakMinutes: 60,
+            CanStartBreak: false));
+
+        Assert.False(vm.CanStartBreak);
+        Assert.True(vm.ShowBreakLocked);
+    }
+
+    [Fact]
+    public void ApplySession_OpenBreakPastAllowance_LocksStartBreak()
+    {
+        var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());
+        vm.ApplySession(new SessionSnapshot(
+            ClockInAt: DateTimeOffset.UtcNow.AddHours(-2),
+            ClockOutAt: null,
+            IsOnBreak: true,
+            CurrentBreakStartedAt: DateTimeOffset.UtcNow.AddMinutes(-61),
+            AccumulatedBreak: TimeSpan.Zero,
+            AccumulatedWork: TimeSpan.FromMinutes(59),
+            ScheduleDisplay: "09:00 AM – 06:00 PM",
+            BreakSessionCount: 1,
+            BreakAllowanceMinutes: 60,
+            CompletedBreakMinutes: 0,
+            CanStartBreak: true),
+            isOnBreakOverride: true);
+
+        Assert.False(vm.CanStartBreak);
+    }
+
+    [Fact]
     public void ApplySession_OnBreak_PrimaryTimerUsesOpenBreak()
     {
         var vm = new ActiveSessionViewModel(new FakeNamedPipeClient());

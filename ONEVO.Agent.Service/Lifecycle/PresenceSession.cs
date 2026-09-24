@@ -23,6 +23,19 @@ public sealed class PresenceSession
     private Guid _sessionId;
     private DateTimeOffset _lastKnownActivityAt;
     private DateTimeOffset? _idleWatermark;
+    private int? _breakAllowanceMinutes;
+    private int _completedBreakMinutes;
+    private bool _canStartBreak = true;
+
+    public void SetBreakAllowance(bool canStartBreak, int? allowanceMinutes, int completedBreakMinutes)
+    {
+        lock (_lock)
+        {
+            _canStartBreak = canStartBreak;
+            _breakAllowanceMinutes = allowanceMinutes;
+            _completedBreakMinutes = completedBreakMinutes;
+        }
+    }
 
     public bool HasActiveSession
     {
@@ -220,7 +233,10 @@ public sealed class PresenceSession
                 BreakSessionCount: _breakSessionCount,
                 AccumulatedIdle: closedIdle,
                 IsIdle: isIdle,
-                CurrentIdleStartedAt: idleStart);
+                CurrentIdleStartedAt: idleStart,
+                BreakAllowanceMinutes: _breakAllowanceMinutes,
+                CompletedBreakMinutes: _completedBreakMinutes,
+                CanStartBreak: _canStartBreak);
         }
     }
 

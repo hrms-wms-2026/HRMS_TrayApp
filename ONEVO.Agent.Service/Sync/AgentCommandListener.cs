@@ -16,18 +16,21 @@ public sealed class AgentCommandListener : BackgroundService
     private readonly IOptions<AgentOptions> _options;
     private readonly CredentialStore _credentials;
     private readonly AgentStateMachine _stateMachine;
+    private readonly PolicySyncService _policySync;
     private HubConnection? _connection;
 
     public AgentCommandListener(
         ILogger<AgentCommandListener> logger,
         IOptions<AgentOptions> options,
         CredentialStore credentials,
-        AgentStateMachine stateMachine)
+        AgentStateMachine stateMachine,
+        PolicySyncService policySync)
     {
         _logger = logger;
         _options = options;
         _credentials = credentials;
         _stateMachine = stateMachine;
+        _policySync = policySync;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -113,12 +116,18 @@ public sealed class AgentCommandListener : BackgroundService
         _connection.On<object>("ResumeMonitoring", _ =>
             _logger.LogInformation("SignalR ResumeMonitoring received"));
 
-        _connection.On<object>("RefreshPolicy", _ =>
-            _logger.LogInformation("SignalR RefreshPolicy received"));
+        _connection.On("RefreshPolicy", async () =>
+        {
+            _logger.LogInformation("SignalR RefreshPolicy received");
+            await HandleRefreshPolicyAsync(CancellationToken.None);
+        });
 
         _connection.On<object>("ExecuteCommand", _ =>
             _logger.LogInformation("SignalR ExecuteCommand received"));
     }
+
+    internal Task HandleRefreshPolicyAsync(CancellationToken ct) =>
+        _policySync.RefreshOnceAsync(_credentials.ReadDeviceJwt(), ct);
 
     private async Task SafeDisposeConnectionAsync()
     {

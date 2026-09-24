@@ -14,6 +14,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private readonly ILocationService _location;
     private readonly ActivityCheckPromptHub? _activityCheckHub;
     private readonly NotificationActivationRouter? _activityCheckRouter;
+    private readonly NotificationService? _notifications;
     private IDispatcherTimer? _uiTimer;
     private DateTimeOffset? _clockInAt;
     private TimeSpan _accumulatedBreak;
@@ -22,6 +23,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private DateTimeOffset? _currentIdleStartedAt;
     private int _breakSessionCount;
     private bool _subscribed;
+    private int? _breakAllowanceMinutes;
+    private int _completedBreakMinutes;
+    private bool _serverCanStartBreak = true;
+    private bool _breakExceededNotified;
+    private bool _breakLocked;
 
     [ObservableProperty] private string _headerTitle       = "You are now Clocked In!";
     [ObservableProperty] private string _headerLead        = "You are now";
@@ -40,7 +46,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowWorkingActions))]
     [NotifyPropertyChangedFor(nameof(ShowClockOutAction))]
+    [NotifyPropertyChangedFor(nameof(ShowBreakLocked))]
     private bool   _isOnBreak;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowBreakLocked))]
+    private bool _canStartBreak = true;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isEndBreakConfirmVisible;
     [ObservableProperty] private bool   _isClockOutConfirmVisible;
@@ -78,7 +88,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         ICollectorLifecycleCoordinator lifecycleCoordinator,
         ILocationService location,
         ActivityCheckPromptHub? activityCheckHub = null,
-        NotificationActivationRouter? activityCheckRouter = null)
+        NotificationActivationRouter? activityCheckRouter = null,
+        NotificationService? notifications = null)
     {
         Title = "Active Session";
         _pipe = pipe;
@@ -87,6 +98,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         _location = location;
         _activityCheckHub = activityCheckHub;
         _activityCheckRouter = activityCheckRouter;
+        _notifications = notifications;
         if (_activityCheckHub is not null)
         {
             _activityCheckHub.Shown += OnActivityCheckShown;
@@ -97,6 +109,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     public bool ShowWorkingActions => !IsOnBreak;
 
     public bool ShowClockOutAction => ShowWorkingActions && (_pipe.LastKnownPolicy?.TrayClockInEnabled ?? false);
+
+    public bool ShowBreakLocked => ShowWorkingActions && !CanStartBreak;
 
     /// <summary>Test helper — empty day metrics, no-op collector-lifecycle drain, no-op location capture.</summary>
     public ActiveSessionViewModel(INamedPipeClient pipe)
@@ -226,6 +240,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             if (IsIdle && _currentIdleStartedAt is null)
                 _currentIdleStartedAt = DateTimeOffset.UtcNow;
             _breakSessionCount = session.BreakSessionCount;
+            _breakAllowanceMinutes = session.BreakAllowanceMinutes;
+            _completedBreakMinutes = session.CompletedBreakMinutes;
+            _serverCanStartBreak = session.CanStartBreak;
             IsOnBreak = isOnBreakOverride ?? session.IsOnBreak;
 
             // Recover if service said on-break but forgot break start timestamp.
@@ -360,6 +377,35 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         // Primary big timer: break segment while on break, else total elapsed shift time
         // (wall clock since clock-in) so it equals Break + Productive + Idle.
         PrimaryTimer = Format(IsOnBreak ? openBreak : wall);
+        ApplyBreakAllowance(openBreak);
+    }
+
+    private void ApplyBreakAllowance(TimeSpan openBreak)
+    {
+        var liveMinutes = _completedBreakMinutes + (int)openBreak.TotalMinutes;
+        var allowance = _breakAllowanceMinutes;
+        var over = allowance is int limit && liveMinutes > limit;
+        var usedUp = !_serverCanStartBreak || (allowance is int cap && liveMinutes >= cap);
+        if (usedUp)
+            _breakLocked = true;
+        else if (allowance is int room && liveMinutes < room && _serverCanStartBreak)
+            _breakLocked = false;
+
+        if (CanStartBreak == _breakLocked)
+            CanStartBreak = !_breakLocked;
+
+        if (over && !_breakExceededNotified)
+        {
+            _breakExceededNotified = true;
+            BreakAllowanceAlert.Shown = true;
+            _notifications?.ShowWarning(
+                "Break time exceeded",
+                $"Your break is longer than the {allowance} minute allowance. You can't start another break today.");
+        }
+        else if (!over && !_breakLocked)
+        {
+            _breakExceededNotified = false;
+        }
     }
 
     private static string Format(TimeSpan t) =>
@@ -368,7 +414,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [RelayCommand]
     private void RequestBreak()
     {
-        if (IsOnBreak || IsBusyAction) return;
+        if (IsOnBreak || IsBusyAction || !CanStartBreak) return;
         IsBreakConfirmVisible = true;
         ErrorMessage = null;
     }
