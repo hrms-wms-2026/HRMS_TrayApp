@@ -35,6 +35,51 @@ public sealed class ReviewSetupViewModelTests
     }
 
     [Fact]
+    public async Task ConfirmAndContinue_FaceAlreadyEnrolled_SkipsFaceSetup()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceReferenceStatus = new ONEVO.Agent.Shared.IPC.FaceReferenceStatusResultPayload(true, null, true, 3)
+        };
+        var vm = new ReviewSetupViewModel(prefs, pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.NotEqual(SetupFlow.FaceEnrollment, vm.LastRoute);
+        Assert.Equal(SetupFlow.AfterFaceEnrollment(false), vm.LastRoute);
+        Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+        Assert.True(vm.FaceVerificationCompleted);
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_NoFaceYet_GoesToFaceSetup()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceReferenceStatus = new ONEVO.Agent.Shared.IPC.FaceReferenceStatusResultPayload(true, null, false, 0)
+        };
+        var vm = new ReviewSetupViewModel(prefs, pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(SetupFlow.FaceEnrollment, vm.LastRoute);
+        Assert.Equal("", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_StatusUnknown_ShowsFaceSetup()
+    {
+        var pipe = new FakeNamedPipeClient { NextFaceReferenceStatus = null };
+        var vm = new ReviewSetupViewModel(new FakePreferencesStore(), pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(SetupFlow.FaceEnrollment, vm.LastRoute);
+    }
+
+    [Fact]
     public void ConfirmAndContinueCommand_Exists()
     {
         var vm = new ReviewSetupViewModel(new FakePreferencesStore());

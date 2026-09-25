@@ -28,6 +28,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     private readonly AgentOptions _options;
     private readonly OnevoApiClient _apiClient;
     private readonly CredentialStore _credentials;
+    private readonly FaceSetupPhotoStaging _faceSetupStaging;
     private readonly DeviceIdentityStore _deviceIdentityStore;
     private readonly EnrollmentCoordinator _enrollmentCoordinator;
     private readonly InactivityEvidenceHandler _inactivityEvidence;
@@ -54,8 +55,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         EvidenceSpoolStore evidenceSpool,
         PendingLegalChallengeStore pendingLegalChallenge,
         PeriodicScreenshotHandler? periodicScreenshots = null,
-        IActivityBufferFlush? activitySync = null)
+        IActivityBufferFlush? activitySync = null,
+        FaceSetupPhotoStaging? faceSetupStaging = null)
     {
+        _faceSetupStaging = faceSetupStaging ?? new FaceSetupPhotoStaging();
         _logger = logger;
         _pipeServer = pipeServer;
         _stateMachine = stateMachine;
@@ -308,6 +311,14 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
             case IpcMessageTypes.FacePhotoValidate:
                 await HandleFacePhotoValidateAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.FaceEnrollCommit:
+                await HandleFaceEnrollCommitAsync(envelope, reply);
+                break;
+
+            case IpcMessageTypes.FaceReferenceStatus:
+                await HandleFaceReferenceStatusAsync(envelope, reply);
                 break;
 
             case IpcMessageTypes.LegalAcceptanceSubmit:
@@ -1404,11 +1415,101 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         }
 
         var format = string.IsNullOrWhiteSpace(payload.Format) ? "jpeg" : payload.Format;
-        var result = await _apiClient.ValidateFacePhotoAsync(jwt, format, jpeg, payload.Purpose, CancellationToken.None);
+        var result = await _apiClient.ValidateFacePhotoAsync(
+            jwt, format, jpeg, payload.Purpose, payload.Pose, CancellationToken.None);
+
+        StageFaceSetupPhoto(payload, jpeg, result);
+
         await Reply(new FacePhotoValidateResultPayload(
             result.Success, result.ErrorCode,
             result.LightingOk, result.FaceVisible, result.NoSunglassesOrMask,
-            result.IsMatch, result.CanProceed, result.Similarity, result.FailureReason));
+            result.IsMatch, result.CanProceed, result.Similarity, result.FailureReason, result.FaceCount));
+    }
+
+    internal async Task HandleFaceReferenceStatusAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        async Task Reply(FaceReferenceStatusResultPayload payload) =>
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.FaceReferenceStatusResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(payload)
+            });
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await Reply(new FaceReferenceStatusResultPayload(false, "NO_DEVICE_CREDENTIAL", false, 0));
+            return;
+        }
+
+        var result = await _apiClient.GetFaceReferenceStatusAsync(jwt, CancellationToken.None);
+        await Reply(new FaceReferenceStatusResultPayload(
+            result.Success, result.ErrorCode, result.Enrolled, result.ReferencePhotoCount));
+    }
+
+    /// <summary>
+    /// A face setup step that passed keeps its photo for the commit; a failed step drops any
+    /// earlier photo for that pose so a stale one can never be committed.
+    /// </summary>
+    private void StageFaceSetupPhoto(FacePhotoValidatePayload payload, byte[] jpeg, FacePhotoValidateApiResult result)
+    {
+        if (!string.Equals(payload.Purpose, FacePhotoValidatePurposes.Enrollment, StringComparison.OrdinalIgnoreCase)
+            || payload.EnrollmentSessionId is not { } sessionId
+            || string.IsNullOrWhiteSpace(payload.Pose)
+            || !FaceSetupPoses.All.Contains(payload.Pose, StringComparer.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (result is { Success: true, CanProceed: true })
+            _faceSetupStaging.Stage(sessionId, payload.Pose, jpeg);
+        else
+            _faceSetupStaging.Discard(sessionId, payload.Pose);
+    }
+
+    internal async Task HandleFaceEnrollCommitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        async Task Reply(FaceEnrollCommitResultPayload payload) =>
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.FaceEnrollCommitResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(payload)
+            });
+
+        var payload = envelope.Payload?.Deserialize<FaceEnrollCommitPayload>();
+        if (payload is null || payload.EnrollmentSessionId == Guid.Empty)
+        {
+            await Reply(new FaceEnrollCommitResultPayload(false, "INVALID_PAYLOAD", false, null, null));
+            return;
+        }
+
+        // Missing after a Service restart or expiry — the tray asks for the photos again.
+        var photos = _faceSetupStaging.TryGetComplete(payload.EnrollmentSessionId);
+        if (photos is not { } staged)
+        {
+            await Reply(new FaceEnrollCommitResultPayload(false, "PHOTOS_MISSING", false, null, null));
+            return;
+        }
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await Reply(new FaceEnrollCommitResultPayload(false, "NO_DEVICE_CREDENTIAL", false, null, null));
+            return;
+        }
+
+        var result = await _apiClient.EnrollFacePhotosAsync(
+            jwt, staged.Front, staged.Left, staged.Right, CancellationToken.None);
+
+        if (result.Enrolled)
+            _faceSetupStaging.Clear();
+        else if (result.FailedPhoto is { } failed)
+            _faceSetupStaging.Discard(payload.EnrollmentSessionId, failed);
+
+        await Reply(new FaceEnrollCommitResultPayload(
+            result.Success, result.ErrorCode, result.Enrolled, result.FailedPhoto, result.FailureReason));
     }
 
     private async Task ReplyEnrollmentAsync(

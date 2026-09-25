@@ -10,6 +10,8 @@ public static class AgentApiRoutes
     public const string CheckInSubmit       = "/api/v1/monitoring/check-in";
     public const string FaceScanUpload      = "/api/v1/monitoring/check-in/{0}/face-scan";
     public const string FacePhotoValidate   = "/api/v1/monitoring/check-in/face-preview";
+    public const string FaceEnroll          = "/api/v1/monitoring/check-in/face-enroll";
+    public const string FaceReference       = "/api/v1/monitoring/check-in/face-reference";
     public const string ScreenshotSubmit    = "/api/v1/monitoring/tray/screenshots";
     public const string InactivityAttemptSubmit = "/api/v1/monitoring/tray/inactivity-attempts";
     public const string TrayPolicy          = "/api/v1/monitoring/tray/policy";

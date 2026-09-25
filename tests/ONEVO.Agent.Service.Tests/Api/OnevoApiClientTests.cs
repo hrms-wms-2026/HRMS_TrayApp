@@ -511,7 +511,7 @@ public class OnevoApiClientTests
         });
         var client = Build(handler);
 
-        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, CancellationToken.None);
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, null, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.True(result.CanProceed);
@@ -543,7 +543,7 @@ public class OnevoApiClientTests
         });
         var client = Build(handler);
 
-        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, CancellationToken.None);
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, null, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.True(result.LightingOk);
@@ -576,7 +576,7 @@ public class OnevoApiClientTests
         });
         var client = Build(handler);
 
-        await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], "clock_in", CancellationToken.None);
+        await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], "clock_in", null, CancellationToken.None);
 
         Assert.NotNull(body);
         Assert.Contains("name=purpose", body);
@@ -589,7 +589,7 @@ public class OnevoApiClientTests
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
         var client = Build(handler);
 
-        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, CancellationToken.None);
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, null, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);

@@ -562,7 +562,7 @@ public sealed class OnevoApiClient
 
     /// <summary>Preview a clock-in selfie against AWS DetectFaces + CompareFaces. Auth: Bearer Device JWT.</summary>
     public async Task<FacePhotoValidateApiResult> ValidateFacePhotoAsync(
-        string accessToken, string format, byte[] jpegBytes, string? purpose, CancellationToken ct)
+        string accessToken, string format, byte[] jpegBytes, string? purpose, string? pose, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("OnevoApi");
         using var multipart = new MultipartFormDataContent();
@@ -571,6 +571,8 @@ public sealed class OnevoApiClient
         multipart.Add(fileContent, "face_scan", $"preview.{format}");
         if (!string.IsNullOrWhiteSpace(purpose))
             multipart.Add(new StringContent(purpose), "purpose");
+        if (!string.IsNullOrWhiteSpace(pose))
+            multipart.Add(new StringContent(pose), "pose");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.FacePhotoValidate)
         {
@@ -611,11 +613,106 @@ public sealed class OnevoApiClient
             }
 
             _logger.LogInformation(
-                "Face preview result can_proceed={CanProceed} lighting={Lighting} face={Face} obstruction={Obstruction} match={Match} reason={Reason}",
+                "Face preview result can_proceed={CanProceed} lighting={Lighting} face={Face} obstruction={Obstruction} match={Match} reason={Reason} faces={FaceCount} [{FaceBoxes}]",
                 parsed.CanProceed, parsed.LightingOk, parsed.FaceVisible, parsed.NoSunglassesOrMask,
-                parsed.IsMatch, parsed.FailureReason);
+                parsed.IsMatch, parsed.FailureReason, parsed.FaceCount, parsed.FaceBoxes);
 
             return parsed;
+        }
+    }
+
+    /// <summary>Whether this device's employee already has an enrolled face. Auth: Bearer Device JWT.</summary>
+    public async Task<FaceReferenceStatusApiResult> GetFaceReferenceStatusAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.FaceReference);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return FaceReferenceStatusApiResult.Unavailable(
+                    response.StatusCode == HttpStatusCode.Unauthorized ? "UNAUTHORIZED" : "SERVICE_UNAVAILABLE");
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            return new FaceReferenceStatusApiResult(
+                true, null,
+                ReadBool(doc.RootElement, "enrolled"),
+                ReadInt(doc.RootElement, "reference_photo_count", "referencePhotoCount") ?? 0);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.FaceReference);
+            return FaceReferenceStatusApiResult.Unavailable();
+        }
+    }
+
+    /// <summary>
+    /// Tray face setup: saves the look-straight, turned-left and turned-right photos as the
+    /// employee's references. Auth: Bearer Device JWT.
+    /// </summary>
+    public async Task<FaceEnrollApiResult> EnrollFacePhotosAsync(
+        string accessToken, byte[] front, byte[] left, byte[] right, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var multipart = new MultipartFormDataContent();
+        foreach (var (field, bytes) in new[] { ("front", front), ("left", left), ("right", right) })
+        {
+            var part = new ByteArrayContent(bytes);
+            part.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+            multipart.Add(part, field, $"face-setup-{field}.jpeg");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.FaceEnroll)
+        {
+            Content = multipart
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.FaceEnroll);
+            return FaceEnrollApiResult.Unavailable();
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                return FaceEnrollApiResult.Unavailable(
+                    response.StatusCode == HttpStatusCode.Unauthorized ? "UNAUTHORIZED" : "SERVICE_UNAVAILABLE");
+            }
+
+            try
+            {
+                await using var stream = await response.Content.ReadAsStreamAsync(ct);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+                var root = doc.RootElement;
+                var result = new FaceEnrollApiResult(
+                    true,
+                    null,
+                    ReadBool(root, "enrolled"),
+                    ReadString(root, "failed_photo", "failedPhoto"),
+                    ReadString(root, "failure_reason", "failureReason"));
+                _logger.LogInformation(
+                    "Face setup commit enrolled={Enrolled} failed_photo={FailedPhoto} reason={Reason}",
+                    result.Enrolled, result.FailedPhoto, result.FailureReason);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.FaceEnroll);
+                return FaceEnrollApiResult.Unavailable();
+            }
         }
     }
 
@@ -905,7 +1002,34 @@ public sealed class OnevoApiClient
             ReadBool(root, "is_match", "isMatch"),
             ReadBool(root, "can_proceed", "canProceed"),
             ReadFloat(root, "similarity_score", "similarityScore"),
-            ReadString(root, "failure_reason", "failureReason"));
+            ReadString(root, "failure_reason", "failureReason"),
+            ReadInt(root, "face_count", "faceCount"),
+            ReadFaceBoxes(root));
+    }
+
+    private static int? ReadInt(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var number))
+                return number;
+        }
+
+        return null;
+    }
+
+    /// <summary>"conf@left,top wxh" per face AWS saw — logged only, for diagnosing rejections.</summary>
+    private static string? ReadFaceBoxes(JsonElement root)
+    {
+        if (!root.TryGetProperty("faces", out var faces) || faces.ValueKind != JsonValueKind.Array)
+            return null;
+
+        static float F(JsonElement e, string name) =>
+            e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetSingle() : 0f;
+
+        return string.Join("; ", faces.EnumerateArray().Select(f =>
+            $"{F(f, "confidence"):0.#}@{F(f, "left"):0.##},{F(f, "top"):0.##} {F(f, "width"):0.##}x{F(f, "height"):0.##}"));
     }
 
     private static bool ReadBool(JsonElement root, params string[] names)
@@ -1100,8 +1224,28 @@ public sealed record FacePhotoValidateApiResult(
     bool IsMatch,
     bool CanProceed,
     float? Similarity,
-    string? FailureReason)
+    string? FailureReason,
+    int? FaceCount = null,
+    string? FaceBoxes = null)
 {
     public static FacePhotoValidateApiResult Unavailable(string errorCode = "SERVICE_UNAVAILABLE") =>
         new(false, errorCode, false, false, false, false, false, null, null);
+}
+
+public sealed record FaceReferenceStatusApiResult(
+    bool Success, string? ErrorCode, bool Enrolled, int ReferencePhotoCount)
+{
+    public static FaceReferenceStatusApiResult Unavailable(string errorCode = "SERVICE_UNAVAILABLE") =>
+        new(false, errorCode, false, 0);
+}
+
+public sealed record FaceEnrollApiResult(
+    bool Success,
+    string? ErrorCode,
+    bool Enrolled,
+    string? FailedPhoto,
+    string? FailureReason)
+{
+    public static FaceEnrollApiResult Unavailable(string errorCode = "SERVICE_UNAVAILABLE") =>
+        new(false, errorCode, false, null, null);
 }

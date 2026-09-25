@@ -323,17 +323,51 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     /// <summary>Purpose sent with each ValidateFacePhotoAsync call, in order.</summary>
     public List<string> ValidatePurposes { get; } = [];
 
+    /// <summary>Face setup pose / session sent with each ValidateFacePhotoAsync call, in order.</summary>
+    public List<string?> ValidatePoses { get; } = [];
+    public List<Guid?> ValidateSessionIds { get; } = [];
+
+    /// <summary>Canned results used one per call before falling back to <see cref="NextFacePhotoValidateResult"/>.</summary>
+    public Queue<FacePhotoValidateResultPayload> FacePhotoValidateResults { get; } = new();
+
+    /// <summary>Canned face setup commit result. Null = enrolled.</summary>
+    public FaceEnrollCommitResultPayload? NextFaceEnrollCommitResult { get; set; }
+    public List<Guid> CommittedEnrollmentSessions { get; } = [];
+
+    /// <summary>Canned face reference status. Null = service did not answer.</summary>
+    public FaceReferenceStatusResultPayload? NextFaceReferenceStatus { get; set; }
+
+    public Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct)
+    {
+        CallOrder.Add("face-reference");
+        return Task.FromResult(NextFaceReferenceStatus);
+    }
+
+    public Task<FaceEnrollCommitResultPayload?> CommitFaceEnrollmentAsync(Guid enrollmentSessionId, CancellationToken ct)
+    {
+        CallOrder.Add("enroll-commit");
+        CommittedEnrollmentSessions.Add(enrollmentSessionId);
+        return Task.FromResult<FaceEnrollCommitResultPayload?>(
+            NextFaceEnrollCommitResult ?? new FaceEnrollCommitResultPayload(true, null, true, null, null));
+    }
+
     public Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
-        string format, byte[] jpegBytes, string purpose, CancellationToken ct)
+        string format, byte[] jpegBytes, string purpose, CancellationToken ct,
+        string? pose = null, Guid? enrollmentSessionId = null)
     {
         CallOrder.Add("validate");
         ValidatePurposes.Add(purpose);
+        ValidatePoses.Add(pose);
+        ValidateSessionIds.Add(enrollmentSessionId);
         SentEnvelopes.Add(new IpcEnvelope
         {
             Type = IpcMessageTypes.FacePhotoValidate,
-            Payload = JsonSerializer.SerializeToElement(
-                new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes), purpose))
+            Payload = JsonSerializer.SerializeToElement(new FacePhotoValidatePayload(
+                format, Convert.ToBase64String(jpegBytes), purpose, pose, enrollmentSessionId))
         });
+
+        if (FacePhotoValidateResults.Count > 0)
+            return Task.FromResult<FacePhotoValidateResultPayload?>(FacePhotoValidateResults.Dequeue());
 
         if (NextFacePhotoValidateResult is not null)
             return Task.FromResult<FacePhotoValidateResultPayload?>(NextFacePhotoValidateResult);
