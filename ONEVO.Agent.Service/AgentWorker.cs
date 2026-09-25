@@ -1404,7 +1404,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         }
 
         var format = string.IsNullOrWhiteSpace(payload.Format) ? "jpeg" : payload.Format;
-        var result = await _apiClient.ValidateFacePhotoAsync(jwt, format, jpeg, CancellationToken.None);
+        var result = await _apiClient.ValidateFacePhotoAsync(jwt, format, jpeg, payload.Purpose, CancellationToken.None);
         await Reply(new FacePhotoValidateResultPayload(
             result.Success, result.ErrorCode,
             result.LightingOk, result.FaceVisible, result.NoSunglassesOrMask,

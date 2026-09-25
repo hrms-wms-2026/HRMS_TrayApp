@@ -615,7 +615,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     }
 
     public async Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
-        string format, byte[] jpegBytes, CancellationToken ct)
+        string format, byte[] jpegBytes, string purpose, CancellationToken ct)
     {
         var correlationId = Guid.NewGuid().ToString("N");
         var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -628,7 +628,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                 Type = IpcMessageTypes.FacePhotoValidate,
                 CorrelationId = correlationId,
                 Payload = JsonSerializer.SerializeToElement(
-                    new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes)))
+                    new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes), purpose))
             };
             await WriteEnvelopeAsync(envelope, ct);
 

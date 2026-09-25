@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Capture;
 using ONEVO.Agent.TrayApp.Services;
 
 public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
@@ -25,50 +26,136 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PrimaryActionCommand))]
     [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
     [NotifyPropertyChangedFor(nameof(ShowLiveFrame))]
     [NotifyPropertyChangedFor(nameof(ShowCameraFallback))]
+    [NotifyPropertyChangedFor(nameof(ShowCapturedSuccess))]
+    [NotifyPropertyChangedFor(nameof(PrimaryButtonLabel))]
     private bool _isCaptured;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PrimaryActionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(BackCommand))]
     [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
+    [NotifyPropertyChangedFor(nameof(ShowCapturedSuccess))]
     private bool _isValidating;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(PrimaryActionCommand))]
+    [NotifyCanExecuteChangedFor(nameof(BackCommand))]
     [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
     private bool _isCapturing;
 
+    /// <summary>
+    /// True when the AWS face check (or the clock-in/out call after it) failed. The status row
+    /// turns red and the primary button becomes "Try again" until the employee goes back to
+    /// the live camera and captures a new photo.
+    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LightingPassed))]
-    [NotifyPropertyChangedFor(nameof(LightingFailed))]
-    [NotifyPropertyChangedFor(nameof(FaceVisiblePassed))]
-    [NotifyPropertyChangedFor(nameof(FaceVisibleFailed))]
-    [NotifyPropertyChangedFor(nameof(NoObstructionPassed))]
-    [NotifyPropertyChangedFor(nameof(NoObstructionFailed))]
-    private bool _hasValidationResult;
+    [NotifyCanExecuteChangedFor(nameof(PrimaryActionCommand))]
+    [NotifyPropertyChangedFor(nameof(PrimaryButtonLabel))]
+    [NotifyPropertyChangedFor(nameof(NeedsFaceSetup))]
+    [NotifyPropertyChangedFor(nameof(ShowCapturedSuccess))]
+    [NotifyPropertyChangedFor(nameof(ShowStatusBelow))]
+    private bool _isVerificationFailed;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LightingPassed))]
-    [NotifyPropertyChangedFor(nameof(LightingFailed))]
-    private bool _lightingOk;
+    public const string TryAgainLabel = "Try again";
+    public const string CaptureLabel = "Capture";
+    public const string FaceSetupRequiredLabel = "Face setup required";
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FaceVisiblePassed))]
-    [NotifyPropertyChangedFor(nameof(FaceVisibleFailed))]
-    private bool _faceVisibleOk;
+    /// <summary>
+    /// Clock-in/out found no enrolled face. Retaking can never fix that, and offering an
+    /// in-place "set up face" shortcut would let whoever is at the laptop enrol their own face,
+    /// so the button is disabled and the employee is told to go through HR.
+    /// </summary>
+    public bool NeedsFaceSetup =>
+        IsVerificationFailed && !IsEnrollment && FailureReason == FailureCodes.NoReferencePhoto;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(NoObstructionPassed))]
-    [NotifyPropertyChangedFor(nameof(NoObstructionFailed))]
-    private bool _noObstructionOk;
+    public string PrimaryButtonLabel =>
+        NeedsFaceSetup ? FaceSetupRequiredLabel
+        : IsVerificationFailed ? TryAgainLabel
+        : !IsCaptured ? CaptureLabel
+        : ContinueLabel;
 
-    public bool LightingPassed => HasValidationResult && LightingOk;
-    public bool LightingFailed => HasValidationResult && !LightingOk;
-    public bool FaceVisiblePassed => HasValidationResult && FaceVisibleOk;
-    public bool FaceVisibleFailed => HasValidationResult && !FaceVisibleOk;
-    public bool NoObstructionPassed => HasValidationResult && NoObstructionOk;
-    public bool NoObstructionFailed => HasValidationResult && !NoObstructionOk;
+    /// <summary>Green "captured" pill — only while the photo is captured and not in an error state.</summary>
+    public bool ShowCapturedSuccess => IsCaptured && !IsValidating && !IsVerificationFailed;
+
+    /// <summary>Backend failure_reason codes (ValidateFacePhotoCommandHandler).</summary>
+    public static class FailureCodes
+    {
+        public const string NoFaceDetected = "no_face_detected";
+        public const string MultipleFaces = "multiple_faces";
+        public const string FaceNotVisible = "face_not_visible";
+        public const string NotMatched = "not_matched";
+        public const string NoReferencePhoto = "no_reference_photo";
+        public const string VerificationFailed = "verification_failed";
+    }
+
+    /// <summary>Last AWS result. Every checklist state below is derived from it.</summary>
+    private FacePhotoValidateResultPayload? _validation;
+
+    public bool HasValidationResult => _validation is not null;
+    private string? FailureReason => _validation?.FailureReason;
+
+    /// <summary>AWS actually judged this photo (not unavailable / errored).</summary>
+    private bool Evaluated => _validation is { Success: true } && FailureReason != FailureCodes.VerificationFailed;
+
+    /// <summary>
+    /// No face, several faces, or a face only partly in frame. AWS's per-face lighting and
+    /// sunglasses/mask flags are unreliable then (a cut-off face reads as "occluded", hair as
+    /// "dark"), so only the face check is shown as the problem.
+    /// </summary>
+    private bool FaceProblem =>
+        Evaluated
+        && (FailureReason is FailureCodes.NoFaceDetected or FailureCodes.MultipleFaces or FailureCodes.FaceNotVisible
+            || !_validation!.FaceVisible);
+
+    /// <summary>Whole-photo brightness, standing in for AWS lighting when <see cref="FaceProblem"/>.</summary>
+    private bool? _photoLightingOk;
+
+    public bool LightingPassed => Evaluated && (FaceProblem ? _photoLightingOk == true : _validation!.LightingOk);
+    public bool LightingFailed => Evaluated && (FaceProblem ? _photoLightingOk == false : !_validation!.LightingOk);
+    public bool FaceVisiblePassed => Evaluated && !FaceProblem;
+    public bool FaceVisibleFailed => FaceProblem;
+    // Sunglasses/mask cannot be judged without a clear face — stays grey, never a false red.
+    public bool NoObstructionPassed => Evaluated && !FaceProblem && _validation!.NoSunglassesOrMask;
+    public bool NoObstructionFailed => Evaluated && !FaceProblem && !_validation!.NoSunglassesOrMask;
+
+    /// <summary>The "Face matches" row only makes sense when comparing against an enrolled face.</summary>
+    public bool ShowMatchCheck => !IsEnrollment;
+    public bool MatchPassed => Evaluated && _validation!.IsMatch && _validation.CanProceed;
+    public bool MatchFailed => Evaluated && FailureReason == FailureCodes.NotMatched;
+
+    private static readonly string[] ValidationDerivedProperties =
+    [
+        nameof(HasValidationResult),
+        nameof(LightingPassed), nameof(LightingFailed),
+        nameof(FaceVisiblePassed), nameof(FaceVisibleFailed),
+        nameof(NoObstructionPassed), nameof(NoObstructionFailed),
+        nameof(MatchPassed), nameof(MatchFailed),
+        nameof(NeedsFaceSetup), nameof(PrimaryButtonLabel)
+    ];
+
+    private void SetValidation(FacePhotoValidateResultPayload? result)
+    {
+        _validation = result;
+        _photoBuffer.LastValidation = result;
+        _photoLightingOk = FaceProblem ? PhotoBrightness.IsOk(_capturedBytes) : null;
+        foreach (var name in ValidationDerivedProperties)
+            OnPropertyChanged(name);
+        PrimaryActionCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool IsEnrollment =>
+        !string.Equals(_captureContext, "clockin", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(_captureContext, "clockout", StringComparison.OrdinalIgnoreCase);
+
+    private string ValidatePurpose =>
+        string.Equals(_captureContext, "clockin", StringComparison.OrdinalIgnoreCase) ? FacePhotoValidatePurposes.ClockIn
+        : string.Equals(_captureContext, "clockout", StringComparison.OrdinalIgnoreCase) ? FacePhotoValidatePurposes.ClockOut
+        : FacePhotoValidatePurposes.Enrollment;
 
     [ObservableProperty] private bool    _isScanAnimating;
     [ObservableProperty] private object? _previewFrameSource;
@@ -88,9 +175,11 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
     /// <summary>Hides the duplicate hint under the circle until capture/scan/error changes it.</summary>
     public bool ShowStatusBelow =>
-        IsCapturing ||
-        IsCaptured ||
-        !string.Equals(CaptureStatusText, DefaultPrompt, StringComparison.Ordinal);
+        !ShowCapturedSuccess &&
+        (IsCapturing ||
+         IsCaptured ||
+         IsVerificationFailed ||
+         !string.Equals(CaptureStatusText, DefaultPrompt, StringComparison.Ordinal));
 
     public PhotoCaptureWindowViewModel(
         ICameraService camera,
@@ -120,7 +209,9 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     /// </summary>
     [ObservableProperty] private string _headline = "Set Up Face Verification";
     [ObservableProperty] private string _contextPill = "Identity Enrolment";
-    [ObservableProperty] private string _continueLabel = "Enroll & Continue";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PrimaryButtonLabel))]
+    private string _continueLabel = "Enroll & Continue";
     [ObservableProperty] private string _employeeName = "—";
     [ObservableProperty] private string _employeeId = "—";
 
@@ -130,6 +221,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         _capturedBytes    = null;
         CapturedPhotoBytes = null;
         IsCaptured        = false;
+        IsVerificationFailed = false;
         CaptureStatusText = DefaultPrompt;
         ResetValidation();
         LoadEmployee();
@@ -151,6 +243,11 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             ContextPill = "Identity Enrolment";
             ContinueLabel = "Enroll & Continue";
         }
+
+        OnPropertyChanged(nameof(ShowMatchCheck));
+        OnPropertyChanged(nameof(NeedsFaceSetup));
+        OnPropertyChanged(nameof(PrimaryButtonLabel));
+        PrimaryActionCommand.NotifyCanExecuteChanged();
     }
 
     public async Task StartPreviewAsync()
@@ -184,6 +281,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     {
         IsCapturing       = true;
         IsScanAnimating   = true;
+        IsVerificationFailed = false;
         CaptureStatusText = "Scanning your face...";
         try
         {
@@ -192,6 +290,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             CapturedPhotoBytes = _capturedBytes;
             IsCaptured        = _capturedBytes is not null;
             ResetValidation();
+            IsVerificationFailed = !IsCaptured;
             CaptureStatusText = IsCaptured
                 ? "Face captured successfully."
                 : "No photo taken. Please try again.";
@@ -199,6 +298,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         catch
         {
             IsCaptured        = false;
+            IsVerificationFailed = true;
             CaptureStatusText = "Camera error. Please try again.";
         }
         finally
@@ -212,6 +312,62 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     }
 
     private bool CanContinue => IsCaptured && !IsValidating;
+
+    private bool CanPrimaryAction => !IsValidating && !IsCapturing && !NeedsFaceSetup;
+
+    /// <summary>
+    /// The big button walks the employee through: Capture → (AWS check) → Verify/Enroll,
+    /// or on failure "Try again" → back to the live camera → Capture again.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanPrimaryAction))]
+    private async Task PrimaryAction(CancellationToken ct)
+    {
+        if (NeedsFaceSetup)
+            return;
+
+        if (IsVerificationFailed)
+        {
+            ReturnToLivePreview();
+            return;
+        }
+
+        if (!IsCaptured)
+        {
+            await CapturePhotoAsync(ct);
+            return;
+        }
+
+        await Continue();
+    }
+
+    /// <summary>Where "Back" returns to: the screen that opened this capture.</summary>
+    public string BackRoute =>
+        string.Equals(_captureContext, "clockin", StringComparison.OrdinalIgnoreCase) ? SetupFlow.ClockIn
+        : string.Equals(_captureContext, "clockout", StringComparison.OrdinalIgnoreCase) ? SetupFlow.Active
+        : SetupFlow.ConfirmDetails;
+
+    // Leaving mid-scan or mid-AWS-check would drop a request the employee is waiting on.
+    private bool CanGoBack => !IsCapturing && !IsValidating;
+
+    [RelayCommand(CanExecute = nameof(CanGoBack))]
+    private async Task Back()
+    {
+        try { await Shell.Current.GoToAsync(BackRoute); }
+        catch { /* unit tests */ }
+    }
+
+    /// <summary>Drops the rejected photo so the employee can line up again on the live feed.</summary>
+    private void ReturnToLivePreview()
+    {
+        _capturedBytes = null;
+        CapturedPhotoBytes = null;
+        // A stale pre-capture frame would flash before the reader delivers a fresh one.
+        LivePreviewBytes = null;
+        IsCaptured = false;
+        IsVerificationFailed = false;
+        ResetValidation();
+        CaptureStatusText = DefaultPrompt;
+    }
 
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private async Task Continue()
@@ -227,6 +383,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             {
                 CaptureStatusText = clockOut?.Message ?? clockOut?.ErrorCode ?? "Clock-out failed. Please try again.";
                 IsCaptured = false;
+                IsVerificationFailed = true;
                 return;
             }
 
@@ -254,6 +411,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             {
                 CaptureStatusText = result?.Message ?? result?.ErrorCode ?? "Clock-in failed. Please try again.";
                 IsCaptured = false;
+                IsVerificationFailed = true;
                 _capturedBytes = null;
                 // Back to the capture screen so the failure message is visible — navigating
                 // without the "context" query param avoids re-triggering SetContext, which
@@ -285,14 +443,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         catch { /* unit tests */ }
     }
 
-    private void ResetValidation()
-    {
-        HasValidationResult = false;
-        LightingOk = false;
-        FaceVisibleOk = false;
-        NoObstructionOk = false;
-        _photoBuffer.LastValidation = null;
-    }
+    private void ResetValidation() => SetValidation(null);
 
     /// <summary>
     /// Enrollment and clock-in share one AWS Rekognition result.
@@ -313,6 +464,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     {
         if (_capturedBytes is not { Length: > 0 })
         {
+            IsVerificationFailed = true;
             CaptureStatusText = "No photo taken. Please try again.";
             return false;
         }
@@ -321,21 +473,25 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         CaptureStatusText = "Checking lighting and face...";
         try
         {
-            var result = await _pipe.ValidateFacePhotoAsync("jpeg", _capturedBytes, CancellationToken.None);
-            ApplyValidation(result);
+            var result = await _pipe.ValidateFacePhotoAsync(
+                "jpeg", _capturedBytes, ValidatePurpose, CancellationToken.None);
+            SetValidation(result);
             if (result is { Success: true, CanProceed: true })
             {
+                IsVerificationFailed = false;
                 CaptureStatusText = "Face captured successfully.";
                 return true;
             }
 
-            CaptureStatusText = BuildRetakeMessage(result);
+            IsVerificationFailed = true;
+            CaptureStatusText = BuildRetakeMessage(result, _photoLightingOk);
             return false;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Face photo validate failed");
-            ApplyValidation(null);
+            SetValidation(null);
+            IsVerificationFailed = true;
             CaptureStatusText = "Face verification is unavailable. Retake and try again.";
             return false;
         }
@@ -345,32 +501,40 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         }
     }
 
-    private void ApplyValidation(FacePhotoValidateResultPayload? result)
-    {
-        HasValidationResult = result is not null;
-        LightingOk = result?.LightingOk == true;
-        FaceVisibleOk = result?.FaceVisible == true;
-        NoObstructionOk = result?.NoSunglassesOrMask == true;
-        _photoBuffer.LastValidation = result;
-    }
-
-    internal static string BuildRetakeMessage(FacePhotoValidateResultPayload? result)
+    /// <param name="photoLightingOk">Whole-photo brightness check, used when the face itself is the problem.</param>
+    internal static string BuildRetakeMessage(FacePhotoValidateResultPayload? result, bool? photoLightingOk = null)
     {
         if (result is null || result.Success == false)
             return "Face verification is unavailable. Retake and try again.";
 
+        var darkHint = photoLightingOk == false ? " Also move to a brighter spot." : "";
+
+        // Specific codes first: FaceVisible is also false for no-face and multi-face,
+        // so the generic check below would otherwise swallow them.
+        switch (result.FailureReason)
+        {
+            case FailureCodes.NoFaceDetected:
+                return "No face detected. Look straight at the camera and retake." + darkHint;
+            case FailureCodes.MultipleFaces:
+                return "Only one person should be in the frame. Retake." + darkHint;
+            case FailureCodes.FaceNotVisible:
+                return "Your face is not fully in the frame. Centre your face in the circle and retake." + darkHint;
+            case FailureCodes.NoReferencePhoto:
+                return "No face reference on file. Contact HR to complete face setup.";
+            case FailureCodes.VerificationFailed:
+                return "Face check reached AWS but could not finish. Try again.";
+            case FailureCodes.NotMatched:
+                return "Face did not match the enrolled employee. Retake.";
+        }
+
         if (!result.FaceVisible)
-            return "Face is not clearly visible. Look at the camera and retake.";
+            return "Your face is not fully in the frame. Centre your face in the circle and retake." + darkHint;
         if (!result.LightingOk)
-            return "Lighting is too low. Move to a brighter spot and retake.";
+            return "Lighting is not good. Move to a better-lit spot and retake.";
         if (!result.NoSunglassesOrMask)
             return "Remove sunglasses or mask and retake.";
-        if (result.FailureReason == "no_reference_photo")
-            return "No enrolled face photo. Complete face setup, then try again.";
-        if (result.FailureReason == "verification_failed")
-            return "Face check reached AWS but could not finish. Try again.";
         if (!result.IsMatch)
-            return "Face did not match. Look at the camera and retake.";
+            return "Face did not match the enrolled employee. Retake.";
         return "Retake photo and try again.";
     }
 

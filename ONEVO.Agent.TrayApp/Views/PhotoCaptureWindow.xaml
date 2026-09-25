@@ -43,7 +43,7 @@
     </Ellipse>
 
     <!-- This setup reference uses the WorkPulse product name. -->
-    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="10" Padding="0,0,0,2">
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="0,0,0,2">
       <Image Source="onexso_x_mark.png"
              WidthRequest="36" HeightRequest="36"
              Aspect="AspectFit"
@@ -53,6 +53,25 @@
              FontSize="14" FontAttributes="Bold"
              TextColor="{StaticResource TextPrimary}"
              VerticalOptions="Center" />
+      <!-- The only way off this screen: the Service's periodic state rebroadcast no longer
+           navigates away mid-capture (see StateNavigationGuard). -->
+      <Border Grid.Column="2"
+              StrokeShape="RoundRectangle 16"
+              Stroke="{StaticResource SoftOutline}"
+              StrokeThickness="1"
+              BackgroundColor="{StaticResource GlassSurfaceTop}"
+              Padding="0"
+              VerticalOptions="Center">
+        <Button Text="&#8592;  Back"
+                Command="{Binding BackCommand}"
+                BackgroundColor="Transparent"
+                TextColor="{StaticResource Primary}"
+                FontSize="14"
+                FontAttributes="Bold"
+                Padding="14,6"
+                BorderWidth="0"
+                SemanticProperties.Description="Go back to the previous screen" />
+      </Border>
     </Grid>
 
     <Grid Grid.Row="1"
@@ -242,7 +261,7 @@
 
       <!-- Captured success, scanning, and error states share one compact status row. -->
       <Grid Grid.Row="4" Margin="0,4,0,5" MinimumHeightRequest="38">
-        <Border IsVisible="{Binding IsCaptured}"
+        <Border IsVisible="{Binding ShowCapturedSuccess}"
                 StrokeShape="RoundRectangle 13"
                 Stroke="{StaticResource GlassBorderStart}"
                 StrokeThickness="1"
@@ -277,8 +296,9 @@
                 Padding="14,7"
                 HorizontalOptions="Center">
           <Border.Triggers>
-            <DataTrigger TargetType="Border" Binding="{Binding IsCaptured}" Value="True">
-              <Setter Property="IsVisible" Value="False" />
+            <DataTrigger TargetType="Border" Binding="{Binding IsVerificationFailed}" Value="True">
+              <Setter Property="Stroke" Value="{StaticResource StatusRed}" />
+              <Setter Property="BackgroundColor" Value="#FEF2F2" />
             </DataTrigger>
           </Border.Triggers>
           <HorizontalStackLayout Spacing="8">
@@ -286,11 +306,33 @@
                                IsVisible="{Binding IsCapturing}"
                                Color="{StaticResource Primary}"
                                WidthRequest="18" HeightRequest="18" />
+            <ActivityIndicator IsRunning="{Binding IsValidating}"
+                               IsVisible="{Binding IsValidating}"
+                               Color="{StaticResource Primary}"
+                               WidthRequest="18" HeightRequest="18" />
+            <Border WidthRequest="20" HeightRequest="20"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0"
+                    BackgroundColor="{StaticResource StatusRed}"
+                    IsVisible="{Binding IsVerificationFailed}">
+              <Label Text="{StaticResource IconCancel}"
+                     FontFamily="Segoe MDL2 Assets"
+                     FontSize="10"
+                     TextColor="White"
+                     HorizontalOptions="Center"
+                     VerticalOptions="Center" />
+            </Border>
             <Label Text="{Binding CaptureStatusText}"
                    FontSize="14"
                    FontAttributes="Bold"
                    TextColor="{StaticResource TextPrimary}"
-                   VerticalOptions="Center" />
+                   VerticalOptions="Center">
+              <Label.Triggers>
+                <DataTrigger TargetType="Label" Binding="{Binding IsVerificationFailed}" Value="True">
+                  <Setter Property="TextColor" Value="{StaticResource StatusRed}" />
+                </DataTrigger>
+              </Label.Triggers>
+            </Label>
           </HorizontalStackLayout>
         </Border>
       </Grid>
@@ -301,7 +343,8 @@
               Margin="0,0,0,8"
               IsVisible="{Binding IsCaptured}"
               HorizontalOptions="Fill">
-        <Grid ColumnDefinitions="*,Auto,*,Auto,*" ColumnSpacing="10">
+        <!-- Unchecked items stay grey (no icon): with no face in frame AWS never judged lighting or mask. -->
+        <HorizontalStackLayout Spacing="14" HorizontalOptions="Center">
           <HorizontalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center">
             <Border WidthRequest="19" HeightRequest="19"
                     StrokeShape="RoundRectangle 9.5"
@@ -426,7 +469,52 @@
                    TextColor="{StaticResource TextPrimary}"
                    VerticalOptions="Center" />
           </HorizontalStackLayout>
-        </Grid>
+
+          <BoxView WidthRequest="1" HeightRequest="22"
+                   Color="{StaticResource Separator}"
+                   VerticalOptions="Center"
+                   IsVisible="{Binding ShowMatchCheck}" />
+
+          <HorizontalStackLayout Spacing="7" HorizontalOptions="Center"
+                                 IsVisible="{Binding ShowMatchCheck}">
+            <Border WidthRequest="19" HeightRequest="19"
+                    StrokeShape="RoundRectangle 9.5"
+                    Stroke="{StaticResource Separator}"
+                    StrokeThickness="1.5"
+                    BackgroundColor="{StaticResource GlassSurfaceTop}">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding MatchPassed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusGreen}" />
+                  <Setter Property="BackgroundColor" Value="#F2FFF7" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding MatchFailed}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusRed}" />
+                  <Setter Property="BackgroundColor" Value="#FEF2F2" />
+                </DataTrigger>
+              </Border.Triggers>
+              <Grid>
+                <Label Text="{StaticResource IconCheck}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusGreen}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding MatchPassed}" />
+                <Label Text="{StaticResource IconCancel}"
+                       FontFamily="Segoe MDL2 Assets"
+                       FontSize="10"
+                       TextColor="{StaticResource StatusRed}"
+                       HorizontalOptions="Center"
+                       VerticalOptions="Center"
+                       IsVisible="{Binding MatchFailed}" />
+              </Grid>
+            </Border>
+            <Label Text="Face matches"
+                   FontSize="13"
+                   TextColor="{StaticResource TextPrimary}"
+                   VerticalOptions="Center" />
+          </HorizontalStackLayout>
+        </HorizontalStackLayout>
       </Border>
 
       <Border Grid.Row="6"
@@ -440,8 +528,8 @@
             <GradientStop Color="{StaticResource ConnectButtonEnd}" Offset="1" />
           </LinearGradientBrush>
         </Border.Background>
-        <Button Text="{Binding ContinueLabel}"
-                Command="{Binding ContinueCommand}"
+        <Button Text="{Binding PrimaryButtonLabel}"
+                Command="{Binding PrimaryActionCommand}"
                 Style="{StaticResource TrayPrimaryActionOverlay}" />
       </Border>
 

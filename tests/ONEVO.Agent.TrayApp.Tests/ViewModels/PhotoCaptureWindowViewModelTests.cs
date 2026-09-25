@@ -276,5 +276,265 @@ public sealed class PhotoCaptureWindowViewModelTests
 
         Assert.Empty(pipe.Submitted);
         Assert.Equal("Device is locked.", vm.CaptureStatusText);
+        Assert.True(vm.IsVerificationFailed);
+        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
+        Assert.True(vm.PrimaryActionCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task AwsRejection_ShowsTryAgainInsteadOfVerifyLabel()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, false, true, false, false, null, "face_not_visible")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsVerificationFailed);
+        Assert.False(vm.ShowCapturedSuccess);
+        Assert.True(vm.ShowStatusBelow);
+        Assert.Equal("Try again", vm.PrimaryButtonLabel);
+    }
+
+    [Fact]
+    public async Task TryAgain_ReturnsToLiveCamera_ThenCaptureRechecks()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, false, true, false, false, null, "face_not_visible")
+        };
+        var camera = new FakeCameraService { ShouldReturnPhoto = true };
+        var vm = new PhotoCaptureWindowViewModel(camera, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        // "Try again" only goes back to the live feed — no new photo yet.
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, camera.CallCount);
+        Assert.False(vm.IsCaptured);
+        Assert.False(vm.IsVerificationFailed);
+        Assert.False(vm.HasValidationResult);
+        Assert.Null(vm.CapturedPhotoBytes);
+        Assert.Equal(PhotoCaptureWindowViewModel.CaptureLabel, vm.PrimaryButtonLabel);
+        Assert.Equal(PhotoCaptureWindowViewModel.DefaultPrompt, vm.CaptureStatusText);
+
+        pipe.NextFacePhotoValidateResult = null;
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.Equal(2, camera.CallCount);
+        Assert.Equal(["validate", "validate"], pipe.CallOrder);
+        Assert.True(vm.ShowCapturedSuccess);
+        Assert.Equal("Verify & Clock In", vm.PrimaryButtonLabel);
+    }
+
+    [Theory]
+    [InlineData("clockin", "//clockin")]
+    [InlineData("clockout", "//active")]
+    [InlineData(null, "//review")]
+    public void Back_ReturnsToScreenThatOpenedCapture(string? context, string expected)
+    {
+        var vm = MakeVm();
+        vm.SetContext(context);
+
+        Assert.Equal(expected, vm.BackRoute);
+        Assert.True(vm.BackCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void BeforeCapture_PrimaryButtonIsCapture()
+    {
+        var vm = MakeVm();
+        vm.SetContext("clockin");
+
+        Assert.Equal(PhotoCaptureWindowViewModel.CaptureLabel, vm.PrimaryButtonLabel);
+        Assert.True(vm.PrimaryActionCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task NoFaceDetected_OnlyFaceCheckFails_OthersStayNeutral()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, false, false, false, false, false, null, "no_face_detected")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.True(vm.FaceVisibleFailed);
+        Assert.False(vm.LightingPassed);
+        Assert.False(vm.LightingFailed);
+        Assert.False(vm.NoObstructionPassed);
+        Assert.False(vm.NoObstructionFailed);
+        Assert.False(vm.MatchPassed);
+        Assert.False(vm.MatchFailed);
+        Assert.Contains("No face detected", vm.CaptureStatusText);
+    }
+
+    [Fact]
+    public async Task FaceHalfInFrame_WellLitRoom_OnlyFaceIsRed_LightingGreen_MaskGrey()
+    {
+        // What AWS returns when only the top of the head is in frame: every flag false.
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, false, false, false, false, false, null, "face_not_visible")
+        };
+        var camera = new FakeCameraService
+        {
+            PhotoBytes = ONEVO.Agent.TrayApp.Tests.Capture.PhotoBrightnessTests.SolidJpeg(
+                System.Drawing.Color.FromArgb(150, 140, 130))
+        };
+        var vm = new PhotoCaptureWindowViewModel(camera, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.True(vm.FaceVisibleFailed);
+        Assert.True(vm.LightingPassed);
+        Assert.False(vm.LightingFailed);
+        Assert.False(vm.NoObstructionPassed);
+        Assert.False(vm.NoObstructionFailed);
+        Assert.False(vm.MatchFailed);
+        Assert.Contains("not fully in the frame", vm.CaptureStatusText);
+        Assert.DoesNotContain("brighter", vm.CaptureStatusText);
+        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
+    }
+
+    [Fact]
+    public async Task FaceHalfInFrame_DarkRoom_LightingRedToo()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, false, false, false, false, false, null, "face_not_visible")
+        };
+        var camera = new FakeCameraService
+        {
+            PhotoBytes = ONEVO.Agent.TrayApp.Tests.Capture.PhotoBrightnessTests.SolidJpeg(
+                System.Drawing.Color.FromArgb(15, 15, 15))
+        };
+        var vm = new PhotoCaptureWindowViewModel(camera, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.True(vm.FaceVisibleFailed);
+        Assert.True(vm.LightingFailed);
+        Assert.False(vm.NoObstructionFailed);
+        Assert.Contains("brighter", vm.CaptureStatusText);
+    }
+
+    [Fact]
+    public async Task ClearFace_WithSunglasses_OnlyMaskIsRed()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, false, false, false, null, "sunglasses_or_mask")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.True(vm.LightingPassed);
+        Assert.True(vm.FaceVisiblePassed);
+        Assert.True(vm.NoObstructionFailed);
+        Assert.False(vm.MatchFailed);
+    }
+
+    [Fact]
+    public async Task MultipleFaces_ShowsOnePersonMessage()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, false, false, false, false, false, null, "multiple_faces")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.Contains("Only one person", vm.CaptureStatusText);
+        Assert.False(vm.LightingFailed);
+    }
+
+    [Fact]
+    public async Task DifferentPerson_MatchRowFails_QualityRowsPass()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, true, false, false, 12f, "not_matched")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.True(vm.ShowMatchCheck);
+        Assert.True(vm.MatchFailed);
+        Assert.True(vm.LightingPassed);
+        Assert.True(vm.FaceVisiblePassed);
+        Assert.True(vm.NoObstructionPassed);
+        Assert.Contains("did not match", vm.CaptureStatusText);
+        Assert.Equal(["validate"], pipe.CallOrder);
+        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
+    }
+
+    [Fact]
+    public async Task ClockIn_WithNoReference_BlocksWithoutInPlaceEnrollment()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, true, false, false, null, "no_reference_photo")
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.True(vm.NeedsFaceSetup);
+        Assert.False(vm.MatchFailed);
+        Assert.Equal(PhotoCaptureWindowViewModel.FaceSetupRequiredLabel, vm.PrimaryButtonLabel);
+        Assert.Contains("Contact HR", vm.CaptureStatusText);
+        // No shortcut into enrollment from clock-in: whoever is at the laptop must not enrol their face.
+        Assert.False(vm.PrimaryActionCommand.CanExecute(null));
+        Assert.Equal("Verify Your Identity", vm.Headline);
+        Assert.Equal([FacePhotoValidatePurposes.ClockIn], pipe.ValidatePurposes);
+    }
+
+    [Theory]
+    [InlineData("clockin", FacePhotoValidatePurposes.ClockIn)]
+    [InlineData("clockout", FacePhotoValidatePurposes.ClockOut)]
+    [InlineData(null, FacePhotoValidatePurposes.Enrollment)]
+    public async Task Validate_SendsPurposeForContext(string? context, string expected)
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext(context);
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.Equal([expected], pipe.ValidatePurposes);
     }
 }

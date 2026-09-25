@@ -511,7 +511,7 @@ public class OnevoApiClientTests
         });
         var client = Build(handler);
 
-        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], CancellationToken.None);
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.True(result.CanProceed);
@@ -543,7 +543,7 @@ public class OnevoApiClientTests
         });
         var client = Build(handler);
 
-        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], CancellationToken.None);
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, CancellationToken.None);
 
         Assert.True(result.Success);
         Assert.True(result.LightingOk);
@@ -559,12 +559,37 @@ public class OnevoApiClientTests
     }
 
     [Fact]
+    public async Task ValidateFacePhotoAsync_SendsPurposeFormField()
+    {
+        string? body = null;
+        var handler = new StubHandler(request =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new
+                {
+                    lighting_ok = true, face_visible = true, no_sunglasses_or_mask = true,
+                    is_match = true, can_proceed = true, similarity_score = 99f, failure_reason = (string?)null
+                })
+            };
+        });
+        var client = Build(handler);
+
+        await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], "clock_in", CancellationToken.None);
+
+        Assert.NotNull(body);
+        Assert.Contains("name=purpose", body);
+        Assert.Contains("clock_in", body);
+    }
+
+    [Fact]
     public async Task ValidateFacePhotoAsync_Unauthorized_ReturnsUnavailable()
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Unauthorized));
         var client = Build(handler);
 
-        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], CancellationToken.None);
+        var result = await client.ValidateFacePhotoAsync("device-jwt", "jpeg", [1, 2, 3], null, CancellationToken.None);
 
         Assert.False(result.Success);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);

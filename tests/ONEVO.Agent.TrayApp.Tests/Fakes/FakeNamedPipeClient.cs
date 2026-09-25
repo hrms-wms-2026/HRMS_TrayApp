@@ -320,15 +320,19 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
     /// <summary>Optional canned result for ValidateFacePhotoAsync. Null = auto-pass.</summary>
     public FacePhotoValidateResultPayload? NextFacePhotoValidateResult { get; set; }
 
+    /// <summary>Purpose sent with each ValidateFacePhotoAsync call, in order.</summary>
+    public List<string> ValidatePurposes { get; } = [];
+
     public Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
-        string format, byte[] jpegBytes, CancellationToken ct)
+        string format, byte[] jpegBytes, string purpose, CancellationToken ct)
     {
         CallOrder.Add("validate");
+        ValidatePurposes.Add(purpose);
         SentEnvelopes.Add(new IpcEnvelope
         {
             Type = IpcMessageTypes.FacePhotoValidate,
             Payload = JsonSerializer.SerializeToElement(
-                new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes)))
+                new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes), purpose))
         });
 
         if (NextFacePhotoValidateResult is not null)

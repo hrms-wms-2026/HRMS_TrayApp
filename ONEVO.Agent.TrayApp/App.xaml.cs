@@ -20,6 +20,7 @@ public partial class App : Microsoft.Maui.Controls.Application
     private readonly UpdateNotifier _updateNotifier;
     private readonly ILogger<App> _logger;
     private bool _allowExit;
+    private MonitoringState? _lastRoutedState;
 
     public App(
         TrayIconService trayIcon,
@@ -105,6 +106,15 @@ public partial class App : Microsoft.Maui.Controls.Application
             _trayIcon.UpdateState(state);
             MainThread.BeginInvokeOnMainThread(() =>
             {
+                var previous = _lastRoutedState;
+                _lastRoutedState = state;
+                var location = Shell.Current?.CurrentState?.Location?.OriginalString;
+                if (StateNavigationGuard.ShouldHoldCurrentPage(location, previous, state))
+                {
+                    BootLog($"State {state} unchanged — staying on {location}");
+                    return;
+                }
+
                 var route = state switch
                 {
                     MonitoringState.Active     => "//active",
