@@ -319,7 +319,16 @@ public sealed record WorkLocationConfirmPayload(
 
 public sealed record WorkLocationConfirmResultPayload(bool Success, string? ErrorCode);
 
-public sealed record FacePhotoValidatePayload(string Format, string Data);
+/// <param name="Purpose">"enrollment", "clock_in" or "clock_out" — see <see cref="FacePhotoValidatePurposes"/>.
+/// Only enrollment lets the backend save a first reference face.</param>
+public sealed record FacePhotoValidatePayload(string Format, string Data, string? Purpose = null);
+
+public static class FacePhotoValidatePurposes
+{
+    public const string Enrollment = "enrollment";
+    public const string ClockIn = "clock_in";
+    public const string ClockOut = "clock_out";
+}
 
 public sealed record FacePhotoValidateResultPayload(
     bool Success,

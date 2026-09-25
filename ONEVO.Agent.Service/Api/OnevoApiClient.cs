@@ -562,13 +562,15 @@ public sealed class OnevoApiClient
 
     /// <summary>Preview a clock-in selfie against AWS DetectFaces + CompareFaces. Auth: Bearer Device JWT.</summary>
     public async Task<FacePhotoValidateApiResult> ValidateFacePhotoAsync(
-        string accessToken, string format, byte[] jpegBytes, CancellationToken ct)
+        string accessToken, string format, byte[] jpegBytes, string? purpose, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("OnevoApi");
         using var multipart = new MultipartFormDataContent();
         using var fileContent = new ByteArrayContent(jpegBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue($"image/{format}");
         multipart.Add(fileContent, "face_scan", $"preview.{format}");
+        if (!string.IsNullOrWhiteSpace(purpose))
+            multipart.Add(new StringContent(purpose), "purpose");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.FacePhotoValidate)
         {

@@ -114,10 +114,11 @@ public interface INamedPipeClient
     /// <summary>
     /// Sends the captured selfie for AWS DetectFaces + CompareFaces and waits for
     /// <see cref="FacePhotoValidateResultPayload"/>. Clock-in/out must not proceed unless
-    /// <c>CanProceed</c> is true.
+    /// <c>CanProceed</c> is true. <paramref name="purpose"/> is one of
+    /// <see cref="FacePhotoValidatePurposes"/>; only enrollment may save a first reference face.
     /// </summary>
     Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
-        string format, byte[] jpegBytes, CancellationToken ct);
+        string format, byte[] jpegBytes, string purpose, CancellationToken ct);
 
     /// <summary>
     /// Submits every pending legal document the employee accepted on the consent screen in one
