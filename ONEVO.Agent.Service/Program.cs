@@ -117,6 +117,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<OnevoApiClient>();
         services.AddSingleton<EnrollmentCoordinator>();
 
+        services.AddSingleton<ONEVO.Agent.Service.Biometrics.FaceSetupPhotoStaging>();
         services.AddSingleton<AgentWorker>();
         services.AddSingleton<IPresenceReconciler>(sp => sp.GetRequiredService<AgentWorker>());
         services.AddHostedService(sp => sp.GetRequiredService<AgentWorker>());

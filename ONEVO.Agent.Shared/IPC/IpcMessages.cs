@@ -123,6 +123,18 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: DetectFaces + CompareFaces result used to allow clock-in or force a retake.</summary>
     public const string FacePhotoValidateResult = "FacePhotoValidateResult";
 
+    /// <summary>Tray → Service: does this device's employee already have an enrolled face? (device setup skips face setup if so)</summary>
+    public const string FaceReferenceStatus = "FaceReferenceStatus";
+
+    /// <summary>Service → Tray: outcome of <see cref="FaceReferenceStatus"/>.</summary>
+    public const string FaceReferenceStatusResult = "FaceReferenceStatusResult";
+
+    /// <summary>Tray → Service: save the three staged face setup photos as the employee's references.</summary>
+    public const string FaceEnrollCommit = "FaceEnrollCommit";
+
+    /// <summary>Service → Tray: outcome of <see cref="FaceEnrollCommit"/>.</summary>
+    public const string FaceEnrollCommitResult = "FaceEnrollCommitResult";
+
     /// <summary>Tray → Service: employee accepted the pending legal documents shown on the consent screen.</summary>
     public const string LegalAcceptanceSubmit = "LegalAcceptanceSubmit";
 
@@ -319,9 +331,19 @@ public sealed record WorkLocationConfirmPayload(
 
 public sealed record WorkLocationConfirmResultPayload(bool Success, string? ErrorCode);
 
-/// <param name="Purpose">"enrollment", "clock_in" or "clock_out" — see <see cref="FacePhotoValidatePurposes"/>.
-/// Only enrollment lets the backend save a first reference face.</param>
-public sealed record FacePhotoValidatePayload(string Format, string Data, string? Purpose = null);
+/// <param name="Purpose">"enrollment", "clock_in" or "clock_out" — see <see cref="FacePhotoValidatePurposes"/>.</param>
+/// <param name="Pose">Face setup step — see <see cref="FaceSetupPoses"/>. Enrollment only.</param>
+/// <param name="EnrollmentSessionId">
+/// Face setup attempt this photo belongs to. When the step passes, the Service keeps the photo
+/// under this id until <see cref="IpcMessageTypes.FaceEnrollCommit"/> — three photos do not fit
+/// in one IPC message.
+/// </param>
+public sealed record FacePhotoValidatePayload(
+    string Format,
+    string Data,
+    string? Purpose = null,
+    string? Pose = null,
+    Guid? EnrollmentSessionId = null);
 
 public static class FacePhotoValidatePurposes
 {
@@ -329,6 +351,47 @@ public static class FacePhotoValidatePurposes
     public const string ClockIn = "clock_in";
     public const string ClockOut = "clock_out";
 }
+
+/// <summary>Tray face setup steps: look straight, then turn the head to each side.</summary>
+public static class FaceSetupPoses
+{
+    public const string Front = "front";
+    public const string Left = "left";
+    public const string Right = "right";
+
+    public static readonly string[] All = [Front, Left, Right];
+}
+
+/// <summary>Backend failure_reason codes the tray branches on for face checks.</summary>
+public static class FaceCheckFailureCodes
+{
+    public const string NoFaceDetected = "no_face_detected";
+    public const string MultipleFaces = "multiple_faces";
+    public const string FaceNotVisible = "face_not_visible";
+    public const string NotMatched = "not_matched";
+    public const string NoReferencePhoto = "no_reference_photo";
+    public const string VerificationFailed = "verification_failed";
+    public const string WrongPose = "wrong_pose";
+    public const string SameSide = "same_side";
+    public const string GlassesGlare = "glasses_glare";
+    public const string EyesClosed = "eyes_closed";
+
+    /// <summary>Face setup: the employee is already enrolled and this photo matched — not an error.</summary>
+    public const string AlreadyEnrolled = "already_enrolled";
+}
+
+public sealed record FaceEnrollCommitPayload(Guid EnrollmentSessionId);
+
+/// <param name="Success">The Service reached the backend (false: unavailable / no credential / photos missing).</param>
+/// <param name="ErrorCode">Set when <paramref name="Success"/> is false, e.g. "PHOTOS_MISSING".</param>
+/// <param name="Enrolled">All three photos were accepted and saved as references.</param>
+/// <param name="FailedPhoto">"front", "left" or "right" — the photo to retake.</param>
+public sealed record FaceEnrollCommitResultPayload(
+    bool Success,
+    string? ErrorCode,
+    bool Enrolled,
+    string? FailedPhoto,
+    string? FailureReason);
 
 public sealed record FacePhotoValidateResultPayload(
     bool Success,
@@ -339,7 +402,12 @@ public sealed record FacePhotoValidateResultPayload(
     bool IsMatch,
     bool CanProceed,
     float? Similarity,
-    string? FailureReason);
+    string? FailureReason,
+    int? FaceCount = null);
+
+/// <param name="Success">The Service reached the backend; false means "unknown" — show face setup.</param>
+public sealed record FaceReferenceStatusResultPayload(
+    bool Success, string? ErrorCode, bool Enrolled, int ReferencePhotoCount);
 
 public sealed record LegalAcceptanceItemPayload(string DocumentType, string Version);
 

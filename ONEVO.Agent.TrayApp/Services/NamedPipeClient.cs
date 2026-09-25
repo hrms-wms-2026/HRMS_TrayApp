@@ -615,7 +615,8 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     }
 
     public async Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
-        string format, byte[] jpegBytes, string purpose, CancellationToken ct)
+        string format, byte[] jpegBytes, string purpose, CancellationToken ct,
+        string? pose = null, Guid? enrollmentSessionId = null)
     {
         var correlationId = Guid.NewGuid().ToString("N");
         var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -627,8 +628,8 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             {
                 Type = IpcMessageTypes.FacePhotoValidate,
                 CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new FacePhotoValidatePayload(format, Convert.ToBase64String(jpegBytes), purpose))
+                Payload = JsonSerializer.SerializeToElement(new FacePhotoValidatePayload(
+                    format, Convert.ToBase64String(jpegBytes), purpose, pose, enrollmentSessionId))
             };
             await WriteEnvelopeAsync(envelope, ct);
 
@@ -649,6 +650,81 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             }
 
             return reply.Payload?.Deserialize<FacePhotoValidateResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
+    public async Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            await WriteEnvelopeAsync(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.FaceReferenceStatus,
+                CorrelationId = correlationId
+            }, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            try
+            {
+                var reply = await tcs.Task.ConfigureAwait(false);
+                return reply.Payload?.Deserialize<FaceReferenceStatusResultPayload>();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Face reference status timed out waiting for result");
+                return null;
+            }
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
+    public async Task<FaceEnrollCommitResultPayload?> CommitFaceEnrollmentAsync(
+        Guid enrollmentSessionId, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            await WriteEnvelopeAsync(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.FaceEnrollCommit,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(new FaceEnrollCommitPayload(enrollmentSessionId))
+            }, ct);
+
+            // Three DetectFaces, two CompareFaces and three uploads — slower than one preview.
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            try
+            {
+                var reply = await tcs.Task.ConfigureAwait(false);
+                return reply.Payload?.Deserialize<FaceEnrollCommitResultPayload>();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Face setup commit timed out waiting for result");
+                return null;
+            }
         }
         finally
         {

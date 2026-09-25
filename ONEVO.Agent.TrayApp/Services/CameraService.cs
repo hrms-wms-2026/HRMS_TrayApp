@@ -16,6 +16,9 @@ public sealed class CameraService : ICameraService
 
     private MediaCapture? _sharedCapture;
     private MediaFrameReader? _reader;
+
+    /// <summary>Width / height of the live preview frames — what the round preview is cut from.</summary>
+    private double? _previewAspect;
     private int _frameBusy;
     private int _loggedFrame;
     private long _lastFrameTick;
@@ -106,6 +109,8 @@ public sealed class CameraService : ICameraService
             if (status == MediaFrameReaderStartStatus.Success)
             {
                 var video = source.CurrentFormat?.VideoFormat;
+                if (video is { Width: > 0, Height: > 0 })
+                    _previewAspect = video.Width / (double)video.Height;
                 BootLog($"preview reader started {video?.Width}x{video?.Height} subtype={subtype ?? "native"}");
                 return true;
             }
@@ -291,7 +296,11 @@ public sealed class CameraService : ICameraService
                 // message cap once base64-encoded. Downscale/re-encode to a bounded size the same
                 // way screenshots do (see JpegSizeReducer) rather than shipping it as-is.
                 using var bitmap = new Bitmap(stream.AsStreamForRead());
-                var encoded = JpegSizeReducer.Encode(bitmap, Constants.MaxFacePhotoJpegBytes, ct);
+                // Send only what the employee saw inside the circle: people or photos in the
+                // background outside it must not fail the check as "another person".
+                using var circle = FaceCircleCrop.Apply(bitmap, _previewAspect);
+                BootLog($"photo {bitmap.Width}x{bitmap.Height} preview aspect {_previewAspect:0.###} -> sent {circle.Width}x{circle.Height}");
+                var encoded = JpegSizeReducer.Encode(circle, Constants.MaxFacePhotoJpegBytes, ct);
                 return encoded.Success ? encoded.JpegBytes.ToArray() : null;
             }
             finally
