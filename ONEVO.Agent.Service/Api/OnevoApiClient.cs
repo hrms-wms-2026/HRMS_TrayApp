@@ -613,9 +613,10 @@ public sealed class OnevoApiClient
             }
 
             _logger.LogInformation(
-                "Face preview result can_proceed={CanProceed} lighting={Lighting} face={Face} obstruction={Obstruction} match={Match} reason={Reason} faces={FaceCount} [{FaceBoxes}]",
+                "Face preview result can_proceed={CanProceed} lighting={Lighting} face={Face} obstruction={Obstruction} match={Match} reason={Reason} faces={FaceCount} [{FaceBoxes}] attempts={FailedAttempts}/{MaxAttempts}",
                 parsed.CanProceed, parsed.LightingOk, parsed.FaceVisible, parsed.NoSunglassesOrMask,
-                parsed.IsMatch, parsed.FailureReason, parsed.FaceCount, parsed.FaceBoxes);
+                parsed.IsMatch, parsed.FailureReason, parsed.FaceCount, parsed.FaceBoxes,
+                parsed.FailedAttempts, parsed.MaxAttempts);
 
             return parsed;
         }
@@ -1004,7 +1005,9 @@ public sealed class OnevoApiClient
             ReadFloat(root, "similarity_score", "similarityScore"),
             ReadString(root, "failure_reason", "failureReason"),
             ReadInt(root, "face_count", "faceCount"),
-            ReadFaceBoxes(root));
+            ReadFaceBoxes(root),
+            ReadInt(root, "failed_attempts", "failedAttempts"),
+            ReadInt(root, "max_attempts", "maxAttempts"));
     }
 
     private static int? ReadInt(JsonElement root, params string[] names)
@@ -1226,7 +1229,9 @@ public sealed record FacePhotoValidateApiResult(
     float? Similarity,
     string? FailureReason,
     int? FaceCount = null,
-    string? FaceBoxes = null)
+    string? FaceBoxes = null,
+    int? FailedAttempts = null,
+    int? MaxAttempts = null)
 {
     public static FacePhotoValidateApiResult Unavailable(string errorCode = "SERVICE_UNAVAILABLE") =>
         new(false, errorCode, false, false, false, false, false, null, null);

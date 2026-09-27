@@ -88,7 +88,14 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         : ContinueLabel;
 
     /// <summary>Green "captured" pill — only while the photo is captured and not in an error state.</summary>
-    public bool ShowCapturedSuccess => IsCaptured && !IsValidating && !IsVerificationFailed;
+    public bool ShowCapturedSuccess => IsCaptured && !IsValidating && !IsVerificationFailed && !IsManagerReview;
+
+    /// <summary>
+    /// Clock-in/out: the last allowed attempt failed too, but the employee may continue — their
+    /// manager was alerted. Shown as a neutral warning, not as a verified face.
+    /// </summary>
+    public bool IsManagerReview =>
+        !IsEnrollment && _validation is { CanProceed: true, FailureReason: FaceCheckFailureCodes.ManagerReview };
 
     /// <summary>Last AWS result. Every checklist state below is derived from it.</summary>
     private FacePhotoValidateResultPayload? _validation;
@@ -134,7 +141,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         nameof(FaceVisiblePassed), nameof(FaceVisibleFailed),
         nameof(NoObstructionPassed), nameof(NoObstructionFailed),
         nameof(MatchPassed), nameof(MatchFailed),
-        nameof(NeedsFaceSetup), nameof(PrimaryButtonLabel)
+        nameof(NeedsFaceSetup), nameof(PrimaryButtonLabel),
+        nameof(IsManagerReview), nameof(ShowCapturedSuccess), nameof(ShowStatusBelow)
     ];
 
     private void SetValidation(FacePhotoValidateResultPayload? result)
@@ -674,6 +682,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
                 IsVerificationFailed = false;
                 if (enrollment)
                     AcceptSetupPhoto(result);
+                else if (IsManagerReview)
+                    CaptureStatusText = "Face couldn't be verified. You can continue — your manager has been notified.";
                 else
                     CaptureStatusText = "Face captured successfully.";
                 return true;
@@ -689,7 +699,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
                 return false;
             }
 
-            CaptureStatusText = BuildRetakeMessage(result, _photoLightingOk, pose);
+            CaptureStatusText = BuildRetakeMessage(result, _photoLightingOk, pose) + AttemptsSuffix(result);
             return false;
         }
         catch (Exception ex)
@@ -744,6 +754,12 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         ReturnToLivePreview($"{saved} {nextInstruction}");
         RaiseSetupChanged();
     }
+
+    /// <summary>" Attempt 1 of 3." for clock-in/out failures the backend counted.</summary>
+    internal static string AttemptsSuffix(FacePhotoValidateResultPayload? result) =>
+        result is { FailedAttempts: > 0 and var failed, MaxAttempts: > 0 and var max } && failed < max
+            ? $" Attempt {failed} of {max}."
+            : "";
 
     /// <param name="photoLightingOk">Whole-photo brightness check, used when the face itself is the problem.</param>
     /// <param name="pose">Face setup step the photo was taken for (null outside face setup).</param>

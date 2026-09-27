@@ -376,6 +376,12 @@ public static class FaceCheckFailureCodes
     public const string GlassesGlare = "glasses_glare";
     public const string EyesClosed = "eyes_closed";
 
+    /// <summary>
+    /// Clock-in/out: the check failed again after the allowed retries, but the employee may continue;
+    /// their manager was alerted to review the photo. Arrives with CanProceed = true.
+    /// </summary>
+    public const string ManagerReview = "manager_review";
+
     /// <summary>Face setup: the employee is already enrolled and this photo matched — not an error.</summary>
     public const string AlreadyEnrolled = "already_enrolled";
 }
@@ -403,7 +409,9 @@ public sealed record FacePhotoValidateResultPayload(
     bool CanProceed,
     float? Similarity,
     string? FailureReason,
-    int? FaceCount = null);
+    int? FaceCount = null,
+    int? FailedAttempts = null,
+    int? MaxAttempts = null);
 
 /// <param name="Success">The Service reached the backend; false means "unknown" — show face setup.</param>
 public sealed record FaceReferenceStatusResultPayload(

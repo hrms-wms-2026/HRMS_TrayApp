@@ -396,6 +396,18 @@
             <Border WidthRequest="20" HeightRequest="20"
                     StrokeShape="RoundRectangle 10"
                     StrokeThickness="0"
+                    BackgroundColor="{StaticResource StatusOrange}"
+                    IsVisible="{Binding IsManagerReview}">
+              <Label Text="{StaticResource IconInfo}"
+                     FontFamily="Segoe MDL2 Assets"
+                     FontSize="11"
+                     TextColor="White"
+                     HorizontalOptions="Center"
+                     VerticalOptions="Center" />
+            </Border>
+            <Border WidthRequest="20" HeightRequest="20"
+                    StrokeShape="RoundRectangle 10"
+                    StrokeThickness="0"
                     BackgroundColor="{StaticResource StatusRed}"
                     IsVisible="{Binding IsVerificationFailed}">
               <Label Text="{StaticResource IconCancel}"

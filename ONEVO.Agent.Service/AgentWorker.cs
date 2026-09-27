@@ -1423,7 +1423,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         await Reply(new FacePhotoValidateResultPayload(
             result.Success, result.ErrorCode,
             result.LightingOk, result.FaceVisible, result.NoSunglassesOrMask,
-            result.IsMatch, result.CanProceed, result.Similarity, result.FailureReason, result.FaceCount));
+            result.IsMatch, result.CanProceed, result.Similarity, result.FailureReason, result.FaceCount,
+            result.FailedAttempts, result.MaxAttempts));
     }
 
     internal async Task HandleFaceReferenceStatusAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
