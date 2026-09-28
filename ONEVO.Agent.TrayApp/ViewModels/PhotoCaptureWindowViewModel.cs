@@ -70,6 +70,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     public const string CaptureLabel = "Capture";
     public const string FaceSetupRequiredLabel = "Face setup required";
     public const string ContactHrLabel = "Contact HR";
+    public const string NextLabel = "Next";
 
     /// <summary>
     /// Clock-in/out found no enrolled face. Retaking can never fix that, and offering an
@@ -83,6 +84,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         NeedsFaceSetup ? FaceSetupRequiredLabel
         : _enrollmentBlocked ? ContactHrLabel
         : IsVerificationFailed || _retryCommit ? TryAgainLabel
+        : _awaitingNext ? NextLabel
         : IsEnrollment ? (SetupComplete ? ContinueLabel : CaptureLabel)
         : !IsCaptured ? CaptureLabel
         : ContinueLabel;
@@ -182,6 +184,15 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     /// <summary>Saving the three photos failed for a reason retaking cannot fix (Service/backend down).</summary>
     private bool _retryCommit;
 
+    /// <summary>
+    /// Face setup: a photo just passed and is shown with its tick; the employee taps "Next" to
+    /// go back to the live camera for the following photo.
+    /// </summary>
+    private bool _awaitingNext;
+    private string? _nextInstruction;
+
+    public bool IsAwaitingNext => _awaitingNext;
+
     /// <summary>Index of the face setup step being captured: 0 front, 1 left, 2 right, 3 = all done.</summary>
     [ObservableProperty] private int _setupStep;
 
@@ -215,7 +226,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
     /// <summary>The small camera button: not while busy, and not once all setup photos are in.</summary>
     public bool CanUseCameraButton =>
-        !IsValidating && !IsCapturing && !_enrollmentBlocked && !(IsEnrollment && SetupComplete);
+        !IsValidating && !IsCapturing && !_enrollmentBlocked && !_awaitingNext && !(IsEnrollment && SetupComplete);
 
     private static readonly string[] SetupDerivedProperties =
     [
@@ -224,7 +235,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         nameof(FrontSetupDone), nameof(LeftSetupDone), nameof(RightSetupDone),
         nameof(IsFrontStepActive), nameof(IsLeftStepActive), nameof(IsRightStepActive),
         nameof(SetupComplete), nameof(CurrentSetupPose), nameof(InstructionText),
-        nameof(CanUseCameraButton), nameof(PrimaryButtonLabel)
+        nameof(CanUseCameraButton), nameof(PrimaryButtonLabel), nameof(IsAwaitingNext)
     ];
 
     private void RaiseSetupChanged()
@@ -244,6 +255,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         _alreadyEnrolled = false;
         _enrollmentBlocked = false;
         _retryCommit = false;
+        _awaitingNext = false;
+        _nextInstruction = null;
         SetupStep = 0;
         RaiseSetupChanged();
     }
@@ -382,7 +395,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     [RelayCommand]
     private async Task CapturePhotoAsync(CancellationToken ct)
     {
-        if (_enrollmentBlocked || (IsEnrollment && SetupComplete))
+        if (_enrollmentBlocked || _awaitingNext || (IsEnrollment && SetupComplete))
             return;
 
         IsCapturing       = true;
@@ -436,6 +449,15 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         if (_retryCommit)
         {
             await Continue();
+            return;
+        }
+
+        if (_awaitingNext)
+        {
+            _awaitingNext = false;
+            ReturnToLivePreview(_nextInstruction);
+            _nextInstruction = null;
+            RaiseSetupChanged();
             return;
         }
 
@@ -717,8 +739,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Face setup step passed: keep the photo and line up the next missing step on the live
-    /// camera, or stay on the last photo once all three are in.
+    /// Face setup step passed: keep the photo on screen and wait for "Next" before lining up the
+    /// next missing step on the live camera, or stay on the last photo once all three are in.
     /// </summary>
     private void AcceptSetupPhoto(FacePhotoValidateResultPayload result)
     {
@@ -744,14 +766,17 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             return;
         }
 
+        // Keep the photo on screen with its tick; "Next" goes back to the live camera.
         var saved = step switch { 0 => "Front photo saved.", 1 => "Left photo saved.", _ => "Right photo saved." };
-        var nextInstruction = next switch
+        var nextName = next switch { 0 => "front", 1 => "left", _ => "right" };
+        _nextInstruction = next switch
         {
-            0 => "Now look straight at the camera.",
-            1 => "Now turn your head slightly to the left.",
-            _ => "Now turn your head slightly to the right."
+            0 => "Look straight at the camera, then tap Capture.",
+            1 => "Turn your head slightly to the left, then tap Capture.",
+            _ => "Turn your head slightly to the right, then tap Capture."
         };
-        ReturnToLivePreview($"{saved} {nextInstruction}");
+        _awaitingNext = true;
+        CaptureStatusText = $"{saved} Tap Next for the {nextName} photo.";
         RaiseSetupChanged();
     }
 

@@ -224,6 +224,32 @@ public sealed class PhotoCaptureWindowViewModelTests
         Assert.True(vm.NoObstructionPassed);
     }
 
+    /// <summary>Front, Next, left, Next, right — leaves the VM on "Enroll &amp; Continue".</summary>
+    private static async Task TakeAllSetupPhotosAsync(PhotoCaptureWindowViewModel vm)
+    {
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        Assert.True(vm.SetupComplete);
+    }
+
+    [Fact]
+    public async Task FaceSetup_CameraButtonIgnoredWhileWaitingForNext()
+    {
+        var camera = new FakeCameraService { ShouldReturnPhoto = true };
+        var vm = new PhotoCaptureWindowViewModel(camera, new FakeNamedPipeClient(), new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // front passes
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);    // stray camera-button click
+
+        Assert.Equal(1, camera.CallCount);
+        Assert.True(vm.IsAwaitingNext);
+        Assert.False(vm.LeftSetupDone);
+    }
+
     [Fact]
     public async Task FaceSetup_ThreePhotos_FrontLeftRight_ThenCommitAndSaveFace()
     {
@@ -239,11 +265,25 @@ public sealed class PhotoCaptureWindowViewModelTests
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // front
         Assert.True(vm.FrontSetupDone);
+        Assert.True(vm.IsCaptured);                          // photo stays on screen with its tick
+        Assert.True(vm.ShowCapturedSuccess);
+        Assert.True(vm.IsAwaitingNext);
+        Assert.Equal(PhotoCaptureWindowViewModel.NextLabel, vm.PrimaryButtonLabel);
+        Assert.False(vm.CanUseCameraButton);
+        Assert.Contains("Tap Next", vm.CaptureStatusText);
+        Assert.Equal(1, camera.CallCount);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
         Assert.False(vm.IsCaptured);                         // back on the live camera
+        Assert.False(vm.IsAwaitingNext);
+        Assert.Equal(PhotoCaptureWindowViewModel.CaptureLabel, vm.PrimaryButtonLabel);
         Assert.Contains("Step 2 of 3", vm.InstructionText);
         Assert.Contains("left", vm.CaptureStatusText);
+        Assert.Equal(1, camera.CallCount);                   // Next itself takes no photo
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // left
+        Assert.Equal(PhotoCaptureWindowViewModel.NextLabel, vm.PrimaryButtonLabel);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
         Assert.Contains("Step 3 of 3", vm.InstructionText);
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // right
@@ -272,6 +312,7 @@ public sealed class PhotoCaptureWindowViewModelTests
             new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
         vm.SetContext(null);
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // front passes
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
 
         pipe.NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
             true, null, true, true, true, false, false, null, FaceCheckFailureCodes.WrongPose);
@@ -346,8 +387,7 @@ public sealed class PhotoCaptureWindowViewModelTests
         var vm = new PhotoCaptureWindowViewModel(
             new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
         vm.SetContext(null);
-        for (var i = 0; i < 3; i++)
-            await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await TakeAllSetupPhotosAsync(vm);
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit → right rejected
 
@@ -378,8 +418,7 @@ public sealed class PhotoCaptureWindowViewModelTests
         var vm = new PhotoCaptureWindowViewModel(
             new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
         vm.SetContext(null);
-        for (var i = 0; i < 3; i++)
-            await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await TakeAllSetupPhotosAsync(vm);
         var firstSession = pipe.ValidateSessionIds[0];
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);
@@ -447,6 +486,49 @@ public sealed class PhotoCaptureWindowViewModelTests
             FailedAttempts: 3, MaxAttempts: 3);
 
         Assert.Equal("", PhotoCaptureWindowViewModel.AttemptsSuffix(result));
+    }
+
+    [Theory]
+    [InlineData(false)]  // Service could not reach the backend / AWS
+    [InlineData(true)]   // backend reached, AWS gave no answer (verification_failed)
+    public async Task ClockIn_NoAwsAnswer_NeverClocksIn(bool reachedBackend)
+    {
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = reachedBackend
+                ? new FacePhotoValidateResultPayload(true, null, false, false, false, false, false, null, FaceCheckFailureCodes.VerificationFailed)
+                : new FacePhotoValidateResultPayload(false, "SERVICE_UNAVAILABLE", false, false, false, false, false, null, null)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsVerificationFailed);
+        Assert.False(vm.IsManagerReview);
+        Assert.DoesNotContain("lifecycle:ClockIn", pipe.CallOrder);
+    }
+
+    [Fact]
+    public async Task FaceSetup_NoAwsAnswer_DoesNotGoToNextPhoto()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                false, "SERVICE_UNAVAILABLE", false, false, false, false, false, null, null)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext(null);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.False(vm.FrontSetupDone);
+        Assert.False(vm.IsAwaitingNext);
+        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
     }
 
     [Fact]
