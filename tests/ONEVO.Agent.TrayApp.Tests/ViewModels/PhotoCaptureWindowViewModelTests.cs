@@ -488,6 +488,49 @@ public sealed class PhotoCaptureWindowViewModelTests
         Assert.Equal("", PhotoCaptureWindowViewModel.AttemptsSuffix(result));
     }
 
+    [Theory]
+    [InlineData(false)]  // Service could not reach the backend / AWS
+    [InlineData(true)]   // backend reached, AWS gave no answer (verification_failed)
+    public async Task ClockIn_NoAwsAnswer_NeverClocksIn(bool reachedBackend)
+    {
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = reachedBackend
+                ? new FacePhotoValidateResultPayload(true, null, false, false, false, false, false, null, FaceCheckFailureCodes.VerificationFailed)
+                : new FacePhotoValidateResultPayload(false, "SERVICE_UNAVAILABLE", false, false, false, false, false, null, null)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsVerificationFailed);
+        Assert.False(vm.IsManagerReview);
+        Assert.DoesNotContain("lifecycle:ClockIn", pipe.CallOrder);
+    }
+
+    [Fact]
+    public async Task FaceSetup_NoAwsAnswer_DoesNotGoToNextPhoto()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                false, "SERVICE_UNAVAILABLE", false, false, false, false, false, null, null)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext(null);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.False(vm.FrontSetupDone);
+        Assert.False(vm.IsAwaitingNext);
+        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
+    }
+
     [Fact]
     public void ClockIn_ShowsNoSetupSteps_AndSingleCapturePrompt()
     {
