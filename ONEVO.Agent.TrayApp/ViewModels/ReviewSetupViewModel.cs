@@ -1,12 +1,10 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
 public sealed partial class ReviewSetupViewModel : BaseViewModel
 {
     private readonly IPreferencesStore _preferences;
-    private readonly INamedPipeClient? _pipe;
 
     [ObservableProperty] private string _fullName     = string.Empty;
     [ObservableProperty] private string _workEmail    = string.Empty;
@@ -23,11 +21,10 @@ public sealed partial class ReviewSetupViewModel : BaseViewModel
     public string FaceVerificationStatusText =>
         FaceVerificationCompleted ? "Enrolled" : "Pending";
 
-    public ReviewSetupViewModel(IPreferencesStore preferences, INamedPipeClient? pipe = null)
+    public ReviewSetupViewModel(IPreferencesStore preferences)
     {
         Title = "Confirm Your Details";
         _preferences = preferences;
-        _pipe = pipe;
     }
 
     public void OnAppearing()
@@ -59,30 +56,13 @@ public sealed partial class ReviewSetupViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Face setup is skipped when the backend already holds this employee's enrolled face (e.g.
-    /// tray reinstalled, or a second device): clock-in still verifies against it every time.
-    /// When the answer is unknown (Service/backend down), face setup is shown as before.
+    /// Always continues to face setup: it takes three new photos that replace any face the
+    /// employee already had enrolled.
     /// </summary>
     [RelayCommand]
     private async Task ConfirmAndContinue()
     {
         var route = SetupFlow.AfterConfirmDetails;
-        FaceReferenceStatusResultPayload? status = null;
-        if (_pipe is not null)
-        {
-            try { status = await _pipe.GetFaceReferenceStatusAsync(CancellationToken.None); }
-            catch { /* unknown — show face setup */ }
-        }
-
-        if (status is { Success: true, Enrolled: true })
-        {
-            _preferences.Set(SessionPreferenceKeys.FaceVerified, "true");
-            try { Microsoft.Maui.Storage.Preferences.Set("onevo.face_verified", true); }
-            catch { /* unit tests */ }
-            FaceVerificationCompleted = true;
-            route = SetupFlow.AfterFaceEnrollment(_pipe!.LastKnownPolicy?.AllowsDailyLocationChoice ?? false);
-        }
-
         LastRoute = route;
         try { await Shell.Current.GoToAsync(route); }
         catch { /* unit tests */ }
