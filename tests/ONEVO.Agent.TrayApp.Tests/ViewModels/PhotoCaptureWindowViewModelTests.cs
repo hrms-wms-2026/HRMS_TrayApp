@@ -393,6 +393,63 @@ public sealed class PhotoCaptureWindowViewModelTests
     }
 
     [Fact]
+    public async Task ClockIn_FailedAttempt_ShowsAttemptCount()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, true, false, false, 12f, FaceCheckFailureCodes.NotMatched,
+                FailedAttempts: 1, MaxAttempts: 3)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.Contains("Attempt 1 of 3", vm.CaptureStatusText);
+        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
+    }
+
+    [Fact]
+    public async Task ClockIn_ThirdAttemptManagerReview_LetsEmployeeClockIn()
+    {
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, true, false, true, 12f, FaceCheckFailureCodes.ManagerReview,
+                FailedAttempts: 3, MaxAttempts: 3)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsManagerReview);
+        Assert.False(vm.IsVerificationFailed);
+        Assert.False(vm.ShowCapturedSuccess);   // not shown as a verified face
+        Assert.True(vm.ShowStatusBelow);
+        Assert.Contains("manager has been notified", vm.CaptureStatusText);
+        Assert.Equal("Verify & Clock In", vm.PrimaryButtonLabel);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.Contains("lifecycle:ClockIn", pipe.CallOrder);
+    }
+
+    [Fact]
+    public void AttemptsSuffix_NotShownOnceLimitReached()
+    {
+        var result = new FacePhotoValidateResultPayload(
+            true, null, true, true, true, false, true, null, FaceCheckFailureCodes.ManagerReview,
+            FailedAttempts: 3, MaxAttempts: 3);
+
+        Assert.Equal("", PhotoCaptureWindowViewModel.AttemptsSuffix(result));
+    }
+
+    [Fact]
     public void ClockIn_ShowsNoSetupSteps_AndSingleCapturePrompt()
     {
         var vm = MakeVm();
