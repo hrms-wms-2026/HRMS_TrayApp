@@ -115,10 +115,93 @@
         </HorizontalStackLayout>
       </Border>
 
-      <Label Grid.Row="2"
-             Text="Look at the camera and keep your face within the frame."
-             Style="{StaticResource PageSubtitle}"
-             Margin="0,8,0,4" />
+      <VerticalStackLayout Grid.Row="2" Spacing="6" Margin="0,8,0,4">
+        <Label Text="{Binding InstructionText}"
+               Style="{StaticResource PageSubtitle}" />
+
+        <!-- Face setup: front, left, right. Each slot shows its photo once it passes. -->
+        <HorizontalStackLayout IsVisible="{Binding ShowSetupSteps}"
+                               Spacing="18"
+                               HorizontalOptions="Center">
+          <HorizontalStackLayout Spacing="6">
+            <Border WidthRequest="30" HeightRequest="30"
+                    StrokeShape="RoundRectangle 15"
+                    Stroke="{StaticResource Separator}"
+                    StrokeThickness="2"
+                    BackgroundColor="{StaticResource GlassSurfaceTop}">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding IsFrontStepActive}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding FrontSetupDone}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusGreen}" />
+                </DataTrigger>
+              </Border.Triggers>
+              <Grid>
+                <Label Text="1" FontSize="12" FontAttributes="Bold"
+                       TextColor="{StaticResource TextSecondary}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <Image Source="{Binding FrontSetupPhoto, Converter={StaticResource BytesToImageSourceConverter}}"
+                       Aspect="AspectFill"
+                       IsVisible="{Binding FrontSetupDone}" />
+              </Grid>
+            </Border>
+            <Label Text="Front" FontSize="13" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+          </HorizontalStackLayout>
+
+          <HorizontalStackLayout Spacing="6">
+            <Border WidthRequest="30" HeightRequest="30"
+                    StrokeShape="RoundRectangle 15"
+                    Stroke="{StaticResource Separator}"
+                    StrokeThickness="2"
+                    BackgroundColor="{StaticResource GlassSurfaceTop}">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding IsLeftStepActive}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding LeftSetupDone}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusGreen}" />
+                </DataTrigger>
+              </Border.Triggers>
+              <Grid>
+                <Label Text="2" FontSize="12" FontAttributes="Bold"
+                       TextColor="{StaticResource TextSecondary}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <Image Source="{Binding LeftSetupPhoto, Converter={StaticResource BytesToImageSourceConverter}}"
+                       Aspect="AspectFill"
+                       IsVisible="{Binding LeftSetupDone}" />
+              </Grid>
+            </Border>
+            <Label Text="Left" FontSize="13" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+          </HorizontalStackLayout>
+
+          <HorizontalStackLayout Spacing="6">
+            <Border WidthRequest="30" HeightRequest="30"
+                    StrokeShape="RoundRectangle 15"
+                    Stroke="{StaticResource Separator}"
+                    StrokeThickness="2"
+                    BackgroundColor="{StaticResource GlassSurfaceTop}">
+              <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding IsRightStepActive}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding RightSetupDone}" Value="True">
+                  <Setter Property="Stroke" Value="{StaticResource StatusGreen}" />
+                </DataTrigger>
+              </Border.Triggers>
+              <Grid>
+                <Label Text="3" FontSize="12" FontAttributes="Bold"
+                       TextColor="{StaticResource TextSecondary}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <Image Source="{Binding RightSetupPhoto, Converter={StaticResource BytesToImageSourceConverter}}"
+                       Aspect="AspectFill"
+                       IsVisible="{Binding RightSetupDone}" />
+              </Grid>
+            </Border>
+            <Label Text="Right" FontSize="13" TextColor="{StaticResource TextPrimary}" VerticalOptions="Center" />
+          </HorizontalStackLayout>
+        </HorizontalStackLayout>
+      </VerticalStackLayout>
 
       <!-- Live preview and captured confirmation share the circular brand ring. -->
       <Grid Grid.Row="3"
@@ -246,7 +329,7 @@
             <Button Command="{Binding CapturePhotoCommand}"
                     BackgroundColor="Transparent"
                     Text=""
-                    IsEnabled="{Binding IsValidating, Converter={StaticResource InvertBoolConverter}}"
+                    IsEnabled="{Binding CanUseCameraButton}"
                     SemanticProperties.Description="Capture or retake photo" />
             <Label InputTransparent="True"
                    Text="{StaticResource IconCamera}"

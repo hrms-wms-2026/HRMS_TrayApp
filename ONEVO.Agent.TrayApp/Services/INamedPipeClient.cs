@@ -115,10 +115,25 @@ public interface INamedPipeClient
     /// Sends the captured selfie for AWS DetectFaces + CompareFaces and waits for
     /// <see cref="FacePhotoValidateResultPayload"/>. Clock-in/out must not proceed unless
     /// <c>CanProceed</c> is true. <paramref name="purpose"/> is one of
-    /// <see cref="FacePhotoValidatePurposes"/>; only enrollment may save a first reference face.
+    /// <see cref="FacePhotoValidatePurposes"/>. For face setup, <paramref name="pose"/> names the
+    /// step (<see cref="FaceSetupPoses"/>) and a passing photo is kept by the Service under
+    /// <paramref name="enrollmentSessionId"/> until <see cref="CommitFaceEnrollmentAsync"/>.
     /// </summary>
     Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
-        string format, byte[] jpegBytes, string purpose, CancellationToken ct);
+        string format, byte[] jpegBytes, string purpose, CancellationToken ct,
+        string? pose = null, Guid? enrollmentSessionId = null);
+
+    /// <summary>
+    /// Face setup: asks the Service to save the three staged photos of this session as the
+    /// employee's reference faces. Null when the Service did not answer in time.
+    /// </summary>
+    Task<FaceEnrollCommitResultPayload?> CommitFaceEnrollmentAsync(Guid enrollmentSessionId, CancellationToken ct);
+
+    /// <summary>
+    /// Whether this device's employee already has an enrolled face (device setup then skips face
+    /// setup). Null when the Service did not answer in time — treat as unknown and show setup.
+    /// </summary>
+    Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct);
 
     /// <summary>
     /// Submits every pending legal document the employee accepted on the consent screen in one

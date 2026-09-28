@@ -48,3 +48,15 @@ public sealed class BoolToColorConverter : IValueConverter
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         => throw new NotSupportedException();
 }
+
+/// <summary>JPEG/PNG bytes → ImageSource (null when empty), for small photo thumbnails.</summary>
+public sealed class BytesToImageSourceConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is byte[] { Length: > 0 } bytes
+            ? ImageSource.FromStream(() => new MemoryStream(bytes))
+            : null;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}

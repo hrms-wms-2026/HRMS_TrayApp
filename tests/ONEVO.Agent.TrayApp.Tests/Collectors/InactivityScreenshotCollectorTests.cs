@@ -533,8 +533,15 @@ internal sealed class RecordingPipeClient : INamedPipeClient
         Task.FromResult<WorkLocationConfirmResultPayload?>(null);
 
     public Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
-        string format, byte[] jpegBytes, string purpose, CancellationToken ct) =>
+        string format, byte[] jpegBytes, string purpose, CancellationToken ct,
+        string? pose = null, Guid? enrollmentSessionId = null) =>
         Task.FromResult<FacePhotoValidateResultPayload?>(null);
+
+    public Task<FaceEnrollCommitResultPayload?> CommitFaceEnrollmentAsync(Guid enrollmentSessionId, CancellationToken ct) =>
+        Task.FromResult<FaceEnrollCommitResultPayload?>(null);
+
+    public Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct) =>
+        Task.FromResult<FaceReferenceStatusResultPayload?>(null);
 
     public Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
         IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct) =>

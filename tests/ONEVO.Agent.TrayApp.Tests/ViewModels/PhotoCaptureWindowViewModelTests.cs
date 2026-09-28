@@ -34,6 +34,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     public async Task CapturePhotoCommand_SetsIsCapturedOnSuccess()
     {
         var vm = MakeVm(cameraSucceeds: true);
+        vm.SetContext("clockin");
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         Assert.True(vm.IsCaptured);
         Assert.False(vm.IsCapturing);
@@ -43,6 +44,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     public async Task CapturePhotoCommand_ExposesCapturedBytesForConfirmation()
     {
         var vm = MakeVm(cameraSucceeds: true);
+        vm.SetContext("clockin");
 
         await vm.CapturePhotoCommand.ExecuteAsync(null);
 
@@ -80,6 +82,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     public async Task ContinueCommand_EnabledAfterSuccessfulCapture()
     {
         var vm = MakeVm(cameraSucceeds: true);
+        vm.SetContext("clockin");
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         Assert.True(vm.ContinueCommand.CanExecute(null));
     }
@@ -95,6 +98,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     public async Task CaptureStatusText_UpdatesAfterSuccessfulCapture()
     {
         var vm = MakeVm(cameraSucceeds: true);
+        vm.SetContext("clockin");
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         Assert.Contains("captured", vm.CaptureStatusText, StringComparison.OrdinalIgnoreCase);
     }
@@ -116,9 +120,11 @@ public sealed class PhotoCaptureWindowViewModelTests
         prefs.Set("onevo.live_longitude",        (80.2707).ToString("G17"));
         prefs.Set("onevo.work_location_display", "Chennai Office");
 
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
         var pipe = new FakeNamedPipeClient();
         var vm   = new PhotoCaptureWindowViewModel(
             new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
 
         await vm.CapturePhotoCommand.ExecuteAsync(null);
         await vm.ContinueCommand.ExecuteAsync(null);
@@ -219,21 +225,190 @@ public sealed class PhotoCaptureWindowViewModelTests
     }
 
     [Fact]
-    public async Task Continue_Enrollment_UsesAwsChecksBeforeSavingFace()
+    public async Task FaceSetup_ThreePhotos_FrontLeftRight_ThenCommitAndSaveFace()
     {
         var prefs = new FakePreferencesStore();
         var pipe = new FakeNamedPipeClient();
+        var camera = new FakeCameraService { ShouldReturnPhoto = true };
+        var vm = new PhotoCaptureWindowViewModel(camera, pipe, prefs, new CapturedPhotoBuffer());
+        vm.SetContext(null);
+
+        Assert.True(vm.ShowSetupSteps);
+        Assert.Contains("Step 1 of 3", vm.InstructionText);
+        Assert.Equal(PhotoCaptureWindowViewModel.CaptureLabel, vm.PrimaryButtonLabel);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // front
+        Assert.True(vm.FrontSetupDone);
+        Assert.False(vm.IsCaptured);                         // back on the live camera
+        Assert.Contains("Step 2 of 3", vm.InstructionText);
+        Assert.Contains("left", vm.CaptureStatusText);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // left
+        Assert.Contains("Step 3 of 3", vm.InstructionText);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // right
+        Assert.True(vm.SetupComplete);
+        Assert.True(vm.ShowCapturedSuccess);
+        Assert.Equal("Enroll & Continue", vm.PrimaryButtonLabel);
+        Assert.False(vm.CanUseCameraButton);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit
+
+        Assert.Equal([FaceSetupPoses.Front, FaceSetupPoses.Left, FaceSetupPoses.Right], pipe.ValidatePoses);
+        Assert.All(pipe.ValidatePurposes, p => Assert.Equal(FacePhotoValidatePurposes.Enrollment, p));
+        var session = Assert.Single(pipe.ValidateSessionIds.Distinct());
+        Assert.NotNull(session);
+        Assert.Equal([session!.Value], pipe.CommittedEnrollmentSessions);
+        Assert.Equal(["validate", "validate", "validate", "enroll-commit", "submit"], pipe.CallOrder);
+        Assert.Equal(3, camera.CallCount);
+        Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+    }
+
+    [Fact]
+    public async Task FaceSetup_SideStepWrongPose_RetakesSameStep()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // front passes
+
+        pipe.NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+            true, null, true, true, true, false, false, null, FaceCheckFailureCodes.WrongPose);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // left fails
+
+        Assert.True(vm.IsVerificationFailed);
+        Assert.Contains("left", vm.CaptureStatusText);
+        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
+        Assert.False(vm.LeftSetupDone);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Try again → live
+        pipe.NextFacePhotoValidateResult = null;
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // left again
+
+        Assert.True(vm.LeftSetupDone);
+        Assert.Equal([FaceSetupPoses.Front, FaceSetupPoses.Left, FaceSetupPoses.Left], pipe.ValidatePoses);
+    }
+
+    [Fact]
+    public async Task FaceSetup_AlreadyEnrolledSameFace_SkipsSidePhotos()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, true, true, true, 97f, FaceCheckFailureCodes.AlreadyEnrolled)
+        };
         var vm = new PhotoCaptureWindowViewModel(
             new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
+        vm.SetContext(null);
 
-        await vm.CapturePhotoCommand.ExecuteAsync(null);
-        await vm.ContinueCommand.ExecuteAsync(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
 
-        Assert.Equal(["validate", "submit"], pipe.CallOrder);
-        Assert.True(vm.LightingPassed);
-        Assert.True(vm.FaceVisiblePassed);
-        Assert.True(vm.NoObstructionPassed);
+        Assert.True(vm.SetupComplete);
+        Assert.Equal("Enroll & Continue", vm.PrimaryButtonLabel);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.Empty(pipe.CommittedEnrollmentSessions);
         Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+    }
+
+    [Fact]
+    public async Task FaceSetup_DifferentFaceAlreadyOnFile_BlocksWithContactHr()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
+                true, null, true, true, true, false, false, 9f, FaceCheckFailureCodes.NotMatched)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext(null);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.Equal(PhotoCaptureWindowViewModel.ContactHrLabel, vm.PrimaryButtonLabel);
+        Assert.False(vm.PrimaryActionCommand.CanExecute(null));
+        Assert.False(vm.CanUseCameraButton);
+        Assert.Contains("Contact HR", vm.CaptureStatusText);
+    }
+
+    [Fact]
+    public async Task FaceSetup_CommitRejectsOnePhoto_RetakesOnlyThatPhoto()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceEnrollCommitResult = new FaceEnrollCommitResultPayload(
+                true, null, false, FaceSetupPoses.Right, FaceCheckFailureCodes.SameSide)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
+        vm.SetContext(null);
+        for (var i = 0; i < 3; i++)
+            await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit → right rejected
+
+        Assert.True(vm.IsVerificationFailed);
+        Assert.True(vm.FrontSetupDone);
+        Assert.True(vm.LeftSetupDone);
+        Assert.False(vm.RightSetupDone);
+        Assert.Contains("other side", vm.CaptureStatusText);
+        Assert.Equal("", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+
+        pipe.NextFaceEnrollCommitResult = null;
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Try again → live
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // retake right
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit
+
+        Assert.Equal(FaceSetupPoses.Right, pipe.ValidatePoses.Last());
+        Assert.Equal(2, pipe.CommittedEnrollmentSessions.Count);
+        Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+    }
+
+    [Fact]
+    public async Task FaceSetup_ServiceLostPhotos_StartsOverFromFront()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceEnrollCommitResult = new FaceEnrollCommitResultPayload(false, "PHOTOS_MISSING", false, null, null)
+        };
+        var vm = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
+        vm.SetContext(null);
+        for (var i = 0; i < 3; i++)
+            await vm.PrimaryActionCommand.ExecuteAsync(null);
+        var firstSession = pipe.ValidateSessionIds[0];
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+
+        Assert.False(vm.FrontSetupDone);
+        Assert.Contains("Step 1 of 3", vm.InstructionText);
+        Assert.Contains("again", vm.CaptureStatusText);
+
+        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        Assert.NotEqual(firstSession, pipe.ValidateSessionIds.Last());
+    }
+
+    [Fact]
+    public void ClockIn_ShowsNoSetupSteps_AndSingleCapturePrompt()
+    {
+        var vm = MakeVm();
+        vm.SetContext("clockin");
+
+        Assert.False(vm.ShowSetupSteps);
+        Assert.Equal(PhotoCaptureWindowViewModel.DefaultPrompt, vm.InstructionText);
+    }
+
+    [Fact]
+    public void RetakeMessage_GlassesGlare_SaysSo()
+    {
+        var msg = PhotoCaptureWindowViewModel.BuildRetakeMessage(new FacePhotoValidateResultPayload(
+            true, null, true, true, false, false, false, null, FaceCheckFailureCodes.GlassesGlare));
+
+        Assert.Contains("glasses", msg);
     }
 
     [Fact]
