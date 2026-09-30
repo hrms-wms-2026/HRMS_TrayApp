@@ -4,9 +4,9 @@ public sealed class AgentOptions
 {
     public const string SectionName = "Agent";
 
-    public int HeartbeatIntervalSeconds { get; set; } = 30;
+    public int HeartbeatIntervalSeconds { get; set; } = 60;
     public int PolicyRefreshIntervalSeconds { get; set; } = 3600;
-    public int IngestIntervalSeconds { get; set; } = 150;
+    public int IngestIntervalSeconds { get; set; } = 180;
     public int QueueCapacityMb { get; set; } = 100;
     public int QueueMaxRecords { get; set; } = 5_000;
     public int HttpTimeoutSeconds { get; set; } = 30;

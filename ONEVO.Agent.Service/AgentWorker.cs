@@ -381,17 +381,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             Payload = JsonSerializer.SerializeToElement(ack)
         });
 
-        if (!ack.Accepted || _activitySync is null)
-            return;
-
-        try
-        {
-            await _activitySync.FlushAsync(CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Immediate screenshot upload failed CaptureId={CaptureId}", ack.AttemptId);
-        }
+        // Spooled screenshot uploads on the ActivitySyncService batch timer as its own
+        // multipart request — no immediate flush, which would drag every pending snapshot along.
     }
 
     private void HandleEvidenceTransferStart(IpcEnvelope envelope)
@@ -902,6 +893,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
         var currentPolicy = _policyCache.Current;
         var accepted = 0;
+        var acceptedFacePhoto = false;
         var idleChanged = false;
         var stableDeviceId = _deviceIdentityStore.Load()?.DeviceId ?? "unknown";
         foreach (var incomingRecord in payload.Records)
@@ -944,7 +936,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             }
 
             if (_activityBuffer.TryEnqueue(record))
+            {
                 accepted++;
+                acceptedFacePhoto |= record.RecordType == CollectionRecordTypes.FacePhoto;
+            }
             else
                 _logger.LogWarning("Activity buffer full — dropping eventId={EventId}", record.EventId);
         }
@@ -976,7 +971,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             }
         }
 
-        if (accepted > 0 && _activitySync is not null)
+        // Periodic samples (activity, app usage, device state, screenshots) ride the
+        // ActivitySyncService batch timer. Only a clock-in face photo is attendance-critical
+        // enough to upload immediately.
+        if (acceptedFacePhoto && _activitySync is not null)
         {
             try
             {
@@ -984,7 +982,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Immediate collection upload failed");
+                _logger.LogWarning(ex, "Immediate face photo upload failed");
             }
         }
     }

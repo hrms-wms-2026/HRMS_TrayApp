@@ -171,7 +171,7 @@ public class AgentWorkerCollectionSubmitTests
     }
 
     [Fact]
-    public async Task AppUsage_Accepted_FlushesLocalBufferImmediately()
+    public async Task AppUsage_Accepted_WaitsForBatchTimer_DoesNotFlushImmediately()
     {
         var buffer = ActivityRecordBuffer.CreateInMemory();
         var policyCache = new PolicyCache();
@@ -183,6 +183,26 @@ public class AgentWorkerCollectionSubmitTests
             CollectionRecordTypes.AppUsageSnapshot,
             CollectionSchemaVersions.AppUsageSnapshotV1,
             new AppUsageSnapshotPayload { CapturedAt = DateTimeOffset.UtcNow, ProcessName = "chrome.exe" });
+        var ack = await SubmitAsync(worker, record);
+
+        Assert.Equal(1, ack.AcceptedCount);
+        Assert.Equal(1, buffer.Count);
+        Assert.Equal(0, flush.Calls);
+    }
+
+    [Fact]
+    public async Task FacePhoto_Accepted_FlushesLocalBufferImmediately()
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        var policyCache = new PolicyCache();
+        policyCache.Set(MakePolicy(camera: true));
+        var flush = new RecordingFlush();
+        var worker = BuildActiveWorker(policyCache, buffer, flush);
+
+        var record = MakeRecord(
+            CollectionRecordTypes.FacePhoto,
+            CollectionSchemaVersions.FacePhotoV1,
+            new FacePhotoPayload { Format = "jpeg", Data = Convert.ToBase64String(new byte[] { 1, 2, 3 }) });
         var ack = await SubmitAsync(worker, record);
 
         Assert.Equal(1, ack.AcceptedCount);
