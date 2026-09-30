@@ -3,8 +3,8 @@ namespace ONEVO.Agent.Service.Biometrics;
 using ONEVO.Agent.Shared.IPC;
 
 /// <summary>
-/// Holds the tray face setup photos that already passed their step check until the tray commits
-/// all three (they do not fit in one IPC message). Only one setup attempt is kept: a new session
+/// Holds the tray face setup photo that already passed its step check until the tray commits
+/// it (the commit message carries no image bytes). Only one setup attempt is kept: a new session
 /// id discards the previous one, so a commit can never mix photos from two attempts. Nothing is
 /// written to disk — a Service restart simply means "retake".
 /// </summary>
@@ -40,19 +40,15 @@ public sealed class FaceSetupPhotoStaging
         }
     }
 
-    /// <summary>The three photos of this session, or null when any is missing or the session expired.</summary>
-    public (byte[] Front, byte[] Left, byte[] Right)? TryGetComplete(Guid sessionId)
+    /// <summary>The front photo of this session, or null when it is missing or the session expired.</summary>
+    public byte[]? TryGetComplete(Guid sessionId)
     {
         lock (_gate)
         {
             if (sessionId != _sessionId || _now() - _startedAt > Lifetime)
                 return null;
 
-            return _photos.TryGetValue(FaceSetupPoses.Front, out var front)
-                && _photos.TryGetValue(FaceSetupPoses.Left, out var left)
-                && _photos.TryGetValue(FaceSetupPoses.Right, out var right)
-                    ? (front, left, right)
-                    : null;
+            return _photos.TryGetValue(FaceSetupPoses.Front, out var front) ? front : null;
         }
     }
 

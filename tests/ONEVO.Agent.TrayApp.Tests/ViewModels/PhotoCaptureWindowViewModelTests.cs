@@ -224,34 +224,15 @@ public sealed class PhotoCaptureWindowViewModelTests
         Assert.True(vm.NoObstructionPassed);
     }
 
-    /// <summary>Front, Next, left, Next, right — leaves the VM on "Enroll &amp; Continue".</summary>
+    /// <summary>Takes the single front photo — leaves the VM on "Enroll &amp; Continue".</summary>
     private static async Task TakeAllSetupPhotosAsync(PhotoCaptureWindowViewModel vm)
     {
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
         await vm.PrimaryActionCommand.ExecuteAsync(null);
         Assert.True(vm.SetupComplete);
     }
 
     [Fact]
-    public async Task FaceSetup_CameraButtonIgnoredWhileWaitingForNext()
-    {
-        var camera = new FakeCameraService { ShouldReturnPhoto = true };
-        var vm = new PhotoCaptureWindowViewModel(camera, new FakeNamedPipeClient(), new FakePreferencesStore(), new CapturedPhotoBuffer());
-        vm.SetContext(null);
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // front passes
-
-        await vm.CapturePhotoCommand.ExecuteAsync(null);    // stray camera-button click
-
-        Assert.Equal(1, camera.CallCount);
-        Assert.True(vm.IsAwaitingNext);
-        Assert.False(vm.LeftSetupDone);
-    }
-
-    [Fact]
-    public async Task FaceSetup_ThreePhotos_FrontLeftRight_ThenCommitAndSaveFace()
+    public async Task FaceSetup_OneFrontPhoto_ThenCommitAndSaveFace()
     {
         var prefs = new FakePreferencesStore();
         var pipe = new FakeNamedPipeClient();
@@ -259,76 +240,27 @@ public sealed class PhotoCaptureWindowViewModelTests
         var vm = new PhotoCaptureWindowViewModel(camera, pipe, prefs, new CapturedPhotoBuffer());
         vm.SetContext(null);
 
-        Assert.True(vm.ShowSetupSteps);
-        Assert.Contains("Step 1 of 3", vm.InstructionText);
+        Assert.Contains("Look straight", vm.InstructionText);
         Assert.Equal(PhotoCaptureWindowViewModel.CaptureLabel, vm.PrimaryButtonLabel);
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // front
         Assert.True(vm.FrontSetupDone);
-        Assert.True(vm.IsCaptured);                          // photo stays on screen with its tick
-        Assert.True(vm.ShowCapturedSuccess);
-        Assert.True(vm.IsAwaitingNext);
-        Assert.Equal(PhotoCaptureWindowViewModel.NextLabel, vm.PrimaryButtonLabel);
-        Assert.False(vm.CanUseCameraButton);
-        Assert.Contains("Tap Next", vm.CaptureStatusText);
-        Assert.Equal(1, camera.CallCount);
-
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
-        Assert.False(vm.IsCaptured);                         // back on the live camera
-        Assert.False(vm.IsAwaitingNext);
-        Assert.Equal(PhotoCaptureWindowViewModel.CaptureLabel, vm.PrimaryButtonLabel);
-        Assert.Contains("Step 2 of 3", vm.InstructionText);
-        Assert.Contains("left", vm.CaptureStatusText);
-        Assert.Equal(1, camera.CallCount);                   // Next itself takes no photo
-
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // left
-        Assert.Equal(PhotoCaptureWindowViewModel.NextLabel, vm.PrimaryButtonLabel);
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
-        Assert.Contains("Step 3 of 3", vm.InstructionText);
-
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // right
         Assert.True(vm.SetupComplete);
         Assert.True(vm.ShowCapturedSuccess);
+        Assert.False(vm.IsAwaitingNext);
         Assert.Equal("Enroll & Continue", vm.PrimaryButtonLabel);
         Assert.False(vm.CanUseCameraButton);
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit
 
-        Assert.Equal([FaceSetupPoses.Front, FaceSetupPoses.Left, FaceSetupPoses.Right], pipe.ValidatePoses);
+        Assert.Equal([FaceSetupPoses.Front], pipe.ValidatePoses);
         Assert.All(pipe.ValidatePurposes, p => Assert.Equal(FacePhotoValidatePurposes.Enrollment, p));
         var session = Assert.Single(pipe.ValidateSessionIds.Distinct());
         Assert.NotNull(session);
         Assert.Equal([session!.Value], pipe.CommittedEnrollmentSessions);
-        Assert.Equal(["validate", "validate", "validate", "enroll-commit", "submit"], pipe.CallOrder);
-        Assert.Equal(3, camera.CallCount);
+        Assert.Equal(["validate", "enroll-commit", "submit"], pipe.CallOrder);
+        Assert.Equal(1, camera.CallCount);
         Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
-    }
-
-    [Fact]
-    public async Task FaceSetup_SideStepWrongPose_RetakesSameStep()
-    {
-        var pipe = new FakeNamedPipeClient();
-        var vm = new PhotoCaptureWindowViewModel(
-            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
-        vm.SetContext(null);
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // front passes
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
-
-        pipe.NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
-            true, null, true, true, true, false, false, null, FaceCheckFailureCodes.WrongPose);
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // left fails
-
-        Assert.True(vm.IsVerificationFailed);
-        Assert.Contains("left", vm.CaptureStatusText);
-        Assert.Equal(PhotoCaptureWindowViewModel.TryAgainLabel, vm.PrimaryButtonLabel);
-        Assert.False(vm.LeftSetupDone);
-
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Try again → live
-        pipe.NextFacePhotoValidateResult = null;
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // left again
-
-        Assert.True(vm.LeftSetupDone);
-        Assert.Equal([FaceSetupPoses.Front, FaceSetupPoses.Left, FaceSetupPoses.Left], pipe.ValidatePoses);
     }
 
     [Fact]
@@ -382,28 +314,26 @@ public sealed class PhotoCaptureWindowViewModelTests
         var pipe = new FakeNamedPipeClient
         {
             NextFaceEnrollCommitResult = new FaceEnrollCommitResultPayload(
-                true, null, false, FaceSetupPoses.Right, FaceCheckFailureCodes.SameSide)
+                true, null, false, FaceSetupPoses.Front, FaceCheckFailureCodes.FaceNotVisible)
         };
         var vm = new PhotoCaptureWindowViewModel(
             new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
         vm.SetContext(null);
         await TakeAllSetupPhotosAsync(vm);
 
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit → right rejected
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit → front rejected
 
         Assert.True(vm.IsVerificationFailed);
-        Assert.True(vm.FrontSetupDone);
-        Assert.True(vm.LeftSetupDone);
-        Assert.False(vm.RightSetupDone);
-        Assert.Contains("other side", vm.CaptureStatusText);
+        Assert.False(vm.FrontSetupDone);
+        Assert.Contains("not fully in the frame", vm.CaptureStatusText);
         Assert.Equal("", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
 
         pipe.NextFaceEnrollCommitResult = null;
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // Try again → live
-        await vm.PrimaryActionCommand.ExecuteAsync(null);   // retake right
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // retake front
         await vm.PrimaryActionCommand.ExecuteAsync(null);   // commit
 
-        Assert.Equal(FaceSetupPoses.Right, pipe.ValidatePoses.Last());
+        Assert.Equal(FaceSetupPoses.Front, pipe.ValidatePoses.Last());
         Assert.Equal(2, pipe.CommittedEnrollmentSessions.Count);
         Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
     }
@@ -424,7 +354,7 @@ public sealed class PhotoCaptureWindowViewModelTests
         await vm.PrimaryActionCommand.ExecuteAsync(null);
 
         Assert.False(vm.FrontSetupDone);
-        Assert.Contains("Step 1 of 3", vm.InstructionText);
+        Assert.Contains("Look straight", vm.InstructionText);
         Assert.Contains("again", vm.CaptureStatusText);
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);
@@ -532,12 +462,11 @@ public sealed class PhotoCaptureWindowViewModelTests
     }
 
     [Fact]
-    public void ClockIn_ShowsNoSetupSteps_AndSingleCapturePrompt()
+    public void ClockIn_ShowsSingleCapturePrompt()
     {
         var vm = MakeVm();
         vm.SetContext("clockin");
 
-        Assert.False(vm.ShowSetupSteps);
         Assert.Equal(PhotoCaptureWindowViewModel.DefaultPrompt, vm.InstructionText);
     }
 

@@ -166,22 +166,22 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         : string.Equals(_captureContext, "clockout", StringComparison.OrdinalIgnoreCase) ? FacePhotoValidatePurposes.ClockOut
         : FacePhotoValidatePurposes.Enrollment;
 
-    // ── Face setup (enrollment): three photos ────────────────────────────────────────────────
+    // ── Face setup (enrollment): one front photo ─────────────────────────────────────────────
 
-    private const int SetupPhotoCount = 3;
+    private const int SetupPhotoCount = 1;
 
     /// <summary>One id per face setup attempt; the Service keeps passing photos under it.</summary>
     private Guid _enrollmentSessionId = Guid.NewGuid();
 
     private readonly byte[]?[] _setupPhotos = new byte[]?[SetupPhotoCount];
 
-    /// <summary>Employee was already enrolled and the front photo matched — side photos are skipped.</summary>
+    /// <summary>Employee was already enrolled and the front photo matched.</summary>
     private bool _alreadyEnrolled;
 
     /// <summary>A different face is already on file (or appeared meanwhile) — only HR can change it.</summary>
     private bool _enrollmentBlocked;
 
-    /// <summary>Saving the three photos failed for a reason retaking cannot fix (Service/backend down).</summary>
+    /// <summary>Saving the photo failed for a reason retaking cannot fix (Service/backend down).</summary>
     private bool _retryCommit;
 
     /// <summary>
@@ -193,19 +193,10 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
     public bool IsAwaitingNext => _awaitingNext;
 
-    /// <summary>Index of the face setup step being captured: 0 front, 1 left, 2 right, 3 = all done.</summary>
+    /// <summary>Index of the face setup step being captured: 0 front, 1 = done.</summary>
     [ObservableProperty] private int _setupStep;
 
-    public bool ShowSetupSteps => IsEnrollment;
-    public byte[]? FrontSetupPhoto => _setupPhotos[0];
-    public byte[]? LeftSetupPhoto => _setupPhotos[1];
-    public byte[]? RightSetupPhoto => _setupPhotos[2];
     public bool FrontSetupDone => _setupPhotos[0] is not null;
-    public bool LeftSetupDone => _setupPhotos[1] is not null || _alreadyEnrolled;
-    public bool RightSetupDone => _setupPhotos[2] is not null || _alreadyEnrolled;
-    public bool IsFrontStepActive => IsEnrollment && !SetupComplete && SetupStep == 0;
-    public bool IsLeftStepActive => IsEnrollment && !SetupComplete && SetupStep == 1;
-    public bool IsRightStepActive => IsEnrollment && !SetupComplete && SetupStep == 2;
 
     public bool SetupComplete =>
         IsEnrollment && (_alreadyEnrolled || _setupPhotos.All(p => p is not null));
@@ -216,13 +207,8 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     public string InstructionText =>
         !IsEnrollment ? DefaultPrompt
         : _alreadyEnrolled ? "Your face is already set up."
-        : SetupComplete ? "All 3 photos taken."
-        : SetupStep switch
-        {
-            0 => "Step 1 of 3 · Look straight at the camera.",
-            1 => "Step 2 of 3 · Turn your head slightly to the left.",
-            _ => "Step 3 of 3 · Turn your head slightly to the right."
-        };
+        : SetupComplete ? "Photo taken."
+        : "Look straight at the camera.";
 
     /// <summary>The small camera button: not while busy, and not once all setup photos are in.</summary>
     public bool CanUseCameraButton =>
@@ -230,10 +216,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
     private static readonly string[] SetupDerivedProperties =
     [
-        nameof(ShowSetupSteps),
-        nameof(FrontSetupPhoto), nameof(LeftSetupPhoto), nameof(RightSetupPhoto),
-        nameof(FrontSetupDone), nameof(LeftSetupDone), nameof(RightSetupDone),
-        nameof(IsFrontStepActive), nameof(IsLeftStepActive), nameof(IsRightStepActive),
+        nameof(FrontSetupDone),
         nameof(SetupComplete), nameof(CurrentSetupPose), nameof(InstructionText),
         nameof(CanUseCameraButton), nameof(PrimaryButtonLabel), nameof(IsAwaitingNext)
     ];
@@ -575,7 +558,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         await CompleteFaceSetupAsync();
     }
 
-    /// <summary>Face setup: save the three photos (unless already enrolled), then move on.</summary>
+    /// <summary>Face setup: save the front photo (unless already enrolled), then move on.</summary>
     private async Task CompleteFaceSetupAsync()
     {
         if (!SetupComplete)
@@ -625,7 +608,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         {
             // Service restarted or the attempt expired — its copies are gone.
             ResetSetup();
-            ReturnToLivePreview("Your photos expired. Please take the 3 photos again.");
+            ReturnToLivePreview("Your photo expired. Please take it again.");
             return false;
         }
 
@@ -761,7 +744,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
         if (next >= SetupPhotoCount)
         {
-            CaptureStatusText = "All 3 photos captured. Tap Enroll & Continue.";
+            CaptureStatusText = "Photo captured. Tap Enroll & Continue.";
             RaiseSetupChanged();
             return;
         }

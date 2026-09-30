@@ -653,20 +653,17 @@ public sealed class OnevoApiClient
     }
 
     /// <summary>
-    /// Tray face setup: saves the look-straight, turned-left and turned-right photos as the
-    /// employee's references. Auth: Bearer Device JWT.
+    /// Tray face setup: saves the look-straight photo as the employee's reference.
+    /// Auth: Bearer Device JWT.
     /// </summary>
     public async Task<FaceEnrollApiResult> EnrollFacePhotosAsync(
-        string accessToken, byte[] front, byte[] left, byte[] right, CancellationToken ct)
+        string accessToken, byte[] front, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("OnevoApi");
         using var multipart = new MultipartFormDataContent();
-        foreach (var (field, bytes) in new[] { ("front", front), ("left", left), ("right", right) })
-        {
-            var part = new ByteArrayContent(bytes);
-            part.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
-            multipart.Add(part, field, $"face-setup-{field}.jpeg");
-        }
+        var part = new ByteArrayContent(front);
+        part.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
+        multipart.Add(part, "front", "face-setup-front.jpeg");
 
         using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.FaceEnroll)
         {

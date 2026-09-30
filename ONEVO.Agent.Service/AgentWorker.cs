@@ -1487,8 +1487,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         }
 
         // Missing after a Service restart or expiry — the tray asks for the photos again.
-        var photos = _faceSetupStaging.TryGetComplete(payload.EnrollmentSessionId);
-        if (photos is not { } staged)
+        var front = _faceSetupStaging.TryGetComplete(payload.EnrollmentSessionId);
+        if (front is null)
         {
             await Reply(new FaceEnrollCommitResultPayload(false, "PHOTOS_MISSING", false, null, null));
             return;
@@ -1501,8 +1501,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return;
         }
 
-        var result = await _apiClient.EnrollFacePhotosAsync(
-            jwt, staged.Front, staged.Left, staged.Right, CancellationToken.None);
+        var result = await _apiClient.EnrollFacePhotosAsync(jwt, front, CancellationToken.None);
 
         if (result.Enrolled)
             _faceSetupStaging.Clear();
