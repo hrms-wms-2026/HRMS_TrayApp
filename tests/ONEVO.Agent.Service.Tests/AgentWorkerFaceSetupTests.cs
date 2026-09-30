@@ -118,15 +118,13 @@ public class AgentWorkerFaceSetupTests : IDisposable
         worker.HandleFacePhotoValidateAsync(Validate(session, pose, marker), _ => Task.CompletedTask);
 
     [Fact]
-    public async Task ThreePassingSteps_ThenCommit_SendsAllThreePhotosAndEnrolls()
+    public async Task PassingFrontStep_ThenCommit_SendsFrontPhotoOnlyAndEnrolls()
     {
         var staging = new FaceSetupPhotoStaging();
         var worker = BuildWorker(staging);
         var session = Guid.NewGuid();
 
         await ValidateAsync(worker, session, FaceSetupPoses.Front, 1);
-        await ValidateAsync(worker, session, FaceSetupPoses.Left, 2);
-        await ValidateAsync(worker, session, FaceSetupPoses.Right, 3);
         var result = await CommitAsync(worker, session);
 
         Assert.NotNull(result);
@@ -134,8 +132,8 @@ public class AgentWorkerFaceSetupTests : IDisposable
         Assert.True(result.Enrolled);
         var body = Assert.Single(_enrollBodies);
         Assert.Contains("name=front", body);
-        Assert.Contains("name=left", body);
-        Assert.Contains("name=right", body);
+        Assert.DoesNotContain("name=left", body);
+        Assert.DoesNotContain("name=right", body);
         Assert.All(_previewBodies, b => Assert.Contains("name=pose", b));
         // Committed photos are not reused by a later commit.
         Assert.Null(staging.TryGetComplete(session));
@@ -146,8 +144,6 @@ public class AgentWorkerFaceSetupTests : IDisposable
     {
         var worker = BuildWorker(new FaceSetupPhotoStaging());
         var session = Guid.NewGuid();
-        await ValidateAsync(worker, session, FaceSetupPoses.Front, 1);
-        await ValidateAsync(worker, session, FaceSetupPoses.Left, 2);
 
         var result = await CommitAsync(worker, session);
 
@@ -161,10 +157,8 @@ public class AgentWorkerFaceSetupTests : IDisposable
     {
         var worker = BuildWorker(new FaceSetupPhotoStaging());
         var session = Guid.NewGuid();
-        await ValidateAsync(worker, session, FaceSetupPoses.Front, 1);
-        await ValidateAsync(worker, session, FaceSetupPoses.Left, 2);
         _previewPasses = false;
-        await ValidateAsync(worker, session, FaceSetupPoses.Right, 3);
+        await ValidateAsync(worker, session, FaceSetupPoses.Front, 1);
 
         var result = await CommitAsync(worker, session);
 
