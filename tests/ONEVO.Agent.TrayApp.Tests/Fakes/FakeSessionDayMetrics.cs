@@ -19,7 +19,10 @@ public sealed class FakeSessionDayMetrics : ISessionDayMetrics
 
     public void RememberCompletedSession(SessionSnapshot session) => LastCompletedSession = session;
 
-    public void AddAppUsageSample(string processName, TimeSpan sampleWindow) { }
+    public List<(string ProcessName, TimeSpan Duration)> AppUsageSamples { get; } = [];
+
+    public void AddAppUsageSample(string processName, TimeSpan sampleWindow) =>
+        AppUsageSamples.Add((processName, sampleWindow));
 
     public void AddIdleSample(TimeSpan idlePortion)
     {
