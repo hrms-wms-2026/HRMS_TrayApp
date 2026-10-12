@@ -365,7 +365,7 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
     /// stores the in-window items of a mixed batch, so client/server clock skew at the edge only
     /// costs the item itself, never its neighbours.
     /// </summary>
-    internal static readonly TimeSpan MaxSnapshotAge = TimeSpan.FromHours(24);
+    internal static readonly TimeSpan MaxSnapshotAge = ActivityRecordBuffer.MaxSnapshotAge;
 
     private static bool IsStaleSnapshot(CollectionRecord record, DateTimeOffset cutoff) =>
         IsBatchableType(record.RecordType)
