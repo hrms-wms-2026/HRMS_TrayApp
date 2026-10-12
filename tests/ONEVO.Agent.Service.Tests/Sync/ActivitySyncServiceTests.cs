@@ -658,6 +658,56 @@ public class ActivitySyncServiceTests
     }
 
     [Fact]
+    public async Task FlushAsync_BatchWithStaleSnapshot_QuarantinesStaleAndSendsFreshOnes()
+    {
+        // Weekend offline: one buffered snapshot is past the backend's 24h window. It must not
+        // take the fresh snapshots in the same batch down with it.
+        static CollectionRecord Activity(DateTimeOffset capturedAt) => MakeRecord(
+            CollectionRecordTypes.ActivitySnapshot,
+            CollectionSchemaVersions.ActivitySnapshotV1,
+            new ActivitySnapshotPayload
+            {
+                CapturedAt = capturedAt,
+                KeyboardEventsCount = 1,
+                MouseEventsCount = 1,
+                ActiveSeconds = 1,
+                IdleSeconds = 0,
+                IntensityScore = 1,
+                ForegroundProcessName = "code.exe"
+            }) with { CaptureTimestamp = capturedAt };
+
+        var stale = DateTimeOffset.UtcNow.AddHours(-25);
+        var fresh1 = DateTimeOffset.UtcNow.AddHours(-2);
+        var fresh2 = DateTimeOffset.UtcNow.AddMinutes(-1);
+
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(Activity(stale));
+        buffer.TryEnqueue(Activity(fresh1));
+        buffer.TryEnqueue(Activity(fresh2));
+
+        ActivityIngestRequest? sent = null;
+        var factory = new CapturingHttpClientFactory(req =>
+        {
+            var json = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            sent = JsonSerializer.Deserialize<ActivityIngestRequest>(json);
+            return new HttpResponseMessage(HttpStatusCode.Accepted);
+        });
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Single(factory.Requests);
+        Assert.NotNull(sent);
+        Assert.Equal(
+            new[] { fresh1, fresh2 },
+            sent!.Snapshots.Select(s => s.CapturedAt).ToArray());
+        Assert.Equal(0, buffer.Count);
+    }
+
+    [Fact]
     public async Task FlushAsync_AppUsageSnapshotBatch400_DropsAndDoesNotBlockLaterActivitySnapshot()
     {
         // A 400 (e.g. the backend's 24h freshness window rejecting a stale batch) will never
