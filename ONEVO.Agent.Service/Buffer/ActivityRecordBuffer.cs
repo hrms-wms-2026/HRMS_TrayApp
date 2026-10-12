@@ -106,6 +106,9 @@ public sealed class ActivityRecordBuffer : IDisposable
             """;
         cmd.ExecuteNonQuery();
         EnsureColumnUnlocked("session_history", "accumulated_idle_sec", "REAL NOT NULL DEFAULT 0");
+        // AGT-01: quarantine keeps the original payload; why/when live in their own columns.
+        EnsureColumnUnlocked("collection_records", "quarantine_reason", "TEXT NULL");
+        EnsureColumnUnlocked("collection_records", "quarantined_at", "TEXT NULL");
         QuarantineLegacyScreenshotRecordsUnlocked();
     }
 
@@ -358,11 +361,24 @@ public sealed class ActivityRecordBuffer : IDisposable
                 """;
             select.Parameters.AddWithValue("$limit", Math.Max(1, maxCount));
 
-            using var reader = select.ExecuteReader();
+            var corrupt = new List<long>();
+            using (var reader = select.ExecuteReader())
             while (reader.Read())
             {
                 var payloadJson = reader.GetString(6);
-                using var doc = JsonDocument.Parse(payloadJson);
+                JsonDocument doc;
+                try
+                {
+                    doc = JsonDocument.Parse(payloadJson);
+                }
+                catch (JsonException)
+                {
+                    // One unreadable row must not fail every flush behind it.
+                    corrupt.Add(reader.GetInt64(0));
+                    continue;
+                }
+
+                using var _ = doc;
                 batch.Add(new BufferedCollectionRecord(
                     reader.GetInt64(0),
                     new CollectionRecord
@@ -376,6 +392,8 @@ public sealed class ActivityRecordBuffer : IDisposable
                     }));
             }
 
+            foreach (var rowId in corrupt)
+                QuarantineRowUnlocked(rowId, QuarantineReasons.CorruptPayload);
             return batch;
         }
     }
@@ -394,34 +412,107 @@ public sealed class ActivityRecordBuffer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Moves a pending row out of the send queue without touching its payload, so it can be
+    /// exported or requeued later (<see cref="RequeueQuarantined"/>).
+    /// </summary>
     public void QuarantineRow(long rowId, string? reason = null)
     {
         lock (_gate)
         {
-            using var cmd = _conn.CreateCommand();
-            if (reason is not null)
+            QuarantineRowUnlocked(rowId, reason ?? QuarantineReasons.Unspecified);
+        }
+    }
+
+    private void QuarantineRowUnlocked(long rowId, string reason)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            """
+            UPDATE collection_records
+            SET status = 'quarantined',
+                quarantine_reason = $reason,
+                quarantined_at = $at
+            WHERE id = $id AND status = 'pending';
+            """;
+        cmd.Parameters.AddWithValue("$id", rowId);
+        cmd.Parameters.AddWithValue("$reason", reason);
+        cmd.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+    }
+
+    public int QuarantinedCount
+    {
+        get
+        {
+            lock (_gate)
             {
-                cmd.CommandText =
-                    """
-                    UPDATE collection_records
-                    SET status = 'quarantined',
-                        payload_json = $payload
-                    WHERE id = $id AND status = 'pending';
-                    """;
-                cmd.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(new { quarantine_reason = reason }));
+                using var cmd = _conn.CreateCommand();
+                cmd.CommandText = "SELECT COUNT(*) FROM collection_records WHERE status = 'quarantined';";
+                return Convert.ToInt32(cmd.ExecuteScalar());
             }
-            else
+        }
+    }
+
+    /// <summary>
+    /// Puts quarantined rows back in the send queue (keeping their original order). Optionally only
+    /// rows whose reason starts with <paramref name="reasonPrefix"/> and that were quarantined before
+    /// <paramref name="quarantinedBefore"/>. Legacy rows whose payload was replaced are never requeued.
+    /// </summary>
+    public int RequeueQuarantined(string? reasonPrefix = null, DateTimeOffset? quarantinedBefore = null)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                """
+                UPDATE collection_records
+                SET status = 'pending', quarantine_reason = NULL, quarantined_at = NULL
+                WHERE status = 'quarantined'
+                  AND quarantine_reason IS NOT NULL
+                  AND ($prefix IS NULL OR quarantine_reason LIKE $prefix || '%')
+                  AND ($before IS NULL OR quarantined_at < $before);
+                """;
+            cmd.Parameters.AddWithValue("$prefix", (object?)reasonPrefix ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$before", (object?)quarantinedBefore?.ToUniversalTime().ToString("O") ?? DBNull.Value);
+            return cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Writes every quarantined row as one JSON object per line (recovery / support export).</summary>
+    public int ExportQuarantined(TextWriter writer)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                """
+                SELECT id, event_id, record_type, schema_version, capture_ts, created_at,
+                       quarantine_reason, quarantined_at, payload_json
+                FROM collection_records
+                WHERE status = 'quarantined'
+                ORDER BY id ASC;
+                """;
+            using var reader = cmd.ExecuteReader();
+            var count = 0;
+            while (reader.Read())
             {
-                cmd.CommandText =
-                    """
-                    UPDATE collection_records
-                    SET status = 'quarantined'
-                    WHERE id = $id AND status = 'pending';
-                    """;
+                writer.WriteLine(JsonSerializer.Serialize(new
+                {
+                    row_id = reader.GetInt64(0),
+                    event_id = reader.GetString(1),
+                    record_type = reader.GetString(2),
+                    schema_version = reader.GetString(3),
+                    capture_ts = reader.GetString(4),
+                    created_at = reader.GetString(5),
+                    quarantine_reason = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    quarantined_at = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    payload = reader.GetString(8)
+                }));
+                count++;
             }
 
-            cmd.Parameters.AddWithValue("$id", rowId);
-            cmd.ExecuteNonQuery();
+            return count;
         }
     }
 

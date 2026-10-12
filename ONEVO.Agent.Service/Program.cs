@@ -14,6 +14,9 @@ using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Service.Sync;
 
+if (QuarantineCommands.IsCommand(args))
+    return QuarantineCommands.Run(args, Console.Out);
+
 var host = Host.CreateDefaultBuilder(args)
     .UseWindowsService(options => options.ServiceName = "ONEVO Agent Service")
     .ConfigureServices((context, services) =>
@@ -141,3 +144,5 @@ var host = Host.CreateDefaultBuilder(args)
     .Build();
 
 await host.RunAsync();
+
+return 0;

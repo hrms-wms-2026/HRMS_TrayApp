@@ -161,3 +161,27 @@ public sealed class CheckInSubmitResponse
     [JsonPropertyName("check_in_id")]        public Guid CheckInId        { get; set; }
     [JsonPropertyName("face_scan_required")] public bool FaceScanRequired { get; set; }
 }
+
+/// <summary>
+/// 202 body of the snapshot ingest endpoints (backend AGT-01). Older backends send no body.
+/// </summary>
+public sealed class SnapshotIngestResponse
+{
+    [JsonPropertyName("stored")]
+    public int Stored { get; init; }
+
+    [JsonPropertyName("duplicates")]
+    public int Duplicates { get; init; }
+
+    [JsonPropertyName("rejected")]
+    public List<SnapshotIngestRejection>? Rejected { get; init; }
+}
+
+public sealed class SnapshotIngestRejection
+{
+    [JsonPropertyName("captured_at")]
+    public DateTimeOffset CapturedAt { get; init; }
+
+    [JsonPropertyName("code")]
+    public string Code { get; init; } = string.Empty;
+}
