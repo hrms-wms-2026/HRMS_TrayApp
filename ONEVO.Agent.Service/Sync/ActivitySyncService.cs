@@ -136,6 +136,23 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
             }
         }
 
+        // The backend refuses snapshots captured more than 24h ago. After a long offline stretch
+        // (e.g. a weekend) the oldest buffered rows are past that window; sending them inside a
+        // batch used to get the whole batch 400'd and dropped, taking the fresh rows with it.
+        // Quarantine them up front (visible in the buffer, not silently lost) and send only the rest.
+        var staleCutoff = DateTimeOffset.UtcNow - MaxSnapshotAge;
+        var stale = peeked.Where(item => IsStaleSnapshot(item.Record, staleCutoff)).ToList();
+        if (stale.Count > 0)
+        {
+            _logger.LogWarning(
+                "Quarantining {Count} buffered snapshot(s) older than {Hours}h — backend will not accept them",
+                stale.Count, MaxSnapshotAge.TotalHours);
+            foreach (var item in stale)
+                _buffer.QuarantineRow(item.RowId, "stale_over_24h");
+            peeked = peeked.Where(item => !IsStaleSnapshot(item.Record, staleCutoff)).ToList();
+            if (peeked.Count == 0) return;
+        }
+
         var acknowledged = new List<long>();
         var spoolDeletes = new List<string>();
         var index = 0;
@@ -265,6 +282,18 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         CollectionRecordTypes.WorkSession => true,
         _ => false
     };
+
+    /// <summary>
+    /// Mirrors the backend's per-snapshot freshness window (SnapshotTimeWindow.MaxAge). The backend
+    /// stores the in-window items of a mixed batch, so client/server clock skew at the edge only
+    /// costs the item itself, never its neighbours.
+    /// </summary>
+    internal static readonly TimeSpan MaxSnapshotAge = TimeSpan.FromHours(24);
+
+    private static bool IsStaleSnapshot(CollectionRecord record, DateTimeOffset cutoff) =>
+        IsBatchableType(record.RecordType)
+        && record.CaptureTimestamp != default
+        && record.CaptureTimestamp < cutoff;
 
     private static bool IsBatchableType(string recordType) =>
 
