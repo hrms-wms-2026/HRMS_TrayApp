@@ -173,6 +173,33 @@ public class ActivitySyncAcknowledgementTests
         Assert.Equal("rejected:400", row.GetProperty("quarantine_reason").GetString());
     }
 
+    [Fact]
+    public void Old_backend_whole_batch_window_400_only_quarantines_the_stale_record()
+    {
+        // Pre-AGT-01 backend: one item past ITS 24h window -> the whole batch is a 400 with the
+        // human message only. The server clock runs ahead, so the client's own 24h filter let the
+        // edge item through. Fresh neighbours must still be stored.
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        var edge = DateTimeOffset.UtcNow.AddHours(-23.5);
+        var fresh1 = DateTimeOffset.UtcNow.AddMinutes(-2);
+        var fresh2 = DateTimeOffset.UtcNow.AddMinutes(-1);
+        buffer.TryEnqueue(Activity(edge));
+        buffer.TryEnqueue(Activity(fresh1));
+        buffer.TryEnqueue(Activity(fresh2));
+        var serverCutoff = DateTimeOffset.UtcNow.AddHours(-23);
+        var factory = new CapturingHttpClientFactory(req =>
+            SentCapturedAts(req).Any(at => at < serverCutoff)
+                ? Json(HttpStatusCode.BadRequest, new { detail = "Snapshot captured_at cannot be older than 24 hours." })
+                : new HttpResponseMessage(HttpStatusCode.Accepted));
+
+        Flush(buffer, factory);
+
+        Assert.Equal(0, buffer.Count);
+        var row = Assert.Single(Quarantined(buffer));
+        Assert.Equal("rejected:400:monitoring.snapshot_too_old", row.GetProperty("quarantine_reason").GetString());
+        Assert.Contains(edge.ToString("yyyy-MM-ddTHH:mm"), row.GetProperty("payload").GetString(), StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(HttpStatusCode.ServiceUnavailable)]
@@ -206,6 +233,23 @@ public class ActivitySyncAcknowledgementTests
         Flush(buffer, factory);
 
         Assert.Equal(0, buffer.Count);
+        Assert.Equal(QuarantineReasons.PolicyDisabled, Assert.Single(Quarantined(buffer)).GetProperty("quarantine_reason").GetString());
+    }
+
+    [Fact]
+    public void Storage_not_entitled_403_on_a_work_session_is_quarantined_so_it_cannot_block_the_queue()
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        buffer.TryEnqueue(WorkSession());
+        buffer.TryEnqueue(Activity(DateTimeOffset.UtcNow.AddMinutes(-1)));
+        var factory = new CapturingHttpClientFactory(req =>
+            req.RequestUri!.AbsolutePath.EndsWith("work-sessions", StringComparison.Ordinal)
+                ? Json(HttpStatusCode.Forbidden, new { detail = "storage_not_entitled" })
+                : new HttpResponseMessage(HttpStatusCode.Accepted));
+
+        Flush(buffer, factory);
+
+        Assert.Equal(0, buffer.Count); // the activity row behind it was delivered
         Assert.Equal(QuarantineReasons.PolicyDisabled, Assert.Single(Quarantined(buffer)).GetProperty("quarantine_reason").GetString());
     }
 

@@ -989,9 +989,11 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
             }
 
             // Remaining 4xx: the server refused the content itself.
-            if (code is SnapshotTooOldCode or SnapshotFutureTimeCode)
+            // A window rejection only describes this record when it was sent alone: backends without
+            // per-item partial save (pre-AGT-01) refuse a whole batch for one stale item, so a batch
+            // goes through the record-by-record path below instead.
+            if (entries.Count == 1 && code is SnapshotTooOldCode or SnapshotFutureTimeCode)
             {
-                // The server judged every item in this request out of its time window.
                 var reason = code == SnapshotFutureTimeCode
                     ? QuarantineReasons.FutureTime
                     : QuarantineReasons.Rejected(status, code);
@@ -1103,9 +1105,15 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         }
     }
 
+    /// <summary>
+    /// A 403 that refuses this kind of data for this employee/tenant (capability switched off, storage
+    /// not entitled) — permanent for these records, unlike an auth 403, so they are quarantined rather
+    /// than left blocking the queue.
+    /// </summary>
     private static bool IsCapabilityDisabled(string? code, string? detail) =>
         (code?.EndsWith("_disabled", StringComparison.Ordinal) ?? false)
-        || (detail?.Contains("is not enabled for this employee", StringComparison.OrdinalIgnoreCase) ?? false);
+        || (detail?.Contains("is not enabled for this employee", StringComparison.OrdinalIgnoreCase) ?? false)
+        || (detail?.Contains("not_entitled", StringComparison.OrdinalIgnoreCase) ?? false);
 
     /// <summary>The backend stores and reports captured_at at microsecond precision.</summary>
     private static long MicrosecondKey(DateTimeOffset at) => at.UtcTicks / TimeSpan.TicksPerMicrosecond;
