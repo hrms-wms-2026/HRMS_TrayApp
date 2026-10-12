@@ -60,8 +60,11 @@ Client: 2xx → MarkAcknowledged (status=synced; rows never deleted)
    (additive, old agents ignore it). Tenant/employee ownership checks untouched (Device JWT only).
 4. Recovery/export: `ONEVO.Agent.Service.exe --export-quarantine <file>` writes quarantined rows as JSONL.
 
-**Compatibility**: new agent + old backend (no body) → acks as today, stale pre-quarantine still applies.
-Old agent + new backend → body ignored; mixed batches now partially stored (PR #175).
+**Compatibility**: new agent + old backend (no 202 body, whole-batch 400 for one stale item) → the agent
+pre-quarantines >24h rows by its own clock; a window-coded 400 on a batch is retried record by record, so
+only the item the server judged stale is quarantined. Old agent + new backend → body ignored; mixed batches
+are partially stored (PR #175) and replays are deduplicated.
+Periodic screenshots are deduplicated by device + captured_at; work sessions already upsert by SessionId.
 
 ## AGT-02 — buffer limit data loss
 
@@ -117,3 +120,8 @@ Publication (push / PR / merge) waits for explicit approval.
 1. Snapshot git state → 2. AGT-01 → 3. AGT-02 → 4. SEC-01 → 5. AGT-03 prep.
 Validation: unit tests per scenario, full Service/Backend unit suites, offline→reconnect smoke test against a
 local stub server, fresh-clone build/test of the release candidate commit.
+
+## Implementation status (2026-10-12)
+
+Implemented and tested on local branches; nothing is published. See the handoff report in the session for
+SHAs, test counts, and the publication plan that still needs approval.
