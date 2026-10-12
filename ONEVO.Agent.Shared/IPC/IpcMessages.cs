@@ -173,7 +173,14 @@ public sealed record SessionSnapshot(
 public sealed record StatusResponsePayload(
     MonitoringState State,
     DateTimeOffset Timestamp,
-    SessionSnapshot? Session = null);
+    SessionSnapshot? Session = null,
+    BufferStatusPayload? Buffer = null);
+
+/// <summary>
+/// Offline queue state (AGT-02). <see cref="Level"/>: Ok, Warning, Full (new low-priority capture is
+/// refused), StorageError (last write failed). Older Service builds omit it (null).
+/// </summary>
+public sealed record BufferStatusPayload(string Level, int Pending, int Quarantined, int Capacity);
 
 public sealed record LifecycleCommandPayload(
     LifecycleAction Action,
@@ -194,7 +201,15 @@ public sealed record CollectionRecordSubmitPayload
 public sealed record CollectionRecordAckPayload
 {
     public required int AcceptedCount { get; init; }
+
+    /// <summary><see cref="CollectionAckErrorCodes"/> when fewer records were stored than submitted.</summary>
     public string? ErrorCode { get; init; }
+}
+
+public static class CollectionAckErrorCodes
+{
+    public const string BufferFull = "buffer_full";
+    public const string StorageError = "storage_error";
 }
 
 public sealed record PolicyPushPayload

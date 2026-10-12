@@ -9,6 +9,12 @@ public sealed class AgentOptions
     public int IngestIntervalSeconds { get; set; } = 150;
     public int QueueCapacityMb { get; set; } = 100;
     public int QueueMaxRecords { get; set; } = 5_000;
+
+    /// <summary>
+    /// Pending rows reserved above <see cref="QueueMaxRecords"/> for work sessions, inactivity
+    /// attempts and face photos, so a full snapshot backlog never blocks them (AGT-02).
+    /// </summary>
+    public int QueueReservedRecords { get; set; } = 500;
     public int HttpTimeoutSeconds { get; set; } = 30;
     public int MaxReconnectAttempts { get; set; } = 5;
 

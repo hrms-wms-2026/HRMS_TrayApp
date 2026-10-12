@@ -804,7 +804,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         if (_activityBuffer.TryEnqueue(record))
             _logger.LogInformation("Work session queued for backend sync SessionId={SessionId}", sessionId);
         else
-            _logger.LogWarning("Activity buffer full — dropping work session SessionId={SessionId}", sessionId);
+            _logger.LogError("Activity buffer refused work session SessionId={SessionId} — not captured", sessionId);
     }
 
     private async Task ReplyLifecycleAsync(
@@ -845,6 +845,12 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         await reply(policy);
     }
 
+    private BufferStatusPayload BuildBufferStatus()
+    {
+        var health = _activityBuffer.GetHealth();
+        return new BufferStatusPayload(health.Level.ToString(), health.Pending, health.Quarantined, health.LowPriorityLimit);
+    }
+
     private IpcEnvelope BuildStatusEnvelope(string? correlationId) =>
         new()
         {
@@ -854,7 +860,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 new StatusResponsePayload(
                     _stateMachine.CurrentState,
                     DateTimeOffset.UtcNow,
-                    _presenceSession.Snapshot(DateTimeOffset.UtcNow)))
+                    _presenceSession.Snapshot(DateTimeOffset.UtcNow),
+                    BuildBufferStatus()))
         };
 
     /// <summary>
@@ -902,6 +909,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
         var currentPolicy = _policyCache.Current;
         var accepted = 0;
+        var refused = 0;
         var idleChanged = false;
         var stableDeviceId = _deviceIdentityStore.Load()?.DeviceId ?? "unknown";
         foreach (var incomingRecord in payload.Records)
@@ -946,7 +954,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             if (_activityBuffer.TryEnqueue(record))
                 accepted++;
             else
-                _logger.LogWarning("Activity buffer full — dropping eventId={EventId}", record.EventId);
+            {
+                refused++;
+                _logger.LogWarning("Activity buffer refused eventId={EventId} — record not captured", record.EventId);
+            }
         }
 
         _logger.LogInformation(
@@ -961,7 +972,15 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             Type = IpcMessageTypes.CollectionRecordAck,
             CorrelationId = envelope.CorrelationId,
             Payload = JsonSerializer.SerializeToElement(
-                new CollectionRecordAckPayload { AcceptedCount = accepted })
+                new CollectionRecordAckPayload
+                {
+                    AcceptedCount = accepted,
+                    ErrorCode = refused == 0
+                        ? null
+                        : _activityBuffer.GetHealth().Level == BufferHealthLevel.StorageError
+                            ? CollectionAckErrorCodes.StorageError
+                            : CollectionAckErrorCodes.BufferFull
+                })
         });
 
         if (idleChanged)
