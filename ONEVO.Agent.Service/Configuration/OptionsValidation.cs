@@ -17,6 +17,12 @@ public sealed class OptionsValidation : IValidateOptions<AgentOptions>
         if (options.QueueCapacityMb is < 1 or > 1000)
             errors.Add("QueueCapacityMb must be between 1 and 1000");
 
+        if (options.QueueMaxRecords is < 100 or > 1_000_000)
+            errors.Add("QueueMaxRecords must be between 100 and 1000000");
+
+        if (options.QueueReservedRecords is < 1 or > 100_000)
+            errors.Add("QueueReservedRecords must be between 1 and 100000");
+
         if (options.HttpTimeoutSeconds is < 5 or > 300)
             errors.Add("HttpTimeoutSeconds must be between 5 and 300");
 

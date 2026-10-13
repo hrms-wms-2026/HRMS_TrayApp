@@ -34,6 +34,15 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
     private readonly PolicyCache? _policyCache;
     private readonly SemaphoreSlim _flushGate = new(1, 1);
 
+    // AGT-01: one tick drains several batches while the backend keeps accepting, but never unbounded.
+    internal const int BatchSize = 100;
+    internal const int MaxBatchesPerFlush = 10;
+    private static readonly TimeSpan MaxBackoff = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan FutureTimeRequeueAfter = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan StopFlushTimeout = TimeSpan.FromSeconds(10);
+    private int _consecutiveTransientFailures;
+    private DateTimeOffset _nextAttemptAt = DateTimeOffset.MinValue;
+
     public ActivitySyncService(
         ILogger<ActivitySyncService> logger,
         ActivityRecordBuffer buffer,
@@ -65,7 +74,8 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         {
             try
             {
-                await FlushAsync(stoppingToken);
+                if (DateTimeOffset.UtcNow >= _nextAttemptAt)
+                    await FlushAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -86,8 +96,13 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
             }
         }
 
-        // Best-effort final flush on stop
-        try { await FlushAsync(CancellationToken.None); }
+        // Best-effort final flush on stop - bounded so a large backlog cannot hang service shutdown.
+        // Anything not sent stays pending in SQLite for the next start.
+        try
+        {
+            using var stopCts = new CancellationTokenSource(StopFlushTimeout);
+            await FlushAsync(stopCts.Token);
+        }
         catch { /* ignore */ }
     }
 
@@ -96,7 +111,22 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         await _flushGate.WaitAsync(ct);
         try
         {
-            await FlushPendingAsync(ct);
+            _buffer.RequeueQuarantined(QuarantineReasons.FutureTime, DateTimeOffset.UtcNow - FutureTimeRequeueAfter);
+
+            for (var i = 0; i < MaxBatchesPerFlush && !ct.IsCancellationRequested; i++)
+            {
+                var result = await FlushPendingAsync(ct);
+                if (result == FlushResult.TransientFailure)
+                {
+                    RegisterTransientFailure();
+                    break;
+                }
+
+                _consecutiveTransientFailures = 0;
+                _nextAttemptAt = DateTimeOffset.MinValue;
+                if (result == FlushResult.Idle)
+                    break;
+            }
         }
         finally
         {
@@ -104,23 +134,46 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         }
     }
 
-    private async Task FlushPendingAsync(CancellationToken ct)
+    private enum FlushResult
     {
-        var peeked = _buffer.PeekPendingBatch(maxCount: 100);
+        /// <summary>Nothing (left) to send, or sending is not possible right now (no JWT / URL).</summary>
+        Idle,
+        /// <summary>The whole batch was acknowledged or quarantined - another batch may follow.</summary>
+        Progress,
+        /// <summary>Network/5xx/auth trouble - rows stay pending; back off before the next try.</summary>
+        TransientFailure
+    }
+
+    private void RegisterTransientFailure()
+    {
+        _consecutiveTransientFailures++;
+        var baseDelay = TimeSpan.FromSeconds(Math.Max(30, _options.IngestIntervalSeconds));
+        var factor = Math.Pow(2, Math.Min(_consecutiveTransientFailures - 1, 10));
+        var delay = TimeSpan.FromTicks((long)Math.Min(MaxBackoff.Ticks, baseDelay.Ticks * factor));
+        delay += TimeSpan.FromMilliseconds(Random.Shared.Next(0, (int)Math.Max(1, delay.TotalMilliseconds / 5)));
+        _nextAttemptAt = DateTimeOffset.UtcNow + delay;
+        _logger.LogWarning(
+            "Activity sync backing off {Seconds:N0}s after {Failures} consecutive transient failure(s); {Pending} row(s) stay pending",
+            delay.TotalSeconds, _consecutiveTransientFailures, _buffer.Count);
+    }
+
+    private async Task<FlushResult> FlushPendingAsync(CancellationToken ct)
+    {
+        var peeked = _buffer.PeekPendingBatch(maxCount: BatchSize);
         if (peeked.Count == 0)
-            return;
+            return FlushResult.Idle;
 
         var jwt = _credentials.ReadDeviceJwt();
         if (string.IsNullOrWhiteSpace(jwt))
         {
             _logger.LogDebug("No device JWT — leaving {Count} records pending", peeked.Count);
-            return;
+            return FlushResult.Idle;
         }
 
         if (string.IsNullOrWhiteSpace(_options.ApiBaseUrl))
         {
             _logger.LogWarning("ApiBaseUrl not configured — leaving records pending");
-            return;
+            return FlushResult.Idle;
         }
 
         if (_policyCache is not null)
@@ -129,10 +182,13 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
             var blocked = peeked.Where(item => !IsAllowedByPolicy(item.Record.RecordType, policy)).ToList();
             if (blocked.Count > 0)
             {
-                _logger.LogInformation("Dropping {Count} buffered records disallowed by server policy", blocked.Count);
-                _buffer.MarkAcknowledged(blocked.Select(item => item.RowId));
+                // Not sent and not marked delivered: kept locally with a reason (export/requeue if the
+                // capability is turned back on).
+                _logger.LogWarning("Quarantining {Count} buffered record(s) disallowed by server policy", blocked.Count);
+                foreach (var item in blocked)
+                    _buffer.QuarantineRow(item.RowId, QuarantineReasons.PolicyDisabled);
                 peeked = peeked.Where(item => IsAllowedByPolicy(item.Record.RecordType, policy)).ToList();
-                if (peeked.Count == 0) return;
+                if (peeked.Count == 0) return FlushResult.Progress;
             }
         }
 
@@ -148,14 +204,15 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
                 "Quarantining {Count} buffered snapshot(s) older than {Hours}h — backend will not accept them",
                 stale.Count, MaxSnapshotAge.TotalHours);
             foreach (var item in stale)
-                _buffer.QuarantineRow(item.RowId, "stale_over_24h");
+                _buffer.QuarantineRow(item.RowId, QuarantineReasons.StaleOver24h);
             peeked = peeked.Where(item => !IsStaleSnapshot(item.Record, staleCutoff)).ToList();
-            if (peeked.Count == 0) return;
+            if (peeked.Count == 0) return FlushResult.Progress;
         }
 
         var acknowledged = new List<long>();
         var spoolDeletes = new List<string>();
         var index = 0;
+        var transient = false;
 
         while (index < peeked.Count)
         {
@@ -166,7 +223,7 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
             {
                 var group = CollectAdjacentSameType(peeked, index);
                 var records = group.Select(g => g.Record).ToList();
-                var failed = recordType switch
+                var outcome = recordType switch
                 {
                     CollectionRecordTypes.ActivitySnapshot =>
                         await FlushActivitySnapshotsAsync(records, jwt, ct),
@@ -174,20 +231,17 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
                         await FlushAppUsageSnapshotsAsync(records, jwt, ct),
                     CollectionRecordTypes.DeviceStateSnapshot =>
                         await FlushDeviceStateSnapshotsAsync(records, jwt, ct),
-                    CollectionRecordTypes.MeetingSignal =>
-                        await FlushMeetingSignalsAsync(records, jwt, ct),
-                    _ => records
+                    _ =>
+                        await FlushMeetingSignalsAsync(records, jwt, ct)
                 };
 
-                if (failed.Count > 0)
+                ApplyOutcome(group, outcome, acknowledged);
+                if (outcome.HasPending)
                 {
-                    var failedIds = failed.Select(r => r.EventId).ToHashSet();
-                    acknowledged.AddRange(
-                        group.Where(g => !failedIds.Contains(g.Record.EventId)).Select(g => g.RowId));
+                    transient = true;
                     break;
                 }
 
-                acknowledged.AddRange(group.Select(g => g.RowId));
                 index += group.Count;
                 continue;
             }
@@ -209,28 +263,37 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
                         break;
                 }
 
+                transient = true;
                 break;
             }
 
             if (recordType == CollectionRecordTypes.WorkSession)
             {
-                var failed = await FlushWorkSessionsAsync([current.Record], jwt, ct);
-                if (failed.Count > 0)
+                var outcome = await FlushWorkSessionAsync(current.Record, jwt, ct);
+                ApplyOutcome([current], outcome, acknowledged);
+                if (outcome.HasPending)
+                {
+                    transient = true;
                     break;
+                }
 
-                acknowledged.Add(current.RowId);
                 index++;
                 continue;
             }
 
             if (recordType == CollectionRecordTypes.Screenshot)
             {
-                var failed = await FlushScreenshotsAsync([current.Record], jwt, ct);
-                if (failed.Count > 0)
+                var outcome = await FlushScreenshotAsync(current.Record, jwt, ct);
+                ApplyOutcome([current], outcome, acknowledged);
+                if (outcome.HasPending)
+                {
+                    transient = true;
                     break;
+                }
 
-                acknowledged.Add(current.RowId);
-                spoolDeletes.Add(current.Record.EventId);
+                // Only a delivered screenshot frees its evidence file; a quarantined one keeps it.
+                if (outcome.Acknowledged.Count > 0)
+                    spoolDeletes.Add(current.Record.EventId);
                 index++;
                 continue;
             }
@@ -250,10 +313,13 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
                     default:
                         break;
                 }
+
+                transient = true;
                 break;
             }
 
-            _logger.LogWarning("Unknown record type {RecordType} — skipping row {RowId}", recordType, current.RowId);
+            _logger.LogWarning("Unknown record type {RecordType} — quarantining row {RowId}", recordType, current.RowId);
+            _buffer.QuarantineRow(current.RowId, QuarantineReasons.Rejected(0, "unknown_record_type"));
             index++;
         }
 
@@ -262,6 +328,17 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
 
         foreach (var eventId in spoolDeletes)
             DeleteSpoolForEvent(eventId);
+
+        return transient ? FlushResult.TransientFailure : FlushResult.Progress;
+    }
+
+    private void ApplyOutcome(
+        IReadOnlyList<BufferedCollectionRecord> group, SendOutcome outcome, List<long> acknowledged)
+    {
+        var rowIds = group.ToDictionary(g => g.Record.EventId, g => g.RowId);
+        acknowledged.AddRange(outcome.Acknowledged.Select(r => rowIds[r.EventId]));
+        foreach (var (record, reason) in outcome.Quarantined)
+            _buffer.QuarantineRow(rowIds[record.EventId], reason);
     }
 
         /// <summary>
@@ -288,7 +365,7 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
     /// stores the in-window items of a mixed batch, so client/server clock skew at the edge only
     /// costs the item itself, never its neighbours.
     /// </summary>
-    internal static readonly TimeSpan MaxSnapshotAge = TimeSpan.FromHours(24);
+    internal static readonly TimeSpan MaxSnapshotAge = ActivityRecordBuffer.MaxSnapshotAge;
 
     private static bool IsStaleSnapshot(CollectionRecord record, DateTimeOffset cutoff) =>
         IsBatchableType(record.RecordType)
@@ -523,41 +600,38 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
     /// <summary>
     /// One POST per screenshot (multipart — each carries a full image, no JSON batching).
     /// </summary>
-    private async Task<List<CollectionRecord>> FlushScreenshotsAsync(
-        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    private async Task<SendOutcome> FlushScreenshotAsync(CollectionRecord record, string jwt, CancellationToken ct)
     {
-        if (records.Count == 0) return [];
-
-        var requeue = new List<CollectionRecord>();
-        foreach (var record in records)
+        ScreenshotPayload? shot;
+        byte[] bytes;
+        try
         {
-            ScreenshotPayload? shot;
-            byte[] bytes;
-            try
-            {
-                shot = record.Payload.Deserialize<ScreenshotPayload>(JsonOptions);
-                if (shot is null) continue;
-                bytes = string.IsNullOrEmpty(shot.Data)
-                    ? ReadSpooledScreenshot(record.EventId)
-                    : Convert.FromBase64String(shot.Data);
-            }
-            catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException or IOException)
-            {
-                _logger.LogWarning(ex, "Corrupt screenshot record quarantined eventId={EventId}", record.EventId);
-                continue;
-            }
-
-            using var content = new MultipartFormDataContent();
-            using var fileContent = new ByteArrayContent(bytes);
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue($"image/{shot.Format}");
-            content.Add(fileContent, "file", $"{record.EventId}.{shot.Format}");
-            content.Add(new StringContent(shot.CapturedAt.ToString("O")), "capturedAt");
-
-            var failed = await PostFormAsync(AgentApiRoutes.ScreenshotSubmit, jwt, content, [record], ct);
-            requeue.AddRange(failed);
+            shot = record.Payload.Deserialize<ScreenshotPayload>(JsonOptions)
+                ?? throw new JsonException("empty screenshot payload");
+            bytes = string.IsNullOrEmpty(shot.Data)
+                ? ReadSpooledScreenshot(record.EventId)
+                : Convert.FromBase64String(shot.Data);
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException or IOException)
+        {
+            _logger.LogWarning(ex, "Corrupt screenshot record quarantined eventId={EventId}", record.EventId);
+            return SendOutcome.QuarantineAll([record], QuarantineReasons.CorruptPayload);
         }
 
-        return requeue;
+        return await SendAsync(
+            AgentApiRoutes.ScreenshotSubmit,
+            jwt,
+            [new SendEntry(record, null)],
+            _ =>
+            {
+                var content = new MultipartFormDataContent();
+                var fileContent = new ByteArrayContent(bytes);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue($"image/{shot.Format}");
+                content.Add(fileContent, "file", $"{record.EventId}.{shot.Format}");
+                content.Add(new StringContent(shot.CapturedAt.ToString("O")), "capturedAt");
+                return content;
+            },
+            ct);
     }
 
     private byte[] ReadSpooledScreenshot(string eventId)
@@ -686,204 +760,83 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         }
     }
 
-    private async Task<List<CollectionRecord>> PostFormAsync(
-        string route, string jwt, HttpContent content, List<CollectionRecord> records, CancellationToken ct)
-    {
-        var client = _httpClientFactory.CreateClient("OnevoApi");
-        using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = content };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
-
-        HttpResponseMessage response;
-        try
-        {
-            response = await client.SendAsync(request, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "HTTP failed for {Route} — re-queue {Count}", route, records.Count);
-            return records;
-        }
-
-        if (response.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK)
-        {
-            _logger.LogInformation("Batch accepted for {Route}. Count={Count}", route, records.Count);
-            return [];
-        }
-
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-        {
-            _logger.LogWarning(
-                "Rejected status={Status} for {Route} — dropping pending re-enrollment",
-                (int)response.StatusCode, route);
-            return [];
-        }
-
-        if (response.StatusCode == HttpStatusCode.BadRequest)
-        {
-            // A validation rejection (e.g. the backend's 24h freshness window on snapshot ingest)
-            // will never succeed on retry — re-queueing it forever blocks every record behind it in
-            // this FIFO buffer, including unrelated, still-syncable fresh data. Drop it instead.
-            _logger.LogWarning(
-                "Validation rejected (400) for {Route} — dropping {Count} unrecoverable record(s), will not retry",
-                route, records.Count);
-            return [];
-        }
-
-        _logger.LogWarning(
-            "Non-success status={Status} for {Route} — re-queue {Count}",
-            (int)response.StatusCode, route, records.Count);
-        return records;
-    }
-
-    private async Task<List<CollectionRecord>> FlushActivitySnapshotsAsync(
+    private async Task<SendOutcome> FlushActivitySnapshotsAsync(
         List<CollectionRecord> records, string jwt, CancellationToken ct)
     {
-        if (records.Count == 0) return [];
-
-        var items = new List<ActivityIngestItem>();
-        var used  = new List<CollectionRecord>();
-
-        foreach (var record in records)
-        {
-            try
+        var (entries, items, corrupt) = ParseBatch<ActivitySnapshotPayload, ActivityIngestItem>(
+            records,
+            snap => (snap.CapturedAt, new ActivityIngestItem
             {
-                var snap = record.Payload.Deserialize<ActivitySnapshotPayload>(JsonOptions);
-                if (snap is null) continue;
+                CapturedAt           = snap.CapturedAt,
+                KeyboardEventsCount  = snap.KeyboardEventsCount,
+                MouseEventsCount     = snap.MouseEventsCount,
+                ActiveSeconds        = snap.ActiveSeconds,
+                IdleSeconds          = snap.IdleSeconds,
+                IntensityScore       = snap.IntensityScore,
+                ForegroundProcessName = snap.ForegroundProcessName
+            }));
 
-                items.Add(new ActivityIngestItem
-                {
-                    CapturedAt           = snap.CapturedAt,
-                    KeyboardEventsCount  = snap.KeyboardEventsCount,
-                    MouseEventsCount     = snap.MouseEventsCount,
-                    ActiveSeconds        = snap.ActiveSeconds,
-                    IdleSeconds          = snap.IdleSeconds,
-                    IntensityScore       = snap.IntensityScore,
-                    ForegroundProcessName = snap.ForegroundProcessName
-                });
-                used.Add(record);
-            }
-            catch (JsonException)
-            {
-                _logger.LogWarning("Corrupt activity record quarantined eventId={EventId}", record.EventId);
-            }
-        }
-
-        if (items.Count == 0) return [];
-        return await PostBatchAsync(
-            AgentApiRoutes.ActivitySnapshots, jwt,
-            new ActivityIngestRequest { Snapshots = items },
-            used, ct);
+        var outcome = await SendJsonBatchAsync(
+            AgentApiRoutes.ActivitySnapshots, jwt, entries, items,
+            selected => new ActivityIngestRequest { Snapshots = selected }, ct);
+        return outcome.WithQuarantined(corrupt, QuarantineReasons.CorruptPayload);
     }
 
-    private async Task<List<CollectionRecord>> FlushAppUsageSnapshotsAsync(
+    private async Task<SendOutcome> FlushAppUsageSnapshotsAsync(
         List<CollectionRecord> records, string jwt, CancellationToken ct)
     {
-        if (records.Count == 0) return [];
-
-        var items = new List<AppUsageIngestItem>();
-        var used  = new List<CollectionRecord>();
-
-        foreach (var record in records)
-        {
-            try
+        var (entries, items, corrupt) = ParseBatch<AppUsageSnapshotPayload, AppUsageIngestItem>(
+            records,
+            snap => (snap.CapturedAt, new AppUsageIngestItem
             {
-                var snap = record.Payload.Deserialize<AppUsageSnapshotPayload>(JsonOptions);
-                if (snap is null) continue;
+                CapturedAt      = snap.CapturedAt,
+                ProcessName     = snap.ProcessName,
+                WindowTitleHash = snap.WindowTitleHash
+            }));
 
-                items.Add(new AppUsageIngestItem
-                {
-                    CapturedAt      = snap.CapturedAt,
-                    ProcessName     = snap.ProcessName,
-                    WindowTitleHash = snap.WindowTitleHash
-                });
-                used.Add(record);
-            }
-            catch (JsonException)
-            {
-                _logger.LogWarning("Corrupt app-usage record quarantined eventId={EventId}", record.EventId);
-            }
-        }
-
-        if (items.Count == 0) return [];
-        return await PostBatchAsync(
-            AgentApiRoutes.AppUsageSnapshots, jwt,
-            new AppUsageIngestRequest { Snapshots = items },
-            used, ct);
+        var outcome = await SendJsonBatchAsync(
+            AgentApiRoutes.AppUsageSnapshots, jwt, entries, items,
+            selected => new AppUsageIngestRequest { Snapshots = selected }, ct);
+        return outcome.WithQuarantined(corrupt, QuarantineReasons.CorruptPayload);
     }
 
-    private async Task<List<CollectionRecord>> FlushDeviceStateSnapshotsAsync(
+    private async Task<SendOutcome> FlushDeviceStateSnapshotsAsync(
         List<CollectionRecord> records, string jwt, CancellationToken ct)
     {
-        if (records.Count == 0) return [];
-
-        var items = new List<DeviceStateIngestItem>();
-        var used  = new List<CollectionRecord>();
-
-        foreach (var record in records)
-        {
-            try
+        var (entries, items, corrupt) = ParseBatch<DeviceStateSnapshotPayload, DeviceStateIngestItem>(
+            records,
+            snap => (snap.CapturedAt, new DeviceStateIngestItem
             {
-                var snap = record.Payload.Deserialize<DeviceStateSnapshotPayload>(JsonOptions);
-                if (snap is null) continue;
+                CapturedAt     = snap.CapturedAt,
+                IdleSeconds    = snap.IdleSeconds,
+                IsIdle         = snap.IsIdle,
+                Latitude       = snap.Latitude,
+                Longitude      = snap.Longitude,
+                AccuracyMeters = snap.AccuracyMeters
+            }));
 
-                items.Add(new DeviceStateIngestItem
-                {
-                    CapturedAt     = snap.CapturedAt,
-                    IdleSeconds    = snap.IdleSeconds,
-                    IsIdle         = snap.IsIdle,
-                    Latitude       = snap.Latitude,
-                    Longitude      = snap.Longitude,
-                    AccuracyMeters = snap.AccuracyMeters
-                });
-                used.Add(record);
-            }
-            catch (JsonException)
-            {
-                _logger.LogWarning("Corrupt device-state record quarantined eventId={EventId}", record.EventId);
-            }
-        }
-
-        if (items.Count == 0) return [];
-        return await PostBatchAsync(
-            AgentApiRoutes.DeviceStateSnapshots, jwt,
-            new DeviceStateIngestRequest { Snapshots = items },
-            used, ct);
+        var outcome = await SendJsonBatchAsync(
+            AgentApiRoutes.DeviceStateSnapshots, jwt, entries, items,
+            selected => new DeviceStateIngestRequest { Snapshots = selected }, ct);
+        return outcome.WithQuarantined(corrupt, QuarantineReasons.CorruptPayload);
     }
 
-    private async Task<List<CollectionRecord>> FlushMeetingSignalsAsync(
+    private async Task<SendOutcome> FlushMeetingSignalsAsync(
         List<CollectionRecord> records, string jwt, CancellationToken ct)
     {
-        if (records.Count == 0) return [];
-
-        var items = new List<MeetingSignalIngestItem>();
-        var used  = new List<CollectionRecord>();
-
-        foreach (var record in records)
-        {
-            try
+        var (entries, items, corrupt) = ParseBatch<MeetingSignalPayload, MeetingSignalIngestItem>(
+            records,
+            signal => (signal.CapturedAt, new MeetingSignalIngestItem
             {
-                var signal = record.Payload.Deserialize<MeetingSignalPayload>(JsonOptions);
-                if (signal is null) continue;
+                CapturedAt          = signal.CapturedAt,
+                IsMeetingAppRunning = signal.IsMeetingAppRunning,
+                ProcessName         = signal.ProcessName
+            }));
 
-                items.Add(new MeetingSignalIngestItem
-                {
-                    CapturedAt          = signal.CapturedAt,
-                    IsMeetingAppRunning = signal.IsMeetingAppRunning,
-                    ProcessName         = signal.ProcessName
-                });
-                used.Add(record);
-            }
-            catch (JsonException)
-            {
-                _logger.LogWarning("Corrupt meeting-signal record quarantined eventId={EventId}", record.EventId);
-            }
-        }
-
-        if (items.Count == 0) return [];
-        return await PostBatchAsync(
-            AgentApiRoutes.MeetingSignals, jwt,
-            new MeetingSignalIngestRequest { Signals = items },
-            used, ct);
+        var outcome = await SendJsonBatchAsync(
+            AgentApiRoutes.MeetingSignals, jwt, entries, items,
+            selected => new MeetingSignalIngestRequest { Signals = selected }, ct);
+        return outcome.WithQuarantined(corrupt, QuarantineReasons.CorruptPayload);
     }
 
     /// <summary>
@@ -891,54 +844,111 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
     /// activity snapshots). Each is upserted server-side by SessionId, so a retried
     /// delivery after a dropped response is a no-op, never a duplicate row.
     /// </summary>
-    private async Task<List<CollectionRecord>> FlushWorkSessionsAsync(
-        List<CollectionRecord> records, string jwt, CancellationToken ct)
+    private async Task<SendOutcome> FlushWorkSessionAsync(CollectionRecord record, string jwt, CancellationToken ct)
     {
-        if (records.Count == 0) return [];
+        WorkSessionPayload? session;
+        try
+        {
+            session = record.Payload.Deserialize<WorkSessionPayload>(JsonOptions);
+        }
+        catch (JsonException)
+        {
+            session = null;
+        }
 
-        var requeue = new List<CollectionRecord>();
+        if (session is null)
+        {
+            _logger.LogWarning("Corrupt work-session record quarantined eventId={EventId}", record.EventId);
+            return SendOutcome.QuarantineAll([record], QuarantineReasons.CorruptPayload);
+        }
+
+        var body = new WorkSessionSubmitRequest
+        {
+            SessionId = session.SessionId,
+            ClockInAt = session.ClockInAt,
+            ClockOutAt = session.ClockOutAt,
+            AccumulatedBreakSeconds = (int)session.AccumulatedBreak.TotalSeconds,
+            AccumulatedWorkSeconds = (int)session.AccumulatedWork.TotalSeconds,
+            AccumulatedIdleSeconds = (int)session.AccumulatedIdle.TotalSeconds,
+            BreakSessionCount = session.BreakSessionCount,
+            ScheduleDisplay = session.ScheduleDisplay
+        };
+
+        return await SendAsync(
+            AgentApiRoutes.WorkSessionSubmit, jwt, [new SendEntry(record, null)], _ => JsonContent.Create(body), ct);
+    }
+
+    private (List<SendEntry> Entries, List<TItem> Items, List<CollectionRecord> Corrupt) ParseBatch<TPayload, TItem>(
+        List<CollectionRecord> records, Func<TPayload, (DateTimeOffset CapturedAt, TItem Item)> map)
+        where TPayload : class
+    {
+        var entries = new List<SendEntry>();
+        var items = new List<TItem>();
+        var corrupt = new List<CollectionRecord>();
+
         foreach (var record in records)
         {
-            WorkSessionPayload? session;
+            TPayload? payload;
             try
             {
-                session = record.Payload.Deserialize<WorkSessionPayload>(JsonOptions);
+                payload = record.Payload.Deserialize<TPayload>(JsonOptions);
             }
             catch (JsonException)
             {
-                _logger.LogWarning("Corrupt work-session record quarantined eventId={EventId}", record.EventId);
+                payload = null;
+            }
+
+            if (payload is null)
+            {
+                _logger.LogWarning(
+                    "Corrupt {RecordType} record quarantined eventId={EventId}", record.RecordType, record.EventId);
+                corrupt.Add(record);
                 continue;
             }
 
-            if (session is null) continue;
-
-            var body = new WorkSessionSubmitRequest
-            {
-                SessionId = session.SessionId,
-                ClockInAt = session.ClockInAt,
-                ClockOutAt = session.ClockOutAt,
-                AccumulatedBreakSeconds = (int)session.AccumulatedBreak.TotalSeconds,
-                AccumulatedWorkSeconds = (int)session.AccumulatedWork.TotalSeconds,
-                AccumulatedIdleSeconds = (int)session.AccumulatedIdle.TotalSeconds,
-                BreakSessionCount = session.BreakSessionCount,
-                ScheduleDisplay = session.ScheduleDisplay
-            };
-
-            var failed = await PostBatchAsync(AgentApiRoutes.WorkSessionSubmit, jwt, body, [record], ct);
-            requeue.AddRange(failed);
+            var (capturedAt, item) = map(payload);
+            entries.Add(new SendEntry(record, capturedAt));
+            items.Add(item);
         }
 
-        return requeue;
+        return (entries, items, corrupt);
     }
 
-    private async Task<List<CollectionRecord>> PostBatchAsync(
-        string route, string jwt, object body, List<CollectionRecord> records, CancellationToken ct)
+    private Task<SendOutcome> SendJsonBatchAsync<TItem>(
+        string route,
+        string jwt,
+        List<SendEntry> entries,
+        List<TItem> items,
+        Func<List<TItem>, object> body,
+        CancellationToken ct)
+    {
+        if (entries.Count == 0)
+            return Task.FromResult(new SendOutcome());
+
+        var itemOf = entries.Select((entry, i) => (entry.Record.EventId, Item: items[i]))
+            .ToDictionary(x => x.EventId, x => x.Item);
+        return SendAsync(
+            route, jwt, entries,
+            selected => JsonContent.Create(body(selected.Select(e => itemOf[e.Record.EventId]).ToList())),
+            ct);
+    }
+
+    /// <summary>
+    /// Sends <paramref name="entries"/> in one request and decides, per record, whether it is
+    /// acknowledged (server stored it, or already had it), quarantined (server will never accept it —
+    /// kept locally with the reason) or left pending (transient: network, 5xx, auth). A validation
+    /// rejection of a multi-record request is retried record by record so one bad record never takes
+    /// valid neighbours down with it.
+    /// </summary>
+    private async Task<SendOutcome> SendAsync(
+        string route,
+        string jwt,
+        IReadOnlyList<SendEntry> entries,
+        Func<IReadOnlyList<SendEntry>, HttpContent> content,
+        CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("OnevoApi");
-        using var request = new HttpRequestMessage(HttpMethod.Post, route)
-        {
-            Content = JsonContent.Create(body)
-        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = content(entries) };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
 
         HttpResponseMessage response;
@@ -946,40 +956,198 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         {
             response = await client.SendAsync(request, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            _logger.LogWarning(ex, "HTTP failed for {Route} — re-queue {Count}", route, records.Count);
-            return records;
+            // Includes "request reached the server but the response was lost": the rows stay pending
+            // and the replay is deduplicated server-side.
+            _logger.LogWarning(ex, "HTTP failed for {Route} — {Count} record(s) stay pending", route, entries.Count);
+            return SendOutcome.PendingAll(entries);
         }
 
-        if (response.StatusCode is HttpStatusCode.Accepted or HttpStatusCode.OK)
+        using (response)
         {
-            _logger.LogInformation("Batch accepted for {Route}. Count={Count}", route, records.Count);
-            return [];
-        }
+            var status = (int)response.StatusCode;
+            if (response.IsSuccessStatusCode)
+                return await ReadAcceptedAsync(route, response, entries, ct);
 
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-        {
+            var (code, detail) = await ReadProblemAsync(response, ct);
+
+            if (response.StatusCode == HttpStatusCode.Forbidden && IsCapabilityDisabled(code, detail))
+            {
+                _logger.LogWarning(
+                    "{Route} capability disabled for this employee — quarantining {Count} record(s)", route, entries.Count);
+                return SendOutcome.QuarantineAll(entries.Select(e => e.Record), QuarantineReasons.PolicyDisabled);
+            }
+
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden
+                or HttpStatusCode.NotFound or HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
+                || status >= 500)
+            {
+                _logger.LogWarning(
+                    "Status {Status} for {Route} — {Count} record(s) stay pending for retry", status, route, entries.Count);
+                return SendOutcome.PendingAll(entries);
+            }
+
+            // Remaining 4xx: the server refused the content itself.
+            // A window rejection only describes this record when it was sent alone: backends without
+            // per-item partial save (pre-AGT-01) refuse a whole batch for one stale item, so a batch
+            // goes through the record-by-record path below instead.
+            if (entries.Count == 1 && code is SnapshotTooOldCode or SnapshotFutureTimeCode)
+            {
+                var reason = code == SnapshotFutureTimeCode
+                    ? QuarantineReasons.FutureTime
+                    : QuarantineReasons.Rejected(status, code);
+                _logger.LogWarning("{Route} rejected {Count} record(s) ({Code}) — quarantined", route, entries.Count, code);
+                return SendOutcome.QuarantineAll(entries.Select(e => e.Record), reason);
+            }
+
+            if (entries.Count > 1)
+            {
+                _logger.LogWarning(
+                    "Status {Status} for {Route} batch of {Count} — retrying record by record", status, route, entries.Count);
+                var combined = new SendOutcome();
+                foreach (var entry in entries)
+                {
+                    var single = await SendAsync(route, jwt, [entry], content, ct);
+                    combined.Add(single);
+                    if (single.HasPending)
+                    {
+                        combined.Pending.AddRange(entries.SkipWhile(e => e != entry).Skip(1).Select(e => e.Record));
+                        break;
+                    }
+                }
+
+                return combined;
+            }
+
             _logger.LogWarning(
-                "Rejected status={Status} for {Route} — dropping pending re-enrollment",
-                (int)response.StatusCode, route);
-            return [];
+                "Status {Status} ({Code}) for {Route} — record {EventId} quarantined, will not be retried as-is",
+                status, code ?? "none", route, entries[0].Record.EventId);
+            return SendOutcome.QuarantineAll([entries[0].Record], QuarantineReasons.Rejected(status, code));
         }
+    }
 
-        if (response.StatusCode == HttpStatusCode.BadRequest)
+    private const string SnapshotTooOldCode = "monitoring.snapshot_too_old";
+    private const string SnapshotFutureTimeCode = "monitoring.snapshot_future_time";
+
+    private async Task<SendOutcome> ReadAcceptedAsync(
+        string route, HttpResponseMessage response, IReadOnlyList<SendEntry> entries, CancellationToken ct)
+    {
+        var rejectedCodes = new Dictionary<long, string>();
+        try
         {
-            // A validation rejection (e.g. the backend's 24h freshness window on snapshot ingest)
-            // will never succeed on retry — re-queueing it forever blocks every record behind it in
-            // this FIFO buffer, including unrelated, still-syncable fresh data. Drop it instead.
-            _logger.LogWarning(
-                "Validation rejected (400) for {Route} — dropping {Count} unrecoverable record(s), will not retry",
-                route, records.Count);
-            return [];
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!string.IsNullOrWhiteSpace(body))
+            {
+                var parsed = JsonSerializer.Deserialize<SnapshotIngestResponse>(body, JsonOptions);
+                foreach (var rejection in parsed?.Rejected ?? [])
+                    rejectedCodes[MicrosecondKey(rejection.CapturedAt)] = rejection.Code;
+            }
+        }
+        catch (JsonException)
+        {
+            // Older backends answer 202 with no (or a different) body: everything sent counts as accepted.
         }
 
-        _logger.LogWarning(
-            "Non-success status={Status} for {Route} — re-queue {Count}",
-            (int)response.StatusCode, route, records.Count);
-        return records;
+        var outcome = new SendOutcome();
+        foreach (var entry in entries)
+        {
+            if (entry.CapturedAt is { } at && rejectedCodes.TryGetValue(MicrosecondKey(at), out var code))
+            {
+                outcome.Quarantined.Add((entry.Record, code == SnapshotFutureTimeCode
+                    ? QuarantineReasons.FutureTime
+                    : QuarantineReasons.Rejected((int)response.StatusCode, code)));
+            }
+            else
+            {
+                outcome.Acknowledged.Add(entry.Record);
+            }
+        }
+
+        if (outcome.Quarantined.Count > 0)
+            _logger.LogWarning(
+                "{Route} stored {Accepted} record(s) and refused {Rejected} — refused ones quarantined",
+                route, outcome.Acknowledged.Count, outcome.Quarantined.Count);
+        else
+            _logger.LogInformation("Batch accepted for {Route}. Count={Count}", route, entries.Count);
+        return outcome;
+    }
+
+    private static async Task<(string? Code, string? Detail)> ReadProblemAsync(
+        HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (string.IsNullOrWhiteSpace(body))
+                return (null, null);
+
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                return (null, null);
+
+            var code = root.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() : null;
+            var detail = root.TryGetProperty("detail", out var d) && d.ValueKind == JsonValueKind.String ? d.GetString() : null;
+
+            // Backends that predate the "code" extension only send the human message.
+            code ??= detail switch
+            {
+                not null when detail.Contains("older than 24 hours", StringComparison.OrdinalIgnoreCase) => SnapshotTooOldCode,
+                not null when detail.Contains("cannot be in the future", StringComparison.OrdinalIgnoreCase) => SnapshotFutureTimeCode,
+                _ => null
+            };
+            return (code, detail);
+        }
+        catch (JsonException)
+        {
+            return (null, null);
+        }
+    }
+
+    /// <summary>
+    /// A 403 that refuses this kind of data for this employee/tenant (capability switched off, storage
+    /// not entitled) — permanent for these records, unlike an auth 403, so they are quarantined rather
+    /// than left blocking the queue.
+    /// </summary>
+    private static bool IsCapabilityDisabled(string? code, string? detail) =>
+        (code?.EndsWith("_disabled", StringComparison.Ordinal) ?? false)
+        || (detail?.Contains("is not enabled for this employee", StringComparison.OrdinalIgnoreCase) ?? false)
+        || (detail?.Contains("not_entitled", StringComparison.OrdinalIgnoreCase) ?? false);
+
+    /// <summary>The backend stores and reports captured_at at microsecond precision.</summary>
+    private static long MicrosecondKey(DateTimeOffset at) => at.UtcTicks / TimeSpan.TicksPerMicrosecond;
+
+    private sealed record SendEntry(CollectionRecord Record, DateTimeOffset? CapturedAt);
+
+    private sealed class SendOutcome
+    {
+        public List<CollectionRecord> Acknowledged { get; } = [];
+        public List<(CollectionRecord Record, string Reason)> Quarantined { get; } = [];
+        public List<CollectionRecord> Pending { get; } = [];
+        public bool HasPending => Pending.Count > 0;
+
+        public static SendOutcome PendingAll(IEnumerable<SendEntry> entries)
+        {
+            var outcome = new SendOutcome();
+            outcome.Pending.AddRange(entries.Select(e => e.Record));
+            return outcome;
+        }
+
+        public static SendOutcome QuarantineAll(IEnumerable<CollectionRecord> records, string reason) =>
+            new SendOutcome().WithQuarantined(records, reason);
+
+        public SendOutcome WithQuarantined(IEnumerable<CollectionRecord> records, string reason)
+        {
+            Quarantined.AddRange(records.Select(r => (r, reason)));
+            return this;
+        }
+
+        public void Add(SendOutcome other)
+        {
+            Acknowledged.AddRange(other.Acknowledged);
+            Quarantined.AddRange(other.Quarantined);
+            Pending.AddRange(other.Pending);
+        }
     }
 }
