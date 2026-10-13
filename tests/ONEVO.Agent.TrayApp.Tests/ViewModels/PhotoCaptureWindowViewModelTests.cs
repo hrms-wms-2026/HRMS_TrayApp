@@ -332,27 +332,37 @@ public sealed class PhotoCaptureWindowViewModelTests
     }
 
     [Fact]
-    public async Task FaceSetup_AlreadyEnrolledSameFace_SkipsSidePhotos()
+    public async Task FaceSetup_AlreadyEnrolledReply_StillTakesAllThreePhotos()
     {
-        var prefs = new FakePreferencesStore();
+        // An older backend answers the front photo with "already_enrolled"; setup must not stop at one photo.
         var pipe = new FakeNamedPipeClient
         {
             NextFacePhotoValidateResult = new FacePhotoValidateResultPayload(
                 true, null, true, true, true, true, true, 97f, FaceCheckFailureCodes.AlreadyEnrolled)
         };
         var vm = new PhotoCaptureWindowViewModel(
-            new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, new FakePreferencesStore(), new CapturedPhotoBuffer());
         vm.SetContext(null);
 
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // front
+
+        Assert.True(vm.FrontSetupDone);
+        Assert.False(vm.LeftSetupDone);
+        Assert.False(vm.SetupComplete);
+        Assert.Equal(PhotoCaptureWindowViewModel.NextLabel, vm.PrimaryButtonLabel);
+
+        pipe.NextFacePhotoValidateResult = null;
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // left
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Next
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // right
 
         Assert.True(vm.SetupComplete);
-        Assert.Equal("Enroll & Continue", vm.PrimaryButtonLabel);
+        Assert.Equal([FaceSetupPoses.Front, FaceSetupPoses.Left, FaceSetupPoses.Right], pipe.ValidatePoses);
 
-        await vm.PrimaryActionCommand.ExecuteAsync(null);
+        await vm.PrimaryActionCommand.ExecuteAsync(null);   // Enroll & Continue
 
-        Assert.Empty(pipe.CommittedEnrollmentSessions);
-        Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
+        Assert.Single(pipe.CommittedEnrollmentSessions);
     }
 
     [Fact]
