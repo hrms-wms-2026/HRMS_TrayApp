@@ -264,7 +264,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     }
 
     [Fact]
-    public async Task FaceSetup_AlreadyEnrolledSameFace_SkipsSidePhotos()
+    public async Task FaceSetup_AlreadyEnrolledReply_StillSavesTheNewPhoto()
     {
         var prefs = new FakePreferencesStore();
         var pipe = new FakeNamedPipeClient
@@ -283,7 +283,7 @@ public sealed class PhotoCaptureWindowViewModelTests
 
         await vm.PrimaryActionCommand.ExecuteAsync(null);
 
-        Assert.Empty(pipe.CommittedEnrollmentSessions);
+        Assert.Single(pipe.CommittedEnrollmentSessions);
         Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, ""));
     }
 
