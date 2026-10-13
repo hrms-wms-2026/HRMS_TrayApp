@@ -14,6 +14,9 @@ using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Service.Sync;
 
+if (QuarantineCommands.IsCommand(args))
+    return QuarantineCommands.Run(args, Console.Out);
+
 var host = Host.CreateDefaultBuilder(args)
     .UseWindowsService(options => options.ServiceName = "ONEVO Agent Service")
     .ConfigureServices((context, services) =>
@@ -39,8 +42,11 @@ var host = Host.CreateDefaultBuilder(args)
             var opts = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
             var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("ActivityRecordBuffer");
             var path = ActivityRecordBuffer.GetDefaultDatabasePath();
-            logger.LogInformation("SQLite activity store: {Path} (max pending {Max})", path, opts.QueueMaxRecords);
-            return new ActivityRecordBuffer(path, opts.QueueMaxRecords);
+            logger.LogInformation(
+                "SQLite activity store: {Path} (max pending {Max} + {Reserved} reserved, max {Mb} MB)",
+                path, opts.QueueMaxRecords, opts.QueueReservedRecords, opts.QueueCapacityMb);
+            return new ActivityRecordBuffer(
+                path, opts.QueueMaxRecords, opts.QueueCapacityMb * 1024L * 1024, opts.QueueReservedRecords, logger);
         });
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<DeviceIdentityStore>();
@@ -141,3 +147,5 @@ var host = Host.CreateDefaultBuilder(args)
     .Build();
 
 await host.RunAsync();
+
+return 0;

@@ -971,7 +971,15 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         break;
                     }
                     case IpcMessageTypes.CollectionRecordAck:
+                    {
+                        // AGT-02: the Service could not store what we sent (queue full / disk error).
+                        var ack = envelope.Payload?.Deserialize<CollectionRecordAckPayload>();
+                        if (ack?.ErrorCode is { } ackError)
+                            _logger.LogWarning(
+                                "Agent Service did not store all collected records ({ErrorCode}); accepted {Accepted}",
+                                ackError, ack.AcceptedCount);
                         break;
+                    }
                     case IpcMessageTypes.EvidenceTransferAck:
                     {
                         var ack = envelope.Payload?.Deserialize<EvidenceTransferAckPayload>();

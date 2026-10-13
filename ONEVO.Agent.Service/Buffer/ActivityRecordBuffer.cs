@@ -2,6 +2,8 @@ namespace ONEVO.Agent.Service.Buffer;
 
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
@@ -11,10 +13,30 @@ using ONEVO.Agent.Shared.Models;
 public sealed class ActivityRecordBuffer : IDisposable
 {
     private readonly object _gate = new();
-    private readonly SqliteConnection _conn;
+    private SqliteConnection _conn;
     private readonly int _maxRecords;
+    private readonly int _reservedRecords;
+    private readonly long _maxDatabaseBytes;
     private readonly string _databasePath;
+    private readonly ILogger _logger;
+    private bool _storageFailed;
+    private BufferHealthLevel _lastLoggedLevel = BufferHealthLevel.Ok;
     private bool _disposed;
+
+    public const long DefaultMaxDatabaseBytes = 100L * 1024 * 1024;
+    public const int WarningPercent = 80;
+
+    /// <summary>
+    /// The backend refuses snapshots captured more than this long ago (SnapshotTimeWindow.MaxAge),
+    /// so a pending snapshot past it can never be delivered.
+    /// </summary>
+    public static readonly TimeSpan MaxSnapshotAge = TimeSpan.FromHours(24);
+
+    // High-volume, low-priority rows. Only these may be quarantined as stale to make room; nothing
+    // pending is ever deleted to make room (AGT-02).
+    private const string LowPriorityTypesSql =
+        "('" + CollectionRecordTypes.ActivitySnapshot + "','" + CollectionRecordTypes.AppUsageSnapshot + "','"
+        + CollectionRecordTypes.DeviceStateSnapshot + "','" + CollectionRecordTypes.MeetingSignal + "')";
 
     static ActivityRecordBuffer()
     {
@@ -28,9 +50,24 @@ public sealed class ActivityRecordBuffer : IDisposable
     {
     }
 
-    public ActivityRecordBuffer(string databasePath, int maxRecords = 5_000)
+    /// <param name="maxRecords">Pending rows at which low-priority capture is refused.</param>
+    /// <param name="maxDatabaseBytes">Hard size limit of the database file.</param>
+    /// <param name="reservedRecords">
+    /// Extra pending rows above <paramref name="maxRecords"/> kept for lifecycle/evidence records
+    /// (work session, inactivity attempt, face photo) so a full snapshot backlog never blocks them.
+    /// Defaults to 10% of <paramref name="maxRecords"/> (at least 1).
+    /// </param>
+    public ActivityRecordBuffer(
+        string databasePath,
+        int maxRecords = 5_000,
+        long maxDatabaseBytes = DefaultMaxDatabaseBytes,
+        int? reservedRecords = null,
+        ILogger? logger = null)
     {
         _maxRecords = Math.Max(1, maxRecords);
+        _reservedRecords = Math.Max(1, reservedRecords ?? _maxRecords / 10);
+        _maxDatabaseBytes = Math.Max(1, maxDatabaseBytes);
+        _logger = logger ?? NullLogger.Instance;
         _databasePath = databasePath;
 
         var isUri = databasePath.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
@@ -41,23 +78,49 @@ public sealed class ActivityRecordBuffer : IDisposable
                 Directory.CreateDirectory(dir);
         }
 
-        _conn = isUri
+        _conn = OpenConnection(databasePath, isUri);
+        try
+        {
+            InitializeSchema();
+        }
+        catch (SqliteException ex) when (IsFileBacked && ex.SqliteErrorCode is 11 or 26)
+        {
+            // SQLITE_CORRUPT / SQLITE_NOTADB: keep the damaged file for recovery, start a fresh queue.
+            // Never on other errors (e.g. a locked file) — that would sideline a healthy database.
+            _conn.Dispose();
+            SqliteConnection.ClearAllPools();
+            var preserved = $"{databasePath}.corrupt-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
+            File.Move(databasePath, preserved);
+            _logger.LogError(ex,
+                "Activity buffer database was unreadable (SQLite {Code}); preserved as {Preserved} and started a new one",
+                ex.SqliteErrorCode, preserved);
+            _conn = OpenConnection(databasePath, isUri);
+            InitializeSchema();
+        }
+    }
+
+    private static SqliteConnection OpenConnection(string databasePath, bool isUri)
+    {
+        var conn = isUri
             ? new SqliteConnection($"Data Source={databasePath}")
             : new SqliteConnection(new SqliteConnectionStringBuilder
             {
                 DataSource = databasePath,
                 Mode = databasePath == ":memory:" ? SqliteOpenMode.Memory : SqliteOpenMode.ReadWriteCreate
             }.ToString());
-
-        _conn.Open();
-        InitializeSchema();
+        conn.Open();
+        return conn;
     }
 
+    private bool IsFileBacked =>
+        !_databasePath.Contains("mode=memory", StringComparison.OrdinalIgnoreCase)
+        && _databasePath != ":memory:";
+
     /// <summary>Isolated in-memory DB (unique per call).</summary>
-    public static ActivityRecordBuffer CreateInMemory(int maxRecords = 5_000)
+    public static ActivityRecordBuffer CreateInMemory(int maxRecords = 5_000, int? reservedRecords = null)
     {
         var name = $"file:onevo_mem_{Guid.NewGuid():N}?mode=memory&cache=shared";
-        return new ActivityRecordBuffer(name, maxRecords);
+        return new ActivityRecordBuffer(name, maxRecords, DefaultMaxDatabaseBytes, reservedRecords);
     }
 
     public static string GetDefaultDatabasePath() =>
@@ -106,6 +169,9 @@ public sealed class ActivityRecordBuffer : IDisposable
             """;
         cmd.ExecuteNonQuery();
         EnsureColumnUnlocked("session_history", "accumulated_idle_sec", "REAL NOT NULL DEFAULT 0");
+        // AGT-01: quarantine keeps the original payload; why/when live in their own columns.
+        EnsureColumnUnlocked("collection_records", "quarantine_reason", "TEXT NULL");
+        EnsureColumnUnlocked("collection_records", "quarantined_at", "TEXT NULL");
         QuarantineLegacyScreenshotRecordsUnlocked();
     }
 
@@ -172,7 +238,7 @@ public sealed class ActivityRecordBuffer : IDisposable
     {
         lock (_gate)
         {
-            if (CountUnlocked() >= _maxRecords)
+            if (!HasRoomUnlocked(CollectionRecordTypes.InactivityCaptureAttempt))
                 return false;
 
             var eventId = attempt.AttemptId.ToString("N");
@@ -241,13 +307,14 @@ public sealed class ActivityRecordBuffer : IDisposable
             {
                 tx.Commit();
             }
-            catch
+            catch (Exception ex)
             {
                 tx.Rollback();
+                RecordStorageFailureUnlocked(ex);
                 return false;
             }
 
-            EnforceSizeLimitUnlocked();
+            RecordStorageSuccessUnlocked();
             return true;
         }
     }
@@ -262,7 +329,7 @@ public sealed class ActivityRecordBuffer : IDisposable
     {
         lock (_gate)
         {
-            if (CountUnlocked() >= _maxRecords)
+            if (!HasRoomUnlocked(CollectionRecordTypes.Screenshot))
                 return false;
 
             var eventId = captureId.ToString("N");
@@ -330,13 +397,14 @@ public sealed class ActivityRecordBuffer : IDisposable
             {
                 tx.Commit();
             }
-            catch
+            catch (Exception ex)
             {
                 tx.Rollback();
+                RecordStorageFailureUnlocked(ex);
                 return false;
             }
 
-            EnforceSizeLimitUnlocked();
+            RecordStorageSuccessUnlocked();
             return true;
         }
     }
@@ -358,11 +426,24 @@ public sealed class ActivityRecordBuffer : IDisposable
                 """;
             select.Parameters.AddWithValue("$limit", Math.Max(1, maxCount));
 
-            using var reader = select.ExecuteReader();
+            var corrupt = new List<long>();
+            using (var reader = select.ExecuteReader())
             while (reader.Read())
             {
                 var payloadJson = reader.GetString(6);
-                using var doc = JsonDocument.Parse(payloadJson);
+                JsonDocument doc;
+                try
+                {
+                    doc = JsonDocument.Parse(payloadJson);
+                }
+                catch (JsonException)
+                {
+                    // One unreadable row must not fail every flush behind it.
+                    corrupt.Add(reader.GetInt64(0));
+                    continue;
+                }
+
+                using var _ = doc;
                 batch.Add(new BufferedCollectionRecord(
                     reader.GetInt64(0),
                     new CollectionRecord
@@ -376,6 +457,8 @@ public sealed class ActivityRecordBuffer : IDisposable
                     }));
             }
 
+            foreach (var rowId in corrupt)
+                QuarantineRowUnlocked(rowId, QuarantineReasons.CorruptPayload);
             return batch;
         }
     }
@@ -394,34 +477,105 @@ public sealed class ActivityRecordBuffer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Moves a pending row out of the send queue without touching its payload, so it can be
+    /// exported or requeued later (<see cref="RequeueQuarantined"/>).
+    /// </summary>
     public void QuarantineRow(long rowId, string? reason = null)
     {
         lock (_gate)
         {
-            using var cmd = _conn.CreateCommand();
-            if (reason is not null)
+            QuarantineRowUnlocked(rowId, reason ?? QuarantineReasons.Unspecified);
+        }
+    }
+
+    private void QuarantineRowUnlocked(long rowId, string reason)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText =
+            """
+            UPDATE collection_records
+            SET status = 'quarantined',
+                quarantine_reason = $reason,
+                quarantined_at = $at
+            WHERE id = $id AND status = 'pending';
+            """;
+        cmd.Parameters.AddWithValue("$id", rowId);
+        cmd.Parameters.AddWithValue("$reason", reason);
+        cmd.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O"));
+        cmd.ExecuteNonQuery();
+    }
+
+    public int QuarantinedCount
+    {
+        get
+        {
+            lock (_gate)
             {
-                cmd.CommandText =
-                    """
-                    UPDATE collection_records
-                    SET status = 'quarantined',
-                        payload_json = $payload
-                    WHERE id = $id AND status = 'pending';
-                    """;
-                cmd.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(new { quarantine_reason = reason }));
+                return CountQuarantinedUnlocked();
             }
-            else
+        }
+    }
+
+    /// <summary>
+    /// Puts quarantined rows back in the send queue (keeping their original order). Optionally only
+    /// rows whose reason starts with <paramref name="reasonPrefix"/> and that were quarantined before
+    /// <paramref name="quarantinedBefore"/>. Legacy rows whose payload was replaced are never requeued.
+    /// </summary>
+    public int RequeueQuarantined(string? reasonPrefix = null, DateTimeOffset? quarantinedBefore = null)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                """
+                UPDATE collection_records
+                SET status = 'pending', quarantine_reason = NULL, quarantined_at = NULL
+                WHERE status = 'quarantined'
+                  AND quarantine_reason IS NOT NULL
+                  AND ($prefix IS NULL OR quarantine_reason LIKE $prefix || '%')
+                  AND ($before IS NULL OR quarantined_at < $before);
+                """;
+            cmd.Parameters.AddWithValue("$prefix", (object?)reasonPrefix ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$before", (object?)quarantinedBefore?.ToUniversalTime().ToString("O") ?? DBNull.Value);
+            return cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Writes every quarantined row as one JSON object per line (recovery / support export).</summary>
+    public int ExportQuarantined(TextWriter writer)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                """
+                SELECT id, event_id, record_type, schema_version, capture_ts, created_at,
+                       quarantine_reason, quarantined_at, payload_json
+                FROM collection_records
+                WHERE status = 'quarantined'
+                ORDER BY id ASC;
+                """;
+            using var reader = cmd.ExecuteReader();
+            var count = 0;
+            while (reader.Read())
             {
-                cmd.CommandText =
-                    """
-                    UPDATE collection_records
-                    SET status = 'quarantined'
-                    WHERE id = $id AND status = 'pending';
-                    """;
+                writer.WriteLine(JsonSerializer.Serialize(new
+                {
+                    row_id = reader.GetInt64(0),
+                    event_id = reader.GetString(1),
+                    record_type = reader.GetString(2),
+                    schema_version = reader.GetString(3),
+                    capture_ts = reader.GetString(4),
+                    created_at = reader.GetString(5),
+                    quarantine_reason = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    quarantined_at = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    payload = reader.GetString(8)
+                }));
+                count++;
             }
 
-            cmd.Parameters.AddWithValue("$id", rowId);
-            cmd.ExecuteNonQuery();
+            return count;
         }
     }
 
@@ -497,7 +651,7 @@ public sealed class ActivityRecordBuffer : IDisposable
     {
         lock (_gate)
         {
-            if (CountUnlocked() >= _maxRecords)
+            if (!HasRoomUnlocked(record.RecordType))
                 return false;
 
             using var cmd = _conn.CreateCommand();
@@ -515,50 +669,184 @@ public sealed class ActivityRecordBuffer : IDisposable
             cmd.Parameters.AddWithValue("$device", record.DeviceId);
             cmd.Parameters.AddWithValue("$payload", record.Payload.GetRawText());
             cmd.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
-            var ok = cmd.ExecuteNonQuery() > 0;
-            if (ok)
-                EnforceSizeLimitUnlocked();
-            return ok;
+            try
+            {
+                var ok = cmd.ExecuteNonQuery() > 0;
+                RecordStorageSuccessUnlocked();
+                return ok;
+            }
+            catch (SqliteException ex)
+            {
+                // Disk full, I/O error, read-only file: nothing is deleted to make it fit.
+                RecordStorageFailureUnlocked(ex);
+                return false;
+            }
         }
     }
 
     /// <summary>
-    /// packages-guide §8: if DB file &gt; 100MB, drop oldest pending rows and VACUUM.
-    /// No-op for in-memory databases.
+    /// AGT-02 capacity policy (architecture §8: never silently delete identity or lifecycle records).
+    /// <list type="number">
+    /// <item>Low-priority snapshots are accepted up to <c>maxRecords</c> pending rows; lifecycle/evidence
+    /// records up to <c>maxRecords + reservedRecords</c>.</item>
+    /// <item>At the limit, pending snapshots older than <see cref="MaxSnapshotAge"/> (the backend refuses
+    /// them anyway) are quarantined — kept, not deleted — to make room.</item>
+    /// <item>Over the byte limit, already-delivered rows are purged (synced inactivity attempts are kept
+    /// for dedupe).</item>
+    /// <item>Otherwise the new record is refused and the refusal is reported (health = Full). Pending and
+    /// quarantined rows are never deleted to make room.</item>
+    /// </list>
     /// </summary>
-    private void EnforceSizeLimitUnlocked()
+    private bool HasRoomUnlocked(string recordType)
     {
-        try
+        var limit = IsReservedType(recordType) ? _maxRecords + _reservedRecords : _maxRecords;
+        if (CountUnlocked() >= limit)
         {
-            if (_databasePath.Contains("mode=memory", StringComparison.OrdinalIgnoreCase)
-                || _databasePath == ":memory:"
-                || !File.Exists(_databasePath))
-                return;
+            var cutoff = (DateTimeOffset.UtcNow - MaxSnapshotAge).ToString("O");
+            var stale = ExecuteUnlocked(
+                $"""
+                UPDATE collection_records
+                SET status = 'quarantined', quarantine_reason = $reason, quarantined_at = $at
+                WHERE status = 'pending'
+                  AND record_type IN {LowPriorityTypesSql}
+                  AND capture_ts < $cutoff;
+                """,
+                ("$reason", QuarantineReasons.StaleOver24h),
+                ("$at", DateTimeOffset.UtcNow.ToString("O")),
+                ("$cutoff", cutoff));
+            if (stale > 0)
+                _logger.LogWarning(
+                    "Activity buffer at capacity — quarantined {Count} pending snapshot(s) older than {Hours}h (kept for export)",
+                    stale, MaxSnapshotAge.TotalHours);
 
-            var size = new FileInfo(_databasePath).Length;
-            if (size <= 100L * 1024 * 1024)
-                return;
-
-            using var del = _conn.CreateCommand();
-            del.CommandText =
-                """
-                DELETE FROM collection_records
-                WHERE id IN (
-                    SELECT id FROM collection_records
-                    WHERE status = 'pending'
-                    ORDER BY id ASC
-                    LIMIT 1000
-                );
-                """;
-            del.ExecuteNonQuery();
-
-            using var vac = _conn.CreateCommand();
-            vac.CommandText = "VACUUM;";
-            vac.ExecuteNonQuery();
+            if (CountUnlocked() >= limit)
+                return RefuseUnlocked(recordType, "record limit");
         }
-        catch
+
+        if (DatabaseBytesUnlocked() >= _maxDatabaseBytes)
         {
-            // Best-effort; never fail enqueue because of vacuum.
+            var purged = ExecuteUnlocked(
+                $"""
+                DELETE FROM collection_records
+                WHERE status = 'synced'
+                  AND record_type <> '{CollectionRecordTypes.InactivityCaptureAttempt}';
+                """);
+            if (purged > 0)
+            {
+                ExecuteUnlocked("VACUUM;");
+                _logger.LogInformation(
+                    "Activity buffer at size limit — purged {Count} already-delivered row(s)", purged);
+            }
+
+            if (DatabaseBytesUnlocked() >= _maxDatabaseBytes)
+                return RefuseUnlocked(recordType, "size limit");
+        }
+
+        LogHealthTransitionUnlocked();
+        return true;
+    }
+
+    private static bool IsReservedType(string recordType) =>
+        recordType is CollectionRecordTypes.WorkSession
+            or CollectionRecordTypes.InactivityCaptureAttempt
+            or CollectionRecordTypes.FacePhoto;
+
+    private bool RefuseUnlocked(string recordType, string limit)
+    {
+        LogHealthTransitionUnlocked();
+        _logger.LogWarning(
+            "Activity buffer full ({Limit}) — new {RecordType} not captured; queued rows are kept. Pending={Pending} Quarantined={Quarantined}",
+            limit, recordType, CountUnlocked(), CountQuarantinedUnlocked());
+        return false;
+    }
+
+    private void RecordStorageFailureUnlocked(Exception ex)
+    {
+        _storageFailed = true;
+        _logger.LogError(ex, "Activity buffer write failed — record not captured; existing rows untouched");
+        LogHealthTransitionUnlocked();
+    }
+
+    private void RecordStorageSuccessUnlocked()
+    {
+        if (!_storageFailed)
+            return;
+        _storageFailed = false;
+        LogHealthTransitionUnlocked();
+    }
+
+    /// <summary>Current queue state for status reporting (IPC) and logs.</summary>
+    public BufferHealth GetHealth()
+    {
+        lock (_gate)
+        {
+            return GetHealthUnlocked();
+        }
+    }
+
+    private BufferHealth GetHealthUnlocked()
+    {
+        var pending = CountUnlocked();
+        var bytes = DatabaseBytesUnlocked();
+        var level = _storageFailed
+            ? BufferHealthLevel.StorageError
+            : pending >= _maxRecords || bytes >= _maxDatabaseBytes
+                ? BufferHealthLevel.Full
+                : pending * 100L >= _maxRecords * (long)WarningPercent || bytes * 100 >= _maxDatabaseBytes * WarningPercent
+                    ? BufferHealthLevel.Warning
+                    : BufferHealthLevel.Ok;
+        return new BufferHealth(
+            level, pending, CountQuarantinedUnlocked(), bytes, _maxRecords, _maxRecords + _reservedRecords, _maxDatabaseBytes);
+    }
+
+    private void LogHealthTransitionUnlocked()
+    {
+        var health = GetHealthUnlocked();
+        if (health.Level == _lastLoggedLevel)
+            return;
+
+        var level = health.Level is BufferHealthLevel.Ok ? LogLevel.Information : LogLevel.Warning;
+        _logger.Log(level,
+            "Activity buffer health {From} -> {To}: Pending={Pending}/{Limit} Quarantined={Quarantined} Bytes={Bytes}/{MaxBytes}",
+            _lastLoggedLevel, health.Level, health.Pending, health.LowPriorityLimit, health.Quarantined,
+            health.DatabaseBytes, health.MaxDatabaseBytes);
+        _lastLoggedLevel = health.Level;
+    }
+
+    private long DatabaseBytesUnlocked()
+    {
+        if (!IsFileBacked)
+            return 0;
+
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size();";
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    private int CountQuarantinedUnlocked()
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM collection_records WHERE status = 'quarantined';";
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    private int ExecuteUnlocked(string sql, params (string Name, object Value)[] parameters)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = sql;
+        foreach (var (name, value) in parameters)
+            cmd.Parameters.AddWithValue(name, value);
+        return cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>Test hook: caps the database so the next write fails with SQLITE_FULL.</summary>
+    internal void SetMaxPageCountForTesting(long pages)
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText = $"PRAGMA max_page_count = {pages};";
+            cmd.ExecuteNonQuery();
         }
     }
 
