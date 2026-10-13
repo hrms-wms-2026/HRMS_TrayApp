@@ -175,9 +175,6 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
     private readonly byte[]?[] _setupPhotos = new byte[]?[SetupPhotoCount];
 
-    /// <summary>Employee was already enrolled and the front photo matched — side photos are skipped.</summary>
-    private bool _alreadyEnrolled;
-
     /// <summary>A different face is already on file (or appeared meanwhile) — only HR can change it.</summary>
     private bool _enrollmentBlocked;
 
@@ -201,21 +198,20 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     public byte[]? LeftSetupPhoto => _setupPhotos[1];
     public byte[]? RightSetupPhoto => _setupPhotos[2];
     public bool FrontSetupDone => _setupPhotos[0] is not null;
-    public bool LeftSetupDone => _setupPhotos[1] is not null || _alreadyEnrolled;
-    public bool RightSetupDone => _setupPhotos[2] is not null || _alreadyEnrolled;
+    public bool LeftSetupDone => _setupPhotos[1] is not null;
+    public bool RightSetupDone => _setupPhotos[2] is not null;
     public bool IsFrontStepActive => IsEnrollment && !SetupComplete && SetupStep == 0;
     public bool IsLeftStepActive => IsEnrollment && !SetupComplete && SetupStep == 1;
     public bool IsRightStepActive => IsEnrollment && !SetupComplete && SetupStep == 2;
 
     public bool SetupComplete =>
-        IsEnrollment && (_alreadyEnrolled || _setupPhotos.All(p => p is not null));
+        IsEnrollment && _setupPhotos.All(p => p is not null);
 
     public string CurrentSetupPose => FaceSetupPoses.All[Math.Clamp(SetupStep, 0, SetupPhotoCount - 1)];
 
     /// <summary>The line under the employee name: what to do right now.</summary>
     public string InstructionText =>
         !IsEnrollment ? DefaultPrompt
-        : _alreadyEnrolled ? "Your face is already set up."
         : SetupComplete ? "All 3 photos taken."
         : SetupStep switch
         {
@@ -252,7 +248,6 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     {
         _enrollmentSessionId = Guid.NewGuid();
         Array.Clear(_setupPhotos);
-        _alreadyEnrolled = false;
         _enrollmentBlocked = false;
         _retryCommit = false;
         _awaitingNext = false;
@@ -575,13 +570,13 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         await CompleteFaceSetupAsync();
     }
 
-    /// <summary>Face setup: save the three photos (unless already enrolled), then move on.</summary>
+    /// <summary>Face setup: save the three photos, then move on.</summary>
     private async Task CompleteFaceSetupAsync()
     {
         if (!SetupComplete)
             return;
 
-        if (!_alreadyEnrolled && !await CommitSetupPhotosAsync())
+        if (!await CommitSetupPhotosAsync())
             return;
 
         await SubmitFacePhotoRecordAsync(_setupPhotos[0] ?? _capturedBytes);
@@ -703,7 +698,7 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             {
                 IsVerificationFailed = false;
                 if (enrollment)
-                    AcceptSetupPhoto(result);
+                    AcceptSetupPhoto();
                 else if (IsManagerReview)
                     CaptureStatusText = "Face couldn't be verified. You can continue — your manager has been notified.";
                 else
@@ -742,18 +737,12 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
     /// Face setup step passed: keep the photo on screen and wait for "Next" before lining up the
     /// next missing step on the live camera, or stay on the last photo once all three are in.
     /// </summary>
-    private void AcceptSetupPhoto(FacePhotoValidateResultPayload result)
+    /// <remarks>
+    /// Face setup always takes all three photos and replaces any enrolled face — an older
+    /// backend's "already_enrolled" on the front photo is treated as a normal pass, not a skip.
+    /// </remarks>
+    private void AcceptSetupPhoto()
     {
-        if (result.FailureReason == FaceCheckFailureCodes.AlreadyEnrolled)
-        {
-            _setupPhotos[0] = _capturedBytes;
-            _alreadyEnrolled = true;
-            SetupStep = SetupPhotoCount;
-            CaptureStatusText = "Your face is already set up. Tap Enroll & Continue.";
-            RaiseSetupChanged();
-            return;
-        }
-
         var step = Math.Clamp(SetupStep, 0, SetupPhotoCount - 1);
         _setupPhotos[step] = _capturedBytes;
         var next = NextMissingStep();
