@@ -34,6 +34,34 @@ internal static class NativeMethods
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr GetModuleHandle(string? lpModuleName);
 
+    public const uint WM_QUIT = 0x0012;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Msg
+    {
+        public IntPtr Hwnd;
+        public uint Message;
+        public IntPtr WParam;
+        public IntPtr LParam;
+        public uint Time;
+        public int PtX;
+        public int PtY;
+    }
+
+    [DllImport("user32.dll")]
+    public static extern int GetMessage(out Msg lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool PostThreadMessage(uint idThread, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
+
+    [DllImport("psapi.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EmptyWorkingSet(IntPtr hProcess);
+
     [DllImport("user32.dll")]
     public static extern bool GetLastInputInfo(ref LastInputInfo plii);
 

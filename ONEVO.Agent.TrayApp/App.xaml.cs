@@ -269,6 +269,22 @@ public partial class App : Microsoft.Maui.Controls.Application
                     native.AppWindow.Hide();
                     BootLog("Window close cancelled — app continues in tray");
                 };
+
+                // Hidden or minimized = nobody is looking: let pages idle their UI work.
+                // Recomputed on every Changed (not only when a Did*Change flag is set) so a restore
+                // can never leave pages stuck paused; Set() reports only real transitions.
+                native.AppWindow.Changed += (sender, _args) =>
+                {
+                    var minimized = sender.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter
+                        && presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized;
+                    var visible = sender.IsVisible && !minimized;
+                    if (!TrayWindowVisibility.Set(visible))
+                        return;
+
+                    BootLog($"Window visible={visible}");
+                    if (!visible)
+                        _ = TrimMemoryWhileHiddenAsync();
+                };
             }
         }
         catch (Exception ex)
@@ -276,6 +292,35 @@ public partial class App : Microsoft.Maui.Controls.Application
             BootLog($"HookCloseToHide failed: {ex.Message}");
         }
 #endif
+    }
+
+    /// <summary>
+    /// The app spends most of the workday hidden in the tray. Once it is hidden, compact the heap
+    /// (incl. the LOH left behind by screenshot buffers) and hand the now-idle UI pages back to
+    /// Windows, so a low-RAM PC can use that memory for the employee's actual work apps. Pages
+    /// fault back in on demand the next time the window is opened.
+    /// </summary>
+    private static async Task TrimMemoryWhileHiddenAsync()
+    {
+        // Let the hide animation and any in-flight navigation settle first.
+        await Task.Delay(TimeSpan.FromSeconds(3)).ConfigureAwait(false);
+        if (TrayWindowVisibility.IsVisible)
+            return;
+
+        try
+        {
+            System.Runtime.GCSettings.LargeObjectHeapCompactionMode =
+                System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Optimized, blocking: false, compacting: true);
+#if WINDOWS
+            using var self = System.Diagnostics.Process.GetCurrentProcess();
+            Interop.NativeMethods.EmptyWorkingSet(self.Handle);
+#endif
+        }
+        catch (Exception ex)
+        {
+            BootLog($"Memory trim skipped: {ex.Message}");
+        }
     }
 
     public void RequestExit()

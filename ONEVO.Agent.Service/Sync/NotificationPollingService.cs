@@ -5,6 +5,7 @@ using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared.IPC;
+using ONEVO.Agent.Shared.Models;
 
 /// <summary>
 /// Polls for pending break/idle wellness notifications and broadcasts them to connected
@@ -15,41 +16,62 @@ public sealed class NotificationPollingService : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
 
+    // While the backend can push (NotificationsPending), this is only a safety net.
+    internal static readonly TimeSpan PushFallbackInterval = TimeSpan.FromMinutes(15);
+
     private readonly ILogger<NotificationPollingService> _logger;
     private readonly OnevoApiClient _apiClient;
     private readonly CredentialStore _credentials;
     private readonly IIpcBroadcaster _broadcaster;
+    private readonly PushChannelState _push;
+    private readonly AgentStateMachine? _stateMachine;
 
     public NotificationPollingService(
         ILogger<NotificationPollingService> logger,
         OnevoApiClient apiClient,
         CredentialStore credentials,
-        IIpcBroadcaster broadcaster)
+        IIpcBroadcaster broadcaster,
+        PushChannelState? push = null,
+        AgentStateMachine? stateMachine = null)
     {
         _logger = logger;
         _apiClient = apiClient;
         _credentials = credentials;
         _broadcaster = broadcaster;
+        _push = push ?? new PushChannelState();
+        _stateMachine = stateMachine;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(PollInterval);
-        do
+        try
         {
-            try
-            {
-                await PollOnceAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Notification poll failed — will retry next cycle");
-            }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+            // "Break allowance exceeded" is raised server-side by the attendance poll, not pushed,
+            // so stay on the fast cadence while on break.
+            await _push.RunAdaptiveLoopAsync(
+                PollInterval, PushFallbackInterval, SafePollAsync, stoppingToken,
+                forceFast: () => _stateMachine?.CurrentState == MonitoringState.Paused);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    /// <summary>Never throws except on shutdown — also called from push handlers.</summary>
+    public async Task SafePollAsync(CancellationToken ct)
+    {
+        try
+        {
+            await PollOnceAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Notification poll failed — will retry next cycle");
+        }
     }
 
     public async Task PollOnceAsync(CancellationToken ct)

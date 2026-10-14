@@ -57,11 +57,16 @@ public interface IInactivityPromptService
     /// <param name="idleFor">How long the employee has been idle, for display purposes.</param>
     /// <param name="expiresIn">How long the employee has to respond before the prompt times out.</param>
     /// <param name="ct">Cancelled by the caller to abort the prompt early (e.g. activity resumed).</param>
+    /// <param name="requestScreenshot">
+    /// True: "Allow a screenshot?" (Allow/Skip). False: "Were you working?" (Yes/No) for employees
+    /// with keyboard/mouse tracking but no screenshot capture — Allowed then means "Yes".
+    /// </param>
     Task<InactivityPromptDecision> PromptAsync(
         Guid attemptId,
         TimeSpan idleFor,
         TimeSpan expiresIn,
-        CancellationToken ct);
+        CancellationToken ct,
+        bool requestScreenshot = true);
 
     /// <summary>Removes the on-screen notification for <paramref name="attemptId"/>, if present. Safe no-op otherwise.</summary>
     void Dismiss(Guid attemptId);

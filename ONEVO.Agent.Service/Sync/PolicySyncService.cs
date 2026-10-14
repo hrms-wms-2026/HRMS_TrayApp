@@ -33,6 +33,12 @@ public sealed class PolicySyncService : BackgroundService
     // changing Activity check threshold (e.g. 1 minute) reaches a clocked-in tray without
     // waiting out the previous 45-minute ValidUntil-margin cadence.
     internal static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(2);
+
+    // While the agent hub can push, monitoring-settings saves arrive as RefreshPolicy (the backend
+    // clears its toggle cache on save, so that fetch sees the new values). This fallback only
+    // catches policy inputs changed elsewhere (schedule, clock-in methods, work mode) and stays
+    // well inside the 1-hour backend validity.
+    internal static readonly TimeSpan PushFallbackInterval = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan JwtPollInterval = TimeSpan.FromSeconds(15);
 
     private readonly ILogger<PolicySyncService> _logger;
@@ -41,6 +47,7 @@ public sealed class PolicySyncService : BackgroundService
     private readonly PolicyCache _policyCache;
     private readonly IIpcBroadcaster _broadcaster;
     private readonly PresenceSession _presenceSession;
+    private readonly PushChannelState _push;
 
     public PolicySyncService(
         ILogger<PolicySyncService> logger,
@@ -48,7 +55,8 @@ public sealed class PolicySyncService : BackgroundService
         CredentialStore credentials,
         PolicyCache policyCache,
         IIpcBroadcaster broadcaster,
-        PresenceSession presenceSession)
+        PresenceSession presenceSession,
+        PushChannelState? push = null)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -56,6 +64,7 @@ public sealed class PolicySyncService : BackgroundService
         _policyCache = policyCache;
         _broadcaster = broadcaster;
         _presenceSession = presenceSession;
+        _push = push ?? new PushChannelState();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -63,12 +72,15 @@ public sealed class PolicySyncService : BackgroundService
         var jwt = await WaitForJwtAsync(stoppingToken);
         if (jwt is null) return; // cancelled while waiting for enrollment — service is stopping
 
-        await RefreshOnceAsync(jwt, stoppingToken);
-
-        using var timer = new PeriodicTimer(RefreshInterval);
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        try
         {
-            await RefreshOnceAsync(_credentials.ReadDeviceJwt(), stoppingToken);
+            await _push.RunAdaptiveLoopAsync(
+                RefreshInterval, PushFallbackInterval,
+                ct => RefreshOnceAsync(_credentials.ReadDeviceJwt(), ct),
+                stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
         }
     }
 

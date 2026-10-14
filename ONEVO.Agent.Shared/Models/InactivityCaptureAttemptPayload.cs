@@ -9,6 +9,11 @@ public static class InactivityCaptureOutcomes
     public const string ActivityResumed = "activity_resumed";
     public const string MonitoringStopped = "monitoring_stopped";
     public const string CaptureFailed = "capture_failed";
+
+    // "Were you working?" answers — the check shown instead of a screenshot request when the
+    // employee has keyboard/mouse tracking but not screenshot capture. Never carry an image.
+    public const string ConfirmedWorking = "confirmed_working";
+    public const string NotWorking = "not_working";
 }
 
 /// <summary>

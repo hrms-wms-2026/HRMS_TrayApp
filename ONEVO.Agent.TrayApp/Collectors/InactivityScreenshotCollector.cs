@@ -54,6 +54,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     private bool _running;
     private AgentPolicy? _policy;
     private int _idleThresholdSeconds;
+    private bool _requestScreenshot;
     private int _promptExpirySeconds;
     private CancellationTokenSource? _loopCts;
     private Task? _loopTask;
@@ -103,7 +104,9 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
     {
-        if (!policy.ActivitySignalEnabled || !policy.ScreenshotEnabled || !policy.InactivityScreenshotEnabled)
+        // Runs for every employee with keyboard/mouse tracking. Screenshot capture only decides
+        // what the idle check asks: "Allow a screenshot?" vs "Were you working?".
+        if (!policy.ActivitySignalEnabled)
         {
             _logger.LogDebug("{Name}: policy disabled — not starting", Name);
             return Task.CompletedTask;
@@ -125,6 +128,7 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
             _started = true;
             _running = true;
             _policy = policy;
+            _requestScreenshot = policy.ScreenshotEnabled && policy.InactivityScreenshotEnabled;
             _idleThresholdSeconds = Math.Max(1, policy.IdleThresholdMinutes) * 60;
             // Same 90% ratio the old fixed 300s/270s pair used: the expiry window must end
             // before the next bucket boundary, or a slow-to-respond employee could see two
@@ -339,11 +343,14 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
     {
         try
         {
+            bool requestScreenshot;
+            lock (_gate) { requestScreenshot = _requestScreenshot; }
+
             InactivityPromptDecision decision;
             try
             {
                 decision = await _promptService.PromptAsync(
-                        attemptId, idleFor, TimeSpan.FromSeconds(_promptExpirySeconds), ct)
+                        attemptId, idleFor, TimeSpan.FromSeconds(_promptExpirySeconds), ct, requestScreenshot)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException)
@@ -364,7 +371,15 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
             string? contentType = null;
             string? sha256 = null;
 
-            if (decision == InactivityPromptDecision.Allowed)
+            if (!requestScreenshot && decision is InactivityPromptDecision.Allowed or InactivityPromptDecision.Declined)
+            {
+                // "Were you working?" mode: the answer is the whole result — nothing is captured
+                // and nothing counts toward the day's allowed/skipped screenshot metrics.
+                outcome = decision == InactivityPromptDecision.Allowed
+                    ? InactivityCaptureOutcomes.ConfirmedWorking
+                    : InactivityCaptureOutcomes.NotWorking;
+            }
+            else if (decision == InactivityPromptDecision.Allowed)
             {
                 ScreenshotCaptureResult captureResult;
                 try

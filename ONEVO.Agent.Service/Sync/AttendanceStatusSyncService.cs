@@ -2,6 +2,7 @@ namespace ONEVO.Agent.Service.Sync;
 
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Security;
+using ONEVO.Agent.Shared.Models;
 
 /// <summary>
 /// Polls the backend's real attendance state every 60s and reconciles local MonitoringState to
@@ -16,43 +17,64 @@ public sealed class AttendanceStatusSyncService : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
 
+    // While the backend can push (AttendanceChanged on clock-in/out/break), this is only a safety net.
+    internal static readonly TimeSpan PushFallbackInterval = TimeSpan.FromMinutes(15);
+
     private readonly ILogger<AttendanceStatusSyncService> _logger;
     private readonly OnevoApiClient _apiClient;
     private readonly CredentialStore _credentials;
     private readonly IPresenceReconciler _reconciler;
+    private readonly PushChannelState _push;
+    private readonly AgentStateMachine? _stateMachine;
 
     public AttendanceStatusSyncService(
         ILogger<AttendanceStatusSyncService> logger,
         OnevoApiClient apiClient,
         CredentialStore credentials,
-        IPresenceReconciler reconciler)
+        IPresenceReconciler reconciler,
+        PushChannelState? push = null,
+        AgentStateMachine? stateMachine = null)
     {
         _logger = logger;
         _apiClient = apiClient;
         _credentials = credentials;
         _reconciler = reconciler;
+        _push = push ?? new PushChannelState();
+        _stateMachine = stateMachine;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(PollInterval);
-        do
+        try
         {
-            try
-            {
-                var jwt = _credentials.ReadDeviceJwt();
-                if (!string.IsNullOrWhiteSpace(jwt))
-                    await PollOnceAsync(jwt, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Attendance status poll failed — will retry next cycle");
-            }
-        } while (await timer.WaitForNextTickAsync(stoppingToken));
+            // This poll is also what makes the backend evaluate "break allowance exceeded",
+            // so keep it fast while the employee is on break.
+            await _push.RunAdaptiveLoopAsync(
+                PollInterval, PushFallbackInterval, SafePollAsync, stoppingToken,
+                forceFast: () => _stateMachine?.CurrentState == MonitoringState.Paused);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    /// <summary>Never throws except on shutdown — also called from push handlers.</summary>
+    public async Task SafePollAsync(CancellationToken ct)
+    {
+        try
+        {
+            var jwt = _credentials.ReadDeviceJwt();
+            if (!string.IsNullOrWhiteSpace(jwt))
+                await PollOnceAsync(jwt, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Attendance status poll failed — will retry next cycle");
+        }
     }
 
     /// <summary>Public so tests can drive one poll cycle directly without a stored Device JWT on disk.</summary>

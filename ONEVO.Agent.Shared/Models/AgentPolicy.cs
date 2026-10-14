@@ -60,7 +60,7 @@ public sealed record AgentPolicy
     /// an AgentPolicy without setting this explicitly keeps a sane, non-zero value (0 would mean
     /// "prompt on every poll tick", which is not a safe default for anything).
     /// </summary>
-    public int IdleThresholdMinutes { get; init; } = 2;
+    public int IdleThresholdMinutes { get; init; } = 15;
 
     /// <summary>
     /// Legal-entity-local scheduled work start/end (from General Settings' Default work hours).

@@ -6,6 +6,7 @@ public partial class App : MauiWinUIApplication
 {
     public App()
     {
+        RollBootLogIfLarge();
         this.InitializeComponent();
 
         // ProcessExit fires on normal shutdown regardless of which path triggered it (tray "Exit",
@@ -74,13 +75,33 @@ public partial class App : MauiWinUIApplication
         }
     }
 
+    private static string BootLogPath => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ONEVO", "Agent", "tray-boot.log");
+
+    /// <summary>
+    /// Every component appends to tray-boot.log and nothing ever trimmed it (it reached several MB
+    /// on a dev box). Roll it to .old once per launch when it passes 2 MB so it stays bounded.
+    /// </summary>
+    private static void RollBootLogIfLarge()
+    {
+        try
+        {
+            var log = new System.IO.FileInfo(BootLogPath);
+            if (log.Exists && log.Length > 2 * 1024 * 1024)
+                log.MoveTo(BootLogPath + ".old", overwrite: true);
+        }
+        catch
+        {
+            // Locked or missing — keep appending to the current file.
+        }
+    }
+
     private static void BootLog(string message)
     {
         try
         {
-            var path = System.IO.Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ONEVO", "Agent", "tray-boot.log");
+            var path = BootLogPath;
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
             System.IO.File.AppendAllText(path, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
         }
