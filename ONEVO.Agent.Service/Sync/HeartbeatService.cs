@@ -14,35 +14,57 @@ public sealed class HeartbeatService : BackgroundService
 {
     private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(30);
 
+    // While the agent-hub connection is live the backend treats the connection itself as
+    // presence, so the HTTP heartbeat (a DB write each time) is only a slow keep-fresh.
+    internal static readonly TimeSpan PushConnectedInterval = TimeSpan.FromMinutes(5);
+
     private readonly ILogger<HeartbeatService> _logger;
     private readonly AgentStateMachine _stateMachine;
     private readonly OnevoApiClient _apiClient;
     private readonly CredentialStore _credentials;
+    private readonly PushChannelState _push;
 
     public HeartbeatService(
         ILogger<HeartbeatService> logger,
         AgentStateMachine stateMachine,
         OnevoApiClient apiClient,
-        CredentialStore credentials)
+        CredentialStore credentials,
+        PushChannelState? push = null)
     {
         _logger = logger;
         _stateMachine = stateMachine;
         _apiClient = apiClient;
         _credentials = credentials;
+        _push = push ?? new PushChannelState();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("HeartbeatService started with a {IntervalSeconds}s interval", HeartbeatInterval.TotalSeconds);
-        using var timer = new PeriodicTimer(HeartbeatInterval);
 
         try
         {
-            while (await timer.WaitForNextTickAsync(stoppingToken))
-                await SendHeartbeatAsync(stoppingToken);
+            await _push.RunAdaptiveLoopAsync(
+                HeartbeatInterval, PushConnectedInterval, SafeSendHeartbeatAsync, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
+        }
+    }
+
+    private async Task SafeSendHeartbeatAsync(CancellationToken ct)
+    {
+        try
+        {
+            await SendHeartbeatAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Tray heartbeat failed — will retry next tick");
         }
     }
 

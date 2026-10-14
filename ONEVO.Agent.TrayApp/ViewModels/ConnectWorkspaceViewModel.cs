@@ -33,6 +33,17 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 
     public bool HasUpdateBanner => !string.IsNullOrEmpty(UpdateBannerText);
 
+    /// <summary>
+    /// Opens the device-activation page in the default browser. Swappable so the test assembly can
+    /// turn it off — otherwise every test run opened a real browser tab on the fake pairing URL.
+    /// </summary>
+    internal static Action<string> OpenInBrowser { get; set; } = url =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = url,
+            UseShellExecute = true
+        });
+
     public ConnectWorkspaceViewModel(
         INamedPipeClient pipe,
         IPreferencesStore preferences,
@@ -236,11 +247,8 @@ public sealed partial class ConnectWorkspaceViewModel : BaseViewModel
 
         try
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = started.VerificationUriComplete,
-                UseShellExecute = true
-            });
+            if (!string.IsNullOrWhiteSpace(started.VerificationUriComplete))
+                OpenInBrowser(started.VerificationUriComplete);
         }
         catch
         {

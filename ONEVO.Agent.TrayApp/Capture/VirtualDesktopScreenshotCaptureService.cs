@@ -55,7 +55,9 @@ public sealed class VirtualDesktopScreenshotCaptureService : IScreenshotCaptureS
             if (virtualBounds.Width <= 0 || virtualBounds.Height <= 0)
                 return Failure(ScreenshotFailureCodes.ZeroBounds, screens.Length, virtualBounds);
 
-            using var bmp = new Bitmap(virtualBounds.Width, virtualBounds.Height, PixelFormat.Format32bppArgb);
+            // 24bpp, not ARGB: the result is a JPEG (no alpha), and this full-desktop buffer is the
+            // single largest allocation the tray makes — a quarter smaller on every capture.
+            using var bmp = new Bitmap(virtualBounds.Width, virtualBounds.Height, PixelFormat.Format24bppRgb);
             using (var g = Graphics.FromImage(bmp))
             {
                 // Pass the virtual origin explicitly — it is frequently negative (monitors left

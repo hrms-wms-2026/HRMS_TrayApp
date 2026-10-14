@@ -139,8 +139,12 @@ var host = Host.CreateDefaultBuilder(args)
         // achieved instead by its immediate-fetch-on-JWT behavior (see PolicySyncService.cs).
         services.AddSingleton<PolicySyncService>();
         services.AddHostedService(sp => sp.GetRequiredService<PolicySyncService>());
-        services.AddHostedService<NotificationPollingService>();
-        services.AddHostedService<AttendanceStatusSyncService>();
+        services.AddSingleton<PushChannelState>();
+        // Singletons (not bare hosted services) so AgentCommandListener can trigger a poll on push.
+        services.AddSingleton<NotificationPollingService>();
+        services.AddHostedService(sp => sp.GetRequiredService<NotificationPollingService>());
+        services.AddSingleton<AttendanceStatusSyncService>();
+        services.AddHostedService(sp => sp.GetRequiredService<AttendanceStatusSyncService>());
         // packages-guide §1 — SignalR remote commands (waits for JWT)
         services.AddHostedService<AgentCommandListener>();
     })

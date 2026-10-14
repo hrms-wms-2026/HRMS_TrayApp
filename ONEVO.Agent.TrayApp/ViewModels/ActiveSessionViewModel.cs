@@ -16,6 +16,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private readonly NotificationActivationRouter? _activityCheckRouter;
     private readonly NotificationService? _notifications;
     private IDispatcherTimer? _uiTimer;
+    private bool _uiPausedWhileHidden;
     private DateTimeOffset? _clockInAt;
     private TimeSpan _accumulatedBreak;
     private DateTimeOffset? _currentBreakStartedAt;
@@ -80,6 +81,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
     [ObservableProperty] private bool _isActivityCheckVisible;
     [ObservableProperty] private string _activityCheckMessage = "";
+    [ObservableProperty] private string _activityCheckConfirmText = "Allow";
+    [ObservableProperty] private string _activityCheckCancelText = "Skip";
     private Guid? _pendingActivityCheckId;
 
     public ActiveSessionViewModel(
@@ -190,8 +193,29 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         // Keep UI timer running so values stay fresh if user returns quickly.
     }
 
+    /// <summary>
+    /// The window was hidden to the tray / minimized (false) or shown again (true). The timer
+    /// strings are recomputed from UTC anchors, so stopping the 1s tick while nobody can see it
+    /// loses nothing — it just stops waking the UI thread every second all day.
+    /// </summary>
+    public void SetWindowVisible(bool visible)
+    {
+        _uiPausedWhileHidden = !visible;
+        if (!visible)
+        {
+            _uiTimer?.Stop();
+            return;
+        }
+
+        EnsureUiTimerRunning();
+        UpdateTimersCore();
+    }
+
     private void EnsureUiTimerRunning()
     {
+        if (_uiPausedWhileHidden)
+            return;
+
         try
         {
             if (_uiTimer is not null)
@@ -721,6 +745,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         {
             _pendingActivityCheckId = prompt.AttemptId;
             ActivityCheckMessage = prompt.Body;
+            ActivityCheckConfirmText = prompt.ConfirmText;
+            ActivityCheckCancelText = prompt.CancelText;
             IsActivityCheckVisible = true;
         }
 

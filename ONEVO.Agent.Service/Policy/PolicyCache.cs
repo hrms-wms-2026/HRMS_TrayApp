@@ -49,7 +49,7 @@ public sealed class PolicyCache
         WebEnabled = false,
         PhotoRequiredEnabled = false,
         AllowedRadiusMeters = null,
-        IdleThresholdMinutes = 2,
+        IdleThresholdMinutes = 15,
         // "none" (not "employee") — no server policy is in effect, so there is no active
         // scope to report. Defaulting to "employee" here would misleadingly imply a live,
         // server-authorized policy exists when monitoring is actually fail-closed/disabled.

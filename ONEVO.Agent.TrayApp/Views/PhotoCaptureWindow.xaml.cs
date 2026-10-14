@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.Views;
 
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
@@ -48,13 +49,27 @@ public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await _vm.StartPreviewAsync();
+        TrayWindowVisibility.Changed -= OnWindowVisibilityChanged; // static event: never double-root
+        TrayWindowVisibility.Changed += OnWindowVisibilityChanged;
+        if (TrayWindowVisibility.IsVisible)
+            await _vm.StartPreviewAsync();
     }
 
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
+        TrayWindowVisibility.Changed -= OnWindowVisibilityChanged;
         await _vm.StopPreviewAsync();
+    }
+
+    // Close-to-tray skips OnDisappearing — without this the webcam (and its light) stays on and
+    // keeps encoding preview frames for as long as the app sits hidden on this page.
+    private async void OnWindowVisibilityChanged(bool visible)
+    {
+        if (visible)
+            await _vm.StartPreviewAsync();
+        else
+            await _vm.StopPreviewAsync();
     }
 
     private void StartScanAnimation()

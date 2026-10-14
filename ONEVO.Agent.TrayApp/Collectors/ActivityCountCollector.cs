@@ -41,6 +41,8 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
     private NativeMethods.LowLevelProc? _mouseProc;
     private GCHandle _keyboardProcHandle;
     private GCHandle _mouseProcHandle;
+    private Thread? _hookThread;
+    private uint _hookThreadId;
 
     private CancellationTokenSource? _runCts;
     private Task? _snapshotLoop;
@@ -58,38 +60,81 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         _deviceId = Environment.MachineName;
     }
 
-    public Task StartAsync(AgentPolicy policy, CancellationToken cancellationToken)
+    public async Task StartAsync(AgentPolicy policy, CancellationToken cancellationToken)
     {
         if (!policy.ActivitySignalEnabled)
         {
             BootLog("policy disabled — not starting");
-            return Task.CompletedTask;
+            return;
         }
 
         if (_running)
-            return Task.CompletedTask;
+            return;
 
         _intervalSeconds = Math.Clamp(
             Constants.DefaultActivitySnapshotIntervalSeconds, 60, 300);
 
-        // Install hooks on the UI thread — LL hooks must live with a message pump.
-        void Install()
-        {
-            InstallHooks();
-            BootLog($"hooks installed on thread={Environment.CurrentManagedThreadId}");
-        }
-
-        if (Microsoft.Maui.ApplicationModel.MainThread.IsMainThread)
-            Install();
-        else
-            Microsoft.Maui.ApplicationModel.MainThread.InvokeOnMainThreadAsync(Install).GetAwaiter().GetResult();
+        // LL hooks run on whichever thread installed them, inside that thread's message loop —
+        // and Windows holds EVERY keystroke/mouse event on the machine until the callback
+        // returns. On the UI thread, any layout pass / animation frame / GC pause there turned
+        // into system-wide input lag, so the hooks get their own thread that does nothing else.
+        await StartHookThreadAsync();
+        BootLog($"hooks installed on dedicated thread={_hookThreadId}");
 
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _snapshotLoop = SnapshotLoopAsync(_runCts.Token);
         _running = true;
         BootLog($"started interval={_intervalSeconds}s");
         _logger.LogInformation("{Name}: started (interval={Seconds}s)", Name, _intervalSeconds);
-        return Task.CompletedTask;
+    }
+
+    private Task StartHookThreadAsync()
+    {
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _hookThread = new Thread(() =>
+        {
+            try
+            {
+                InstallHooks();
+                _hookThreadId = NativeMethods.GetCurrentThreadId();
+            }
+            catch (Exception ex)
+            {
+                ready.TrySetException(ex);
+                return;
+            }
+
+            ready.TrySetResult();
+
+            // Hook callbacks are delivered from inside GetMessage; nothing else is ever posted
+            // here except the WM_QUIT from StopHookThread (GetMessage returns 0 for it).
+            while (NativeMethods.GetMessage(out _, IntPtr.Zero, 0, 0) > 0)
+            {
+            }
+
+            UninstallHooks();
+        })
+        {
+            IsBackground = true,
+            Name = "ONEVO input-count hooks",
+            // Input waits on this thread — never let busy app work starve it.
+            Priority = ThreadPriority.AboveNormal
+        };
+        _hookThread.Start();
+        return ready.Task;
+    }
+
+    private void StopHookThread()
+    {
+        var thread = _hookThread;
+        _hookThread = null;
+        if (thread is null)
+            return;
+
+        if (_hookThreadId != 0)
+            NativeMethods.PostThreadMessage(_hookThreadId, NativeMethods.WM_QUIT, IntPtr.Zero, IntPtr.Zero);
+        thread.Join(TimeSpan.FromSeconds(2));
+        _hookThreadId = 0;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
@@ -125,7 +170,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             _logger.LogDebug(ex, "{Name}: final snapshot emit failed", Name);
         }
 
-        UninstallHooks();
+        StopHookThread();
         ResetCounters();
         BootLog("stopped");
         _logger.LogInformation("{Name}: stopped", Name);

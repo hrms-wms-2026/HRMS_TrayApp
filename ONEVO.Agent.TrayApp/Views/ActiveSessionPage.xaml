@@ -378,8 +378,8 @@
                                Title="Activity check"
                                Message="{Binding ActivityCheckMessage}"
                                CancelCommand="{Binding SkipActivityCheckCommand}"
-                               CancelText="Skip"
+                               CancelText="{Binding ActivityCheckCancelText}"
                                ConfirmCommand="{Binding AllowActivityCheckCommand}"
-                               ConfirmText="Allow" />
+                               ConfirmText="{Binding ActivityCheckConfirmText}" />
   </Grid>
 </ContentPage>

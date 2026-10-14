@@ -61,6 +61,11 @@ public class PolicySyncServiceTests
             $"RefreshInterval ({PolicySyncService.RefreshInterval}) must leave real margin before " +
             $"the backend's {backendValidityWindow} policy validity window, or every scheduled " +
             "refresh will race an already-expired policy.");
+        // The slow cadence used while the agent hub can push must keep the same margin.
+        Assert.True(
+            PolicySyncService.PushFallbackInterval <= backendValidityWindow / 2,
+            $"PushFallbackInterval ({PolicySyncService.PushFallbackInterval}) must refresh well before " +
+            $"the backend's {backendValidityWindow} policy validity window.");
         Assert.True(
             PolicySyncService.RefreshInterval <= TimeSpan.FromMinutes(2),
             $"RefreshInterval ({PolicySyncService.RefreshInterval}) must pick up an admin Activity check " +
