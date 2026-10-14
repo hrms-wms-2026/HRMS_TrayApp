@@ -33,8 +33,15 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
     /// hardcoded "5 minutes" as a literal string, which went stale the moment an admin (or a
     /// test) configured a different threshold.
     /// </summary>
-    internal static string BuildNotificationBody(TimeSpan idleFor) =>
-        $"No keyboard or mouse activity was detected for {(int)idleFor.TotalMinutes} minutes. Allow a screenshot of all connected monitors?";
+    internal static string BuildNotificationBody(TimeSpan idleFor, bool requestScreenshot = true) =>
+        requestScreenshot
+            ? $"No keyboard or mouse activity was detected for {(int)idleFor.TotalMinutes} minutes. Allow a screenshot of all connected monitors?"
+            : $"No keyboard or mouse activity was detected for {(int)idleFor.TotalMinutes} minutes. Were you working?";
+
+    // Button labels only — the activation arguments stay "allow"/"skip" in both modes, so the
+    // router and InactivityPromptDecision are unchanged ("Yes" arrives as Allowed).
+    private static (string Confirm, string Cancel) ButtonLabels(bool requestScreenshot) =>
+        requestScreenshot ? ("Allow", "Skip") : ("Yes", "No");
 
     private readonly NotificationActivationRouter _router;
     private readonly ActivityCheckPromptHub _hub;
@@ -65,14 +72,16 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         Guid attemptId,
         TimeSpan idleFor,
         TimeSpan expiresIn,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool requestScreenshot = true)
     {
-        var body = BuildNotificationBody(idleFor);
-        _hub.RaiseShown(new ActivityCheckPrompt(attemptId, body));
+        var body = BuildNotificationBody(idleFor, requestScreenshot);
+        var (confirm, cancel) = ButtonLabels(requestScreenshot);
+        _hub.RaiseShown(new ActivityCheckPrompt(attemptId, body, confirm, cancel));
 
         try
         {
-            Show(attemptId, expiresIn, idleFor);
+            Show(attemptId, expiresIn, body, confirm, cancel);
             BootLog($"Show() succeeded for attempt {attemptId}");
         }
         catch (Exception ex)
@@ -120,19 +129,19 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         }
     }
 
-    private static void Show(Guid attemptId, TimeSpan expiresIn, TimeSpan idleFor)
+    private static void Show(Guid attemptId, TimeSpan expiresIn, string body, string confirmText, string cancelText)
     {
         var attempt = attemptId.ToString();
 
         var notification = new AppNotificationBuilder()
             .AddText(NotificationTitle)
-            .AddText(BuildNotificationBody(idleFor))
+            .AddText(body)
             .SetScenario(AppNotificationScenario.Reminder)
             .SetDuration(AppNotificationDuration.Long)
-            .AddButton(new AppNotificationButton("Allow")
+            .AddButton(new AppNotificationButton(confirmText)
                 .AddArgument("attempt", attempt)
                 .AddArgument("decision", "allow"))
-            .AddButton(new AppNotificationButton("Skip")
+            .AddButton(new AppNotificationButton(cancelText)
                 .AddArgument("attempt", attempt)
                 .AddArgument("decision", "skip"))
             .BuildNotification();

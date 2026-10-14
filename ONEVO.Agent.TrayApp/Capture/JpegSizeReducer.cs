@@ -68,16 +68,18 @@ public static class JpegSizeReducer
         }
     }
 
+    private static readonly ImageCodecInfo JpegCodec = ImageCodecInfo.GetImageEncoders()
+        .First(c => c.FormatID == ImageFormat.Jpeg.Guid);
+
     private static byte[] EncodeJpeg(Bitmap bitmap)
     {
-        var codec = ImageCodecInfo.GetImageEncoders()
-            .First(c => c.FormatID == ImageFormat.Jpeg.Guid);
-
         using var parameters = new EncoderParameters(1);
         parameters.Param[0] = new EncoderParameter(Encoder.Quality, JpegQuality);
 
-        using var ms = new MemoryStream();
-        bitmap.Save(ms, codec, parameters);
+        // Pre-size for a typical q75 JPEG (~1 byte per 10 pixels) so a full-desktop encode doesn't
+        // repeatedly double-and-copy its buffer through the large object heap.
+        using var ms = new MemoryStream(Math.Max(16 * 1024, bitmap.Width * bitmap.Height / 10));
+        bitmap.Save(ms, JpegCodec, parameters);
         return ms.ToArray();
     }
 
@@ -86,7 +88,8 @@ public static class JpegSizeReducer
         var width = Math.Max(1, (int)Math.Round(source.Width * scale));
         var height = Math.Max(1, (int)Math.Round(source.Height * scale));
 
-        var resized = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+        // JPEG has no alpha channel — 24bpp is a quarter smaller than ARGB for the same output.
+        var resized = new Bitmap(width, height, PixelFormat.Format24bppRgb);
         using var g = Graphics.FromImage(resized);
         g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
         g.DrawImage(source, 0, 0, width, height);

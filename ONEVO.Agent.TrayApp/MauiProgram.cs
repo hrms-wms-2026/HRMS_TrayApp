@@ -115,9 +115,6 @@ public static class MauiProgram
             dayMetrics: sp.GetRequiredService<ISessionDayMetrics>()));
         builder.Services.AddSingleton<IAgentCollector>(sp =>
             sp.GetRequiredService<InactivityScreenshotCollector>());
-        builder.Services.AddSingleton<PeriodicScreenshotCollector>();
-        builder.Services.AddSingleton<IAgentCollector>(sp =>
-            sp.GetRequiredService<PeriodicScreenshotCollector>());
         builder.Services.AddSingleton<CollectorCoordinator>();
         builder.Services.AddSingleton<ICollectorLifecycleCoordinator>(sp =>
             sp.GetRequiredService<CollectorCoordinator>());

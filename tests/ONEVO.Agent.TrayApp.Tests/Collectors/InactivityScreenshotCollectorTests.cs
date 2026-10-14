@@ -53,7 +53,7 @@ public sealed class InactivityScreenshotCollectorTests
     }
 
     [Fact]
-    public async Task AgentPolicy_default_threshold_prompts_at_two_minutes()
+    public async Task AgentPolicy_default_threshold_prompts_at_fifteen_minutes()
     {
         var defaultPolicy = new AgentPolicy
         {
@@ -68,10 +68,10 @@ public sealed class InactivityScreenshotCollectorTests
 
         await _sut.StartAsync(defaultPolicy, default);
 
-        await _sut.EvaluateAsync(119, DateTimeOffset.Parse("2026-08-10T01:01:59Z"), default);
+        await _sut.EvaluateAsync(899, DateTimeOffset.Parse("2026-08-10T01:14:59Z"), default);
         Assert.Equal(0, _prompt.RequestCount);
 
-        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:02:00Z"), default);
+        await _sut.EvaluateAsync(900, DateTimeOffset.Parse("2026-08-10T01:15:00Z"), default);
 
         Assert.Equal(1, _prompt.RequestCount);
     }
@@ -288,9 +288,9 @@ public sealed class InactivityScreenshotCollectorTests
     }
 
     [Fact]
-    public async Task PolicyDisabled_InactivityScreenshotEnabledFalse_NeverStartsOrPrompts()
+    public async Task ActivityTrackingOff_NeverStartsOrPrompts()
     {
-        var disabled = EnabledPolicy() with { InactivityScreenshotEnabled = false };
+        var disabled = EnabledPolicy() with { ActivitySignalEnabled = false };
 
         await _sut.StartAsync(disabled, default);
         await _sut.EvaluateAsync(300, DateTimeOffset.Parse("2026-08-10T01:05:00Z"), default);
@@ -298,6 +298,40 @@ public sealed class InactivityScreenshotCollectorTests
         Assert.False(_sut.IsRunning);
         Assert.Equal(0, _prompt.RequestCount);
         Assert.Empty(_pipe.Submitted);
+    }
+
+    [Theory]
+    [InlineData(InactivityPromptDecision.Allowed, InactivityCaptureOutcomes.ConfirmedWorking)]
+    [InlineData(InactivityPromptDecision.Declined, InactivityCaptureOutcomes.NotWorking)]
+    public async Task ScreenshotCaptureOff_AsksWereYouWorking_AndNeverCaptures(
+        InactivityPromptDecision answer, string expectedOutcome)
+    {
+        var keyboardMouseOnly = EnabledPolicy() with { ScreenshotEnabled = false, InactivityScreenshotEnabled = false };
+        _prompt.NextDecision = answer;
+
+        await _sut.StartAsync(keyboardMouseOnly, default);
+        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:02:00Z"), default);
+
+        Assert.True(_sut.IsRunning);
+        Assert.Equal(1, _prompt.RequestCount);
+        Assert.False(_prompt.LastRequestScreenshot);
+        Assert.Equal(0, _capture.CallCount);
+        var submitted = Assert.Single(_pipe.Submitted);
+        Assert.Equal(expectedOutcome, submitted.Attempt.Outcome);
+        Assert.Equal(0, submitted.JpegLength);
+    }
+
+    [Fact]
+    public async Task ScreenshotCaptureOn_AsksForScreenshot()
+    {
+        _prompt.NextDecision = InactivityPromptDecision.Allowed;
+
+        await _sut.StartAsync(EnabledPolicy(), default);
+        await _sut.EvaluateAsync(120, DateTimeOffset.Parse("2026-08-10T01:02:00Z"), default);
+
+        Assert.True(_prompt.LastRequestScreenshot);
+        Assert.Equal(1, _capture.CallCount);
+        Assert.Equal(InactivityCaptureOutcomes.Captured, Assert.Single(_pipe.Submitted).Attempt.Outcome);
     }
 
     [Fact]
@@ -402,11 +436,13 @@ internal sealed class FakeInactivityPromptService : IInactivityPromptService
     public int RequestCount { get; private set; }
     public InactivityPromptDecision NextDecision { get; set; } = InactivityPromptDecision.Declined;
     public List<Guid> DismissedAttemptIds { get; } = [];
+    public bool? LastRequestScreenshot { get; private set; }
 
     public Task<InactivityPromptDecision> PromptAsync(
-        Guid attemptId, TimeSpan idleFor, TimeSpan expiresIn, CancellationToken ct)
+        Guid attemptId, TimeSpan idleFor, TimeSpan expiresIn, CancellationToken ct, bool requestScreenshot = true)
     {
         RequestCount++;
+        LastRequestScreenshot = requestScreenshot;
         return Task.FromResult(NextDecision);
     }
 
@@ -428,7 +464,7 @@ internal sealed class GatedPromptService : IInactivityPromptService
     public Task Entered => _entered.Task;
 
     public Task<InactivityPromptDecision> PromptAsync(
-        Guid attemptId, TimeSpan idleFor, TimeSpan expiresIn, CancellationToken ct)
+        Guid attemptId, TimeSpan idleFor, TimeSpan expiresIn, CancellationToken ct, bool requestScreenshot = true)
     {
         RequestCount++;
         var tcs = new TaskCompletionSource<InactivityPromptDecision>(TaskCreationOptions.RunContinuationsAsynchronously);

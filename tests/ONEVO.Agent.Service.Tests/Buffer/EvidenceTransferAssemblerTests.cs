@@ -27,7 +27,7 @@ public class EvidenceTransferAssemblerTests
         CapturedAt = outcome == InactivityCaptureOutcomes.Captured
             ? DateTimeOffset.Parse("2026-08-10T01:05:04Z")
             : null,
-        IdleDurationSeconds = 300,
+        IdleDurationSeconds = 900,
         MonitorCount = outcome == InactivityCaptureOutcomes.Captured ? 2 : 0,
         Outcome = outcome,
         Sha256 = sha256
@@ -209,7 +209,7 @@ public class InactivityEvidenceHandlerTests
                     PolicyVersion = "v1",
                     IdleStartedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
                     PromptedAt = DateTimeOffset.UtcNow,
-                    IdleDurationSeconds = 300,
+                    IdleDurationSeconds = 900,
                     MonitorCount = 0,
                     Outcome = InactivityCaptureOutcomes.Declined
                 },
@@ -234,7 +234,7 @@ public class InactivityEvidenceHandlerTests
             PolicyVersion = "v1",
             IdleStartedAt = now.AddMinutes(-5),
             PromptedAt = now,
-            IdleDurationSeconds = 300,
+            IdleDurationSeconds = 900,
             MonitorCount = 0,
             Outcome = InactivityCaptureOutcomes.Declined
         };

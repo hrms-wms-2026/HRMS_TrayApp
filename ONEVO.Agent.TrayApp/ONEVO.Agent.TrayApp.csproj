@@ -18,6 +18,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!-- Runs all day on ordinary office laptops: favour a small heap over throughput. ConserveMemory
+       lets the GC compact the large object heap (screenshot/photo buffers) instead of growing it. -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
+  </ItemGroup>
+
   <!-- WinForms tray icon + drawing (SystemIcons) without enabling WinFX XAML pipeline -->
   <ItemGroup>
     <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />

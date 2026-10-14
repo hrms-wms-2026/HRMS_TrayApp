@@ -4,7 +4,8 @@ namespace ONEVO.Agent.TrayApp.Services;
 /// Bridges the inactivity collector's prompt (any thread) to the Active Session overlay
 /// so Allow/Skip is visible in the tray window, not only as a 5-second Windows banner.
 /// </summary>
-public sealed record ActivityCheckPrompt(Guid AttemptId, string Body);
+public sealed record ActivityCheckPrompt(
+    Guid AttemptId, string Body, string ConfirmText = "Allow", string CancelText = "Skip");
 
 public sealed class ActivityCheckPromptHub
 {
