@@ -40,26 +40,38 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     [ObservableProperty] private string _totalShiftDisplay  = "00:00:00";
     [ObservableProperty] private string _breakTimeDisplay   = "00:00:00";
     [ObservableProperty] private string _workingTimeDisplay = "00:00:00";
+    /// <summary>On-the-clock time excluding breaks (shift - break, so idle is included).</summary>
+    [ObservableProperty] private string _workDurationDisplay = "00:00:00";
     [ObservableProperty] private string _productiveTimeDisplay = "00:00:00";
     [ObservableProperty] private string _idleTimeDisplay    = "00:00:00";
     [ObservableProperty] private string _breakSessionsDisplay = "0";
     [ObservableProperty] private string _statusText         = "Clocked Out";
     [ObservableProperty] private string? _message;
-    [ObservableProperty] private string _greetingMessage = "Great job! You've had a productive day. 🎉";
+    [ObservableProperty] private string _greetingMessage = "Your workday is complete.";
+    private int? _activeSharePercent;
     [ObservableProperty] private string _sessionEndedCaption = "Your work session has ended.";
     [ObservableProperty] private string _savedAtDisplay = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string _employeeName = string.Empty;
+    [ObservableProperty] private string _savedTitle = "Checking saved data…";
+    [ObservableProperty] private string _savedCaption = "Waiting for the WorkPulse service to confirm your records.";
+    [ObservableProperty] private string _syncTitle = "Checking cloud sync…";
+    [ObservableProperty] private string _syncCaption = "Waiting for the WorkPulse service to report sync status.";
+    [ObservableProperty] private string _syncTimeDisplay = "";
 
     public ObservableCollection<TopAppItem> TopApps { get; } = [];
 
-    public EndSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics, IAppIconCache iconCache)
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
+    public EndSessionViewModel(INamedPipeClient pipe, ISessionDayMetrics dayMetrics, IAppIconCache iconCache,
+        ServiceConnectionStatus? connection = null)
     {
+        Connection = connection ?? new ServiceConnectionStatus(pipe);
         Title = "Workday Completed";
         _pipe = pipe;
         _dayMetrics = dayMetrics;
         _iconCache = iconCache;
-        GreetingMessage = "Great job! You've had a productive day. 🎉";
     }
 
     /// <summary>Test helper.</summary>
@@ -75,8 +87,14 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         if (!_subscribed)
         {
             _pipe.OnStatusReceived += OnStatus;
+            Connection.PropertyChanged += OnConnectionChanged;
             _subscribed = true;
         }
+
+        if (Connection.IsConnected && _pipe.LastKnownStatus is { } last)
+            ApplySyncStatus(last);
+        else if (Connection.Label == "Offline")
+            ApplyOffline();
 
         // Prefer last completed session from Clock Out (most accurate).
         if (_dayMetrics.LastCompletedSession is { } completed)
@@ -103,22 +121,25 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         if (_subscribed)
         {
             _pipe.OnStatusReceived -= OnStatus;
+            Connection.PropertyChanged -= OnConnectionChanged;
             _subscribed = false;
         }
     }
 
     private void OnStatus(StatusResponsePayload status)
     {
-        // After clock-out state is Stopped; still load session if present.
-        if (status.Session is null) return;
-
-        // Don't wipe a good completed snapshot with an empty/live one missing clock-out.
-        if (status.Session.ClockOutAt is null
-            && _dayMetrics.LastCompletedSession is { ClockOutAt: not null })
-            return;
-
         void Apply()
         {
+            ApplySyncStatus(status);
+
+            // After clock-out state is Stopped; still load session if present.
+            if (status.Session is null) return;
+
+            // Don't wipe a good completed snapshot with an empty/live one missing clock-out.
+            if (status.Session.ClockOutAt is null
+                && _dayMetrics.LastCompletedSession is { ClockOutAt: not null })
+                return;
+
             LoadFromSnapshot(status.Session);
             RefreshTopAppsAndIdle();
         }
@@ -129,6 +150,82 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             else MainThread.BeginInvokeOnMainThread(Apply);
         }
         catch { Apply(); }
+    }
+
+    private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ServiceConnectionStatus.IsConnected) && !Connection.IsConnected)
+            ApplyOffline();
+    }
+
+    private void ApplyOffline()
+    {
+        void Apply()
+        {
+            SavedTitle = "Save status unknown";
+            SavedCaption = "The WorkPulse service is offline, so saved data can't be confirmed right now.";
+            SavedAtDisplay = string.Empty;
+            SyncTitle = "Cloud sync paused";
+            SyncCaption = "The WorkPulse service is offline. Your data will sync once it reconnects.";
+            SyncTimeDisplay = string.Empty;
+        }
+
+        try
+        {
+            if (MainThread.IsMainThread) Apply();
+            else MainThread.BeginInvokeOnMainThread(Apply);
+        }
+        catch { Apply(); }
+    }
+
+    /// <summary>Cloud sync card reflects the Service's offline buffer: synced only when nothing is pending.</summary>
+    public void ApplySyncStatus(StatusResponsePayload status)
+    {
+        var buffer = status.Buffer;
+        if (buffer is null)
+        {
+            SavedTitle = "Save status unavailable";
+            SavedCaption = "This WorkPulse service version doesn't report whether data was saved.";
+            SavedAtDisplay = string.Empty;
+            SyncTitle = "Sync status unavailable";
+            SyncCaption = "This WorkPulse service version does not report cloud sync status.";
+            SyncTimeDisplay = string.Empty;
+            return;
+        }
+
+        var storageFailed = string.Equals(buffer.Level, "StorageError", StringComparison.OrdinalIgnoreCase);
+        if (storageFailed)
+        {
+            SavedTitle = "Your work data could not be saved";
+            SavedCaption = "The last write on this device failed. Contact IT if this keeps happening.";
+            SavedAtDisplay = string.Empty;
+        }
+        else
+        {
+            SavedTitle = "Your work data has been securely saved.";
+            SavedCaption = "All logs, activity, and timesheets are recorded.";
+            SavedAtDisplay = status.Timestamp.ToLocalTime().ToString("hh:mm tt");
+        }
+
+        if (storageFailed)
+        {
+            SyncTitle = "Local save problem";
+            SyncCaption = $"The last write to the offline queue failed. {buffer.Pending} record(s) waiting to sync.";
+            SyncTimeDisplay = string.Empty;
+            return;
+        }
+
+        if (buffer.Pending > 0)
+        {
+            SyncTitle = "Waiting to sync";
+            SyncCaption = $"{buffer.Pending} record(s) are saved on this device and will upload automatically.";
+            SyncTimeDisplay = string.Empty;
+            return;
+        }
+
+        SyncTitle = "Synced to OneXso Cloud";
+        SyncCaption = "Your data is backed up and available across your devices.";
+        SyncTimeDisplay = status.Timestamp.ToLocalTime().ToString("hh:mm tt");
     }
 
     public void LoadFromSnapshot(SessionSnapshot session)
@@ -167,6 +264,12 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         BreakTimeDisplay   = Format(breakTime);
         WorkingTimeDisplay = Format(workTime);
         IdleTimeDisplay    = Format(idle);
+        var tracked = workTime + idle;
+        _activeSharePercent = tracked.TotalMinutes < 1
+            ? null
+            : (int)Math.Round(100.0 * workTime.TotalSeconds / tracked.TotalSeconds);
+
+        // Productive = active work only (idle excluded by the Service).
         ProductiveTimeDisplay = Format(workTime);
         BreakSessionsDisplay = Math.Max(0, session.BreakSessionCount).ToString();
 
@@ -175,15 +278,16 @@ public sealed partial class EndSessionViewModel : BaseViewModel
             var shift = session.ClockOutAt.Value - session.ClockInAt.Value;
             if (shift < TimeSpan.Zero) shift = TimeSpan.Zero;
             TotalShiftDisplay = Format(shift);
+            var onClock = shift - breakTime;
+            WorkDurationDisplay = Format(onClock < workTime ? workTime : onClock);
         }
         else
         {
-            TotalShiftDisplay = Format(workTime + breakTime);
+            TotalShiftDisplay = Format(workTime + breakTime + idle);
+            WorkDurationDisplay = Format(workTime + idle);
         }
 
-        // Productive equals payroll work (idle already excluded server-side).
         StatusText = "Clocked Out";
-        SavedAtDisplay = ClockOutDisplay == "—" ? string.Empty : ClockOutDisplay;
         var sessionDay = session.ClockOutAt?.ToLocalTime() ?? session.ClockInAt?.ToLocalTime();
         SessionEndedCaption = sessionDay is null
             ? "Your work session has ended."
@@ -195,9 +299,14 @@ public sealed partial class EndSessionViewModel : BaseViewModel
 
     private void ApplyGreeting()
     {
-        GreetingMessage = string.IsNullOrWhiteSpace(EmployeeName)
-            ? "Great job! You've had a productive day. 🎉"
-            : $"Great job, {EmployeeName}! You've had a productive day. 🎉";
+        var who = string.IsNullOrWhiteSpace(EmployeeName) ? string.Empty : $", {EmployeeName}";
+        GreetingMessage = _activeSharePercent switch
+        {
+            null => $"Your workday is complete{who}.",
+            >= 80 => $"Great job{who}! You've had a productive day. 🎉",
+            >= 60 => $"Nice work{who}! Solid, steady day.",
+            _ => $"Thanks{who}. Your workday is complete.",
+        };
     }
 
     private void RefreshTopAppsAndIdle()
@@ -242,7 +351,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
         ["windowsterminal"]      = "Windows Terminal",
     };
 
-    private static string PrettyProcessName(string processName)
+    internal static string PrettyProcessName(string processName)
     {
         var n = processName.Trim();
         if (n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))

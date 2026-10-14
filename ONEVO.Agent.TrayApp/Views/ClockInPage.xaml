@@ -212,7 +212,7 @@
         </VerticalStackLayout>
       </Grid>
 
-      <controls:FooterStatusBar Grid.Row="1" VersionText="Version 1.0.0"
+      <controls:FooterStatusBar Grid.Row="1"
                                 ConnectionLabel="{Binding ConnectionStatus}"
                                 IsConnected="{Binding IsConnected}"
                                 ShowSignOut="True"

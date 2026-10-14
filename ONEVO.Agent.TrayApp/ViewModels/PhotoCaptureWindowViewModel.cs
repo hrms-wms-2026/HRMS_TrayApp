@@ -274,13 +274,18 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
          IsVerificationFailed ||
          !string.Equals(CaptureStatusText, DefaultPrompt, StringComparison.Ordinal));
 
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
     public PhotoCaptureWindowViewModel(
         ICameraService camera,
         INamedPipeClient pipe,
         IPreferencesStore prefs,
         CapturedPhotoBuffer photoBuffer,
-        ILogger<PhotoCaptureWindowViewModel>? logger = null)
+        ILogger<PhotoCaptureWindowViewModel>? logger = null,
+        ServiceConnectionStatus? connection = null)
     {
+        Connection = connection ?? new ServiceConnectionStatus();
         Title        = "Face Verification";
         _camera      = camera;
         _pipe        = pipe;
@@ -502,6 +507,13 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
             CaptureStatusText = "Completing clock-out...";
             var clockOut = await _pipe.SendLifecycleAsync(LifecycleAction.ClockOut, CancellationToken.None);
+            if (clockOut?.ErrorCode == ClockActionErrorCodes.AlreadyClockedOut)
+            {
+                try { await Shell.Current.GoToAsync(SetupFlow.End); }
+                catch { /* unit tests */ }
+                return;
+            }
+
             if (clockOut is null || !clockOut.Success)
             {
                 CaptureStatusText = clockOut?.Message ?? clockOut?.ErrorCode ?? "Clock-out failed. Please try again.";
@@ -530,6 +542,14 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
             // transitions it there. Submitting the photo before this would always be rejected.
             CaptureStatusText = "Completing clock-in...";
             var result = await _pipe.SendLifecycleAsync(LifecycleAction.ClockIn, CancellationToken.None);
+            if (result?.ErrorCode == ClockActionErrorCodes.AlreadyClockedOut)
+            {
+                _capturedBytes = null;
+                try { await Shell.Current.GoToAsync(SetupFlow.End); }
+                catch { /* unit tests */ }
+                return;
+            }
+
             if (result is null || !result.Success)
             {
                 CaptureStatusText = result?.Message ?? result?.ErrorCode ?? "Clock-in failed. Please try again.";

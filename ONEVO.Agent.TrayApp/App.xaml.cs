@@ -29,8 +29,11 @@ public partial class App : Microsoft.Maui.Controls.Application
         ISessionDayMetrics dayMetrics,
         IPreferencesStore preferences,
         UpdateNotifier updateNotifier,
-        ILogger<App> logger)
+        ILogger<App> logger,
+        ServiceConnectionStatus connectionStatus)
     {
+        // Resolved here so it subscribes to the pipe before StartAsync and sees the first connect.
+        _ = connectionStatus;
         InitializeComponent();
         _trayIcon     = trayIcon;
         _pipeClient   = pipeClient;

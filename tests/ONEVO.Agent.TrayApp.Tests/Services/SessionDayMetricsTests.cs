@@ -142,4 +142,18 @@ public sealed class SessionDayMetricsTests
         metrics.ResetDay();
         Assert.Empty(metrics.GetHourlyFocusFractions());
     }
+
+    [Fact]
+    public void GetPeakFocusHour_ReturnsHourWithMostFocus_OrNullWhenEmpty()
+    {
+        var metrics = new SessionDayMetrics();
+        Assert.Null(metrics.GetPeakFocusHour());
+
+        var day = new DateTimeOffset(2026, 10, 13, 0, 0, 0, TimeSpan.Zero);
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(20), day.AddHours(9));
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(50), day.AddHours(14));
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(10), day.AddHours(16));
+
+        Assert.Equal(14, metrics.GetPeakFocusHour());
+    }
 }

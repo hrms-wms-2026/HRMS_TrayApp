@@ -89,9 +89,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         ILocationService location,
         ActivityCheckPromptHub? activityCheckHub = null,
         NotificationActivationRouter? activityCheckRouter = null,
-        NotificationService? notifications = null)
+        NotificationService? notifications = null,
+        ServiceConnectionStatus? connection = null)
     {
         Title = "Active Session";
+        Connection = connection ?? new ServiceConnectionStatus();
         _pipe = pipe;
         _dayMetrics = dayMetrics;
         _lifecycleCoordinator = lifecycleCoordinator;
@@ -105,6 +107,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             _activityCheckHub.Closed += OnActivityCheckClosed;
         }
     }
+
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
 
     public bool ShowWorkingActions => !IsOnBreak;
 
@@ -674,6 +679,14 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             {
                 ErrorMessage = "No response from OneXso Agent Service.";
                 return null;
+            }
+
+            if (result.ErrorCode == ClockActionErrorCodes.AlreadyClockedOut)
+            {
+                // The day was closed elsewhere (web, another device) — show the finished day.
+                try { await Shell.Current.GoToAsync(SetupFlow.End); }
+                catch { /* unit tests */ }
+                return result;
             }
 
             if (!result.Success)

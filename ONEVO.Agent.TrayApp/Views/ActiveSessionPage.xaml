@@ -263,7 +263,7 @@
         </Grid>
       </Border>
 
-      <controls:FooterStatusBar Grid.Row="2" VersionText="Version 1.0.0" ConnectionLabel="Connected" IsConnected="True" />
+      <controls:FooterStatusBar Grid.Row="2" ConnectionLabel="{Binding Connection.Label}" IsConnected="{Binding Connection.IsConnected}" />
     </Grid>
 
     <controls:GlassConfirmHost IsOpen="{Binding IsBreakConfirmVisible}"

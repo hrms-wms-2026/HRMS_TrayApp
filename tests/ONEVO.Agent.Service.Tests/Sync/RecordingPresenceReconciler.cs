@@ -39,4 +39,9 @@ public sealed class RecordingPresenceReconciler : IPresenceReconciler
     {
         Calls.Add("BreakAllowance");
     }
+
+    public void ApplyCompletedDay(DateTimeOffset clockedInAt, DateTimeOffset clockedOutAt, int completedBreakMinutes)
+    {
+        Calls.Add("CompletedDay");
+    }
 }

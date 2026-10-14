@@ -913,6 +913,36 @@ public sealed class ActivityRecordBuffer : IDisposable
         }
     }
 
+    /// <summary>The most recently finished session saved by <see cref="SaveSessionHistory"/>, or null.</summary>
+    public SessionHistoryEntry? GetLatestCompletedSession()
+    {
+        lock (_gate)
+        {
+            using var cmd = _conn.CreateCommand();
+            cmd.CommandText =
+                """
+                SELECT clock_in_at, clock_out_at, accumulated_break_sec, accumulated_work_sec,
+                       break_session_count, schedule_display, accumulated_idle_sec
+                FROM session_history
+                WHERE clock_in_at IS NOT NULL AND clock_out_at IS NOT NULL
+                ORDER BY id DESC
+                LIMIT 1;
+                """;
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read())
+                return null;
+
+            return new SessionHistoryEntry(
+                DateTimeOffset.Parse(reader.GetString(0), System.Globalization.CultureInfo.InvariantCulture),
+                DateTimeOffset.Parse(reader.GetString(1), System.Globalization.CultureInfo.InvariantCulture),
+                TimeSpan.FromSeconds(reader.GetDouble(2)),
+                TimeSpan.FromSeconds(reader.GetDouble(3)),
+                reader.GetInt32(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5),
+                TimeSpan.FromSeconds(reader.GetDouble(6)));
+        }
+    }
+
     private int CountUnlocked()
     {
         using var cmd = _conn.CreateCommand();
@@ -927,3 +957,12 @@ public sealed class ActivityRecordBuffer : IDisposable
         _conn.Dispose();
     }
 }
+
+public sealed record SessionHistoryEntry(
+    DateTimeOffset ClockInAt,
+    DateTimeOffset ClockOutAt,
+    TimeSpan AccumulatedBreak,
+    TimeSpan AccumulatedWork,
+    int BreakSessionCount,
+    string? ScheduleDisplay,
+    TimeSpan AccumulatedIdle);

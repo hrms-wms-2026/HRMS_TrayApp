@@ -301,6 +301,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 await HandleLocationChangePendingCheckAsync(envelope, reply);
                 break;
 
+            case IpcMessageTypes.DailyTasksRequest:
+                await HandleDailyTasksRequestAsync(envelope, reply);
+                break;
+
             case IpcMessageTypes.LocationChangeRespond:
                 await HandleLocationChangeRespondAsync(envelope, reply);
                 break;
@@ -535,6 +539,15 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return (false, "UNENROLLED", "Device is not enrolled.", current);
 
         var backendResult = await _apiClient.ClockInAsync(jwt, ct);
+        if (backendResult.ErrorCode == ClockActionErrorCodes.AlreadyClockedOut)
+        {
+            // Today is already finished. Load it so the tray's finished-day screen has real totals.
+            var status = await _apiClient.GetAttendanceStatusAsync(jwt, ct);
+            if (status is { Success: true, DayClockedInAtUtc: { } dayIn, DayClockedOutAtUtc: { } dayOut })
+                ApplyCompletedDay(dayIn, dayOut, status.CompletedBreakMinutes);
+            return (false, backendResult.ErrorCode, backendResult.Message, current);
+        }
+
         if (!backendResult.Success)
             return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
 
@@ -752,6 +765,33 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
         _presenceSession.EndBreak(now);
         return true;
+    }
+
+    public void ApplyCompletedDay(DateTimeOffset clockedInAt, DateTimeOffset clockedOutAt, int completedBreakMinutes)
+    {
+        if (_stateMachine.CurrentState is MonitoringState.Active or MonitoringState.Paused)
+            return;
+
+        // Already showing a finished day (clocked out in this process) — keep its precise totals.
+        if (_presenceSession.Snapshot(clockedOutAt).ClockOutAt is not null)
+            return;
+
+        // Prefer this device's own saved totals (work/idle/break) when they describe the same day.
+        SessionHistoryEntry? saved = null;
+        try { saved = _activityBuffer.GetLatestCompletedSession(); }
+        catch (Exception ex) { _logger.LogDebug(ex, "Could not read local session history"); }
+
+        if (saved is not null && (saved.ClockOutAt - clockedOutAt).Duration() <= TimeSpan.FromMinutes(5))
+        {
+            _presenceSession.RestoreCompletedDay(
+                saved.ClockInAt, saved.ClockOutAt, saved.AccumulatedBreak, saved.AccumulatedIdle, saved.BreakSessionCount);
+        }
+        else
+        {
+            _presenceSession.RestoreCompletedDay(
+                clockedInAt, clockedOutAt, TimeSpan.FromMinutes(completedBreakMinutes), TimeSpan.Zero,
+                completedBreakMinutes > 0 ? 1 : 0);
+        }
     }
 
     public void ApplyBreakAllowance(bool canStartBreak, int? allowanceMinutes, int completedBreakMinutes)
@@ -1308,6 +1348,58 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             Payload = JsonSerializer.SerializeToElement(
                 new LocationChangePendingResultPayload(result.Success, result.ErrorCode, ToSummary(result.Request)))
         });
+    }
+
+    internal async Task HandleDailyTasksRequestAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await ReplyDailyTasks(new DailyTasksResultPayload(false, "UNENROLLED", null, 0, 0, 0, []));
+            return;
+        }
+
+        var result = await _apiClient.GetDailyTasksAsync(jwt, CancellationToken.None);
+        if (!result.Success || result.Payload is null)
+        {
+            await ReplyDailyTasks(new DailyTasksResultPayload(
+                false, result.ErrorCode ?? "SERVICE_UNAVAILABLE", null, 0, 0, 0, []));
+            return;
+        }
+
+        var day = result.Payload;
+        var tasks = (day.Tasks ?? [])
+            .Select(task => new DailyTaskItemPayload(
+                task.TaskId,
+                task.ShortId ?? string.Empty,
+                Truncate(task.Title ?? string.Empty, DailyTaskItemPayload.MaxTitleLength),
+                task.ProjectName is null ? null : Truncate(task.ProjectName, DailyTaskItemPayload.MaxTitleLength),
+                task.StatusName is null ? null : Truncate(task.StatusName, 40),
+                task.StatusColor,
+                Math.Clamp(task.ProgressPercent, 0, 100),
+                Math.Max(0, task.MinutesToday),
+                task.IsDone,
+                task.IsClockedInNow,
+                ClampPercent(task.TodayFromPercent),
+                ClampPercent(task.TodayToPercent),
+                task.FirstClockInAtUtc,
+                task.LastActivityAtUtc))
+            .ToList();
+
+        await ReplyDailyTasks(new DailyTasksResultPayload(
+            true, null, day.WorkDate, day.TotalMinutes, day.TaskCount, day.DoneCount, tasks));
+
+        Task ReplyDailyTasks(DailyTasksResultPayload payload) => reply(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.DailyTasksResult,
+            CorrelationId = envelope.CorrelationId,
+            Payload = JsonSerializer.SerializeToElement(payload)
+        });
+
+        static string Truncate(string value, int max) =>
+            value.Length <= max ? value : value[..(max - 1)] + "…";
+
+        static int? ClampPercent(int? value) => value is int v ? Math.Clamp(v, 0, 100) : null;
     }
 
     internal async Task HandleLocationChangeRespondAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)

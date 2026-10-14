@@ -8,8 +8,12 @@ public sealed partial class PrivacyTransparencyViewModel : BaseViewModel
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
     private bool _hasAgreed;
 
-    public PrivacyTransparencyViewModel()
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
+    public PrivacyTransparencyViewModel(ServiceConnectionStatus? connection = null)
     {
+        Connection = connection ?? new ServiceConnectionStatus();
         Title = "Privacy & Transparency";
     }
 

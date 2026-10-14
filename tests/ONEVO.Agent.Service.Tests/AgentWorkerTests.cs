@@ -125,6 +125,44 @@ public class AgentWorkerTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteClockIn_BackendSaysAlreadyClockedOut_ReturnsStableCodeAndRestoresFinishedDay()
+    {
+        var policyCache = new PolicyCache();
+        policyCache.Set(new AgentPolicy { Version = "v1", TrayClockInEnabled = true, ValidUntil = DateTimeOffset.UtcNow.AddHours(1) });
+        // One clock read so the day is exactly 8h long (two UtcNow reads drift by microseconds).
+        var now = DateTimeOffset.UtcNow;
+        var dayIn = now.AddHours(-9);
+        var dayOut = now.AddHours(-1);
+        var handler = new StubHandler(request => request.RequestUri!.AbsolutePath == AgentApiRoutes.TrayClockIn
+            ? new HttpResponseMessage(HttpStatusCode.Conflict)
+            {
+                Content = System.Net.Http.Json.JsonContent.Create(new { status = 409, detail = "already_clocked_out" })
+            }
+            : new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = System.Net.Http.Json.JsonContent.Create(new
+                {
+                    is_clocked_in = false,
+                    completed_break_minutes = 30,
+                    day_clocked_in_at_utc = dayIn,
+                    day_clocked_out_at_utc = dayOut,
+                })
+            });
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var worker = CreateSut(policyCache: policyCache, apiClient: apiClient, allowLocalLifecycleWithoutFullGates: true);
+
+        var result = await SendLifecycleAsync(worker, LifecycleAction.ClockIn);
+
+        Assert.False(result.Success);
+        Assert.Equal(ClockActionErrorCodes.AlreadyClockedOut, result.ErrorCode);
+        Assert.Equal(MonitoringState.Stopped, result.State);
+        Assert.Equal(dayIn, result.Session!.ClockInAt);
+        Assert.Equal(dayOut, result.Session.ClockOutAt);
+        Assert.Equal(TimeSpan.FromMinutes(30), result.Session.AccumulatedBreak);
+        Assert.Equal(TimeSpan.FromHours(8) - TimeSpan.FromMinutes(30), result.Session.AccumulatedWork);
+    }
+
+    [Fact]
     public async Task ExecuteClockIn_NoDeviceJwt_ReturnsUnenrolledWithoutCallingBackend()
     {
         var policyCache = new PolicyCache();
@@ -200,6 +238,83 @@ public class AgentWorkerTests : IDisposable
         Assert.False(result!.Success);
         Assert.Equal("UNENROLLED", result.ErrorCode);
         Assert.Null(result.Request);
+    }
+
+    [Fact]
+    public async Task HandleDailyTasksRequest_NoDeviceJwt_ReturnsUnenrolledWithoutCallingBackend()
+    {
+        var handler = new StubHandler(_ => throw new InvalidOperationException("must not call backend without a device JWT"));
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var worker = CreateSut(apiClient: apiClient, storeDeviceJwt: false);
+
+        var result = await RequestDailyTasks(worker);
+
+        Assert.False(result.Success);
+        Assert.Equal("UNENROLLED", result.ErrorCode);
+        Assert.Empty(result.Tasks);
+    }
+
+    [Fact]
+    public async Task HandleDailyTasksRequest_ForwardsBackendTasks_AndTrimsLongTitles()
+    {
+        var longTitle = new string('x', 300);
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent($$"""
+                {"work_date":"2026-10-13","total_minutes":95,"task_count":2,"done_count":1,"tasks":[
+                  {"task_id":"{{Guid.NewGuid()}}","short_id":"T-7","title":"{{longTitle}}","project_name":"Apollo",
+                   "status_name":"Done","status_color":"#22C55E","progress_percent":100,"minutes_today":60,
+                   "is_done":true,"is_clocked_in_now":false,"today_from_percent":40,"today_to_percent":100},
+                  {"task_id":"{{Guid.NewGuid()}}","short_id":"T-8","title":"Review PR","project_name":null,
+                   "status_name":"In Progress","status_color":"#3B82F6","progress_percent":40,"minutes_today":35,
+                   "is_done":false,"is_clocked_in_now":true}]}
+                """, System.Text.Encoding.UTF8, "application/json")
+        });
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var worker = CreateSut(apiClient: apiClient);
+
+        var result = await RequestDailyTasks(worker);
+
+        Assert.True(result.Success);
+        Assert.Equal(new DateOnly(2026, 10, 13), result.WorkDate);
+        Assert.Equal(95, result.TotalMinutes);
+        Assert.Equal(1, result.DoneCount);
+        Assert.Equal(2, result.Tasks.Count);
+        Assert.Equal(DailyTaskItemPayload.MaxTitleLength, result.Tasks[0].Title.Length);
+        Assert.True(result.Tasks[1].IsClockedInNow);
+        Assert.Equal("In Progress", result.Tasks[1].StatusName);
+        Assert.Equal(40, result.Tasks[0].TodayFromPercent);
+        Assert.Equal(100, result.Tasks[0].TodayToPercent);
+        Assert.Null(result.Tasks[1].TodayFromPercent);
+    }
+
+    [Fact]
+    public async Task HandleDailyTasksRequest_BackendFailure_ReturnsServiceUnavailable()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var worker = CreateSut(apiClient: apiClient);
+
+        var result = await RequestDailyTasks(worker);
+
+        Assert.False(result.Success);
+        Assert.Equal("SERVICE_UNAVAILABLE", result.ErrorCode);
+    }
+
+    private static async Task<DailyTasksResultPayload> RequestDailyTasks(AgentWorker worker)
+    {
+        DailyTasksResultPayload? result = null;
+        await worker.HandleDailyTasksRequestAsync(
+            new IpcEnvelope { Type = IpcMessageTypes.DailyTasksRequest, CorrelationId = "c1" },
+            reply =>
+            {
+                Assert.Equal("c1", reply.CorrelationId);
+                if (reply.Type == IpcMessageTypes.DailyTasksResult)
+                    result = reply.Payload!.Value.Deserialize<DailyTasksResultPayload>();
+                return Task.CompletedTask;
+            });
+        Assert.NotNull(result);
+        return result!;
     }
 
     private sealed class StubHttpClientFactory : IHttpClientFactory

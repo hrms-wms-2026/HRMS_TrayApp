@@ -1,3 +1,4 @@
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Shared.Models;
 using Xunit;
@@ -385,5 +386,100 @@ public sealed class PresenceSessionTests
         Assert.Equal(TimeSpan.FromHours(2), snap.AccumulatedIdle);
         Assert.Equal(TimeSpan.Zero, snap.AccumulatedWork);
         Assert.False(snap.IsIdle);
+    }
+
+    [Fact]
+    public void RestoreCompletedDay_RebuildsFinishedDayTotals()
+    {
+        var session = new PresenceSession();
+        var clockIn = new DateTimeOffset(2026, 10, 13, 3, 30, 0, TimeSpan.Zero);
+        var clockOut = clockIn.AddHours(9);
+
+        session.RestoreCompletedDay(clockIn, clockOut, TimeSpan.FromMinutes(45), TimeSpan.FromMinutes(15), 2);
+        var snap = session.Snapshot(clockOut.AddHours(3));
+
+        Assert.False(session.HasActiveSession);
+        Assert.Equal(clockIn, snap.ClockInAt);
+        Assert.Equal(clockOut, snap.ClockOutAt);
+        Assert.Equal(TimeSpan.FromHours(8), snap.AccumulatedWork);
+        Assert.Equal(2, snap.BreakSessionCount);
+    }
+
+    [Fact]
+    public void RestoreCompletedDay_IgnoredWhileSessionIsOpen()
+    {
+        var session = new PresenceSession();
+        var clockIn = DateTimeOffset.UtcNow.AddHours(-1);
+        session.ClockIn(clockIn);
+
+        session.RestoreCompletedDay(clockIn.AddHours(-9), clockIn.AddHours(-1), TimeSpan.Zero, TimeSpan.Zero, 0);
+
+        Assert.True(session.HasActiveSession);
+        Assert.Equal(clockIn, session.Snapshot(DateTimeOffset.UtcNow).ClockInAt);
+    }
+
+    [Fact]
+    public void Snapshot_ReportsBreakIntervalsInOrder_WithOpenOneEndingNow()
+    {
+        var session = new PresenceSession();
+        var t0 = new DateTimeOffset(2026, 10, 13, 9, 30, 0, TimeSpan.Zero);
+        session.ClockIn(t0);
+        session.StartBreak(t0.AddHours(2));
+        session.EndBreak(t0.AddHours(2.5));
+        session.StartBreak(t0.AddHours(4));
+
+        var now = t0.AddHours(4.25);
+        var pauses = session.Snapshot(now).Pauses;
+
+        Assert.NotNull(pauses);
+        Assert.Equal(2, pauses!.Count);
+        Assert.Equal(new SessionPauseInterval(SessionPauseInterval.Break, t0.AddHours(2), t0.AddHours(2.5)), pauses[0]);
+        Assert.Equal(new SessionPauseInterval(SessionPauseInterval.Break, t0.AddHours(4), now), pauses[1]);
+    }
+
+    [Fact]
+    public void ClockIn_ClearsPreviousDayIntervals()
+    {
+        var session = new PresenceSession();
+        var t0 = new DateTimeOffset(2026, 10, 13, 9, 0, 0, TimeSpan.Zero);
+        session.ClockIn(t0);
+        session.StartBreak(t0.AddHours(1));
+        session.EndBreak(t0.AddHours(2));
+        session.ClockOut(t0.AddHours(8));
+
+        session.ClockIn(t0.AddDays(1));
+
+        Assert.Empty(session.Snapshot(t0.AddDays(1).AddMinutes(1)).Pauses!);
+    }
+
+    [Fact]
+    public void RestoredDay_WithPauseTotals_ReportsIntervalsAsUnknown()
+    {
+        var session = new PresenceSession();
+        var t0 = new DateTimeOffset(2026, 10, 13, 9, 0, 0, TimeSpan.Zero);
+        session.RestoreCompletedDay(t0, t0.AddHours(8), TimeSpan.FromHours(1), TimeSpan.Zero, 1);
+
+        Assert.Null(session.Snapshot(t0.AddHours(9)).Pauses);
+    }
+
+    [Fact]
+    public void Intervals_AreBounded_DroppingTheShortest()
+    {
+        var session = new PresenceSession();
+        var t0 = new DateTimeOffset(2026, 10, 13, 6, 0, 0, TimeSpan.Zero);
+        session.ClockIn(t0);
+        var cursor = t0;
+        for (var i = 0; i < SessionPauseInterval.MaxPerSession + 5; i++)
+        {
+            cursor = cursor.AddMinutes(5);
+            session.StartBreak(cursor);
+            // The very first break is the longest and must survive the trimming.
+            cursor = cursor.AddMinutes(i == 0 ? 30 : 1);
+            session.EndBreak(cursor);
+        }
+
+        var pauses = session.Snapshot(cursor.AddMinutes(1)).Pauses!;
+        Assert.Equal(SessionPauseInterval.MaxPerSession, pauses.Count);
+        Assert.Equal(TimeSpan.FromMinutes(30), pauses[0].EndedAt - pauses[0].StartedAt);
     }
 }

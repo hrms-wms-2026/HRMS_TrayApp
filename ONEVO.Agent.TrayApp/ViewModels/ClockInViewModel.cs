@@ -19,12 +19,12 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 
     [ObservableProperty] private string _liveTimer        = "00:00:00";
     [ObservableProperty] private string _workingStatus    = "Ready";
-    [ObservableProperty] private string _connectionStatus = "Connected";
-    [ObservableProperty] private string _internetStatus   = "Excellent Connection";
-    [ObservableProperty] private string _deviceType       = "Windows Desktop";
-    [ObservableProperty] private bool   _isConnected      = true;
-    [ObservableProperty] private string _workspaceStatus  = "Secure";
-    [ObservableProperty] private string _policiesStatus   = "All policies active";
+    [ObservableProperty] private string _connectionStatus = "Connecting…";
+    [ObservableProperty] private string _internetStatus   = "Checking…";
+    [ObservableProperty] private string _deviceType       = DeviceKind.Display();
+    [ObservableProperty] private bool   _isConnected;
+    [ObservableProperty] private string _workspaceStatus  = "Connecting…";
+    [ObservableProperty] private string _policiesStatus   = "Waiting for policy";
 
     [ObservableProperty] private string _scheduleDisplay  = "Not configured";
     [ObservableProperty] private bool _isStartConfirmVisible;
@@ -34,7 +34,10 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 
     private AgentPolicy? _currentPolicy;
 
-    public ClockInViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
+    private readonly ServiceConnectionStatus _connection;
+
+    public ClockInViewModel(INamedPipeClient pipe, IPreferencesStore preferences,
+        ServiceConnectionStatus? connection = null)
     {
         Title       = "Ready to Start Work";
         _pipe       = pipe;
@@ -42,7 +45,10 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         Greeting    = GetGreeting();
         _currentPolicy = pipe.LastKnownPolicy;
         if (_currentPolicy is not null)
+        {
             ScheduleDisplay = _currentPolicy.ScheduleDisplay;
+            PoliciesStatus = PolicyLoadedText;
+        }
         _pipe.OnPolicyReceived += HandlePolicyReceived;
         LoadEmployeeName();
 
@@ -58,20 +64,23 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         }
         catch { /* no MAUI Connectivity host in unit tests — keep static default */ }
 
-        _pipe.OnDisconnected += OnDisconnected;
-        _pipe.OnStateReceived += _ =>
-        {
-            try
-            {
-                MainThread.BeginInvokeOnMainThread(() =>
-                {
-                    IsConnected = true;
-                    ConnectionStatus = "Connected";
-                    WorkspaceStatus = "Secure";
-                });
-            }
-            catch { /* unit tests */ }
-        };
+        // The shared tracker has seen every pipe transition since startup; LastKnownStatus is
+        // never cleared on disconnect, so it can't tell us whether the Service is up right now.
+        _connection = connection ?? new ServiceConnectionStatus(pipe);
+        ApplyConnection();
+        _connection.PropertyChanged += OnConnectionChanged;
+    }
+
+    private const string PolicyLoadedText = "Policy loaded";
+
+    private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) =>
+        ApplyConnection();
+
+    private void ApplyConnection()
+    {
+        IsConnected = _connection.IsConnected;
+        ConnectionStatus = _connection.Label;
+        WorkspaceStatus = _connection.Label;
     }
 
     public void OnAppearing()
@@ -85,7 +94,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         // construction, or the previous employee's name survives sign-out.
         LoadEmployeeName();
         WorkLocation = EmployeeSession.WorkLocation(_preferences, _currentPolicy);
-        DeviceType = "Windows Desktop";
+        DeviceType = DeviceKind.Display();
     }
 
     private void LoadEmployeeName()
@@ -94,20 +103,6 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
         var fallbackName = string.IsNullOrWhiteSpace(Environment.UserName) ? "Employee" : Environment.UserName;
         try { EmployeeName = EmployeeSession.Name(_preferences, fallbackName); }
         catch { EmployeeName = fallbackName; }
-    }
-
-    private void OnDisconnected()
-    {
-        try
-        {
-            MainThread.BeginInvokeOnMainThread(() =>
-            {
-                IsConnected = false;
-                ConnectionStatus = "Offline";
-                WorkspaceStatus = "Offline";
-            });
-        }
-        catch { /* unit tests */ }
     }
 
     private void TickClock()
@@ -135,8 +130,13 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     private void HandlePolicyReceived(AgentPolicy policy)
     {
         _currentPolicy = policy;
-        try { MainThread.BeginInvokeOnMainThread(() => ScheduleDisplay = policy.ScheduleDisplay); }
-        catch { ScheduleDisplay = policy.ScheduleDisplay; }
+        void Apply()
+        {
+            ScheduleDisplay = policy.ScheduleDisplay;
+            PoliciesStatus = PolicyLoadedText;
+        }
+        try { MainThread.BeginInvokeOnMainThread(Apply); }
+        catch { Apply(); }
     }
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
@@ -149,7 +149,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
     {
         InternetStatus = access switch
         {
-            NetworkAccess.Internet => "Excellent",
+            NetworkAccess.Internet => "Online",
             NetworkAccess.ConstrainedInternet => "Limited Connection",
             NetworkAccess.Local => "No Internet Access",
             _ => "No Connection"
@@ -201,6 +201,14 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
             if (result is null)
             {
                 ErrorMessage = "No response from OneXso Agent Service. Is the service running?";
+                return;
+            }
+
+            if (result.ErrorCode == ClockActionErrorCodes.AlreadyClockedOut)
+            {
+                // Today is already finished — show the finished-day screen, not an error.
+                try { await Shell.Current.GoToAsync(SetupFlow.End); }
+                catch { /* unit tests */ }
                 return;
             }
 
@@ -272,7 +280,7 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 
     public void Dispose()
     {
-        _pipe.OnDisconnected   -= OnDisconnected;
+        _connection.PropertyChanged -= OnConnectionChanged;
         _pipe.OnPolicyReceived -= HandlePolicyReceived;
         try { Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged; }
         catch { /* unit tests */ }

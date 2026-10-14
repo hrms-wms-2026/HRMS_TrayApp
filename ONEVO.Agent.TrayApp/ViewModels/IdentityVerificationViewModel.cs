@@ -32,8 +32,13 @@ public sealed partial class IdentityVerificationViewModel : BaseViewModel
     public double MatchProgress => MatchPercentage / 100;
     public bool HasVerificationPhoto => VerificationPhotoSource is not null;
 
-    public IdentityVerificationViewModel(CapturedPhotoBuffer photoBuffer, IPreferencesStore? preferences = null)
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
+    public IdentityVerificationViewModel(CapturedPhotoBuffer photoBuffer, IPreferencesStore? preferences = null,
+        ServiceConnectionStatus? connection = null)
     {
+        Connection = connection ?? new ServiceConnectionStatus();
         Title = "Verify Your Identity";
         _photoBuffer = photoBuffer;
         _preferences = preferences;

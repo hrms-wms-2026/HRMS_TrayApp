@@ -36,6 +36,9 @@ public interface ISessionDayMetrics
 
     IReadOnlyList<double> GetHourlyFocusFractions();
 
+    /// <summary>Local clock hour (0-23) with the most focus time today, or null when none was tracked.</summary>
+    int? GetPeakFocusHour() => null;
+
     IReadOnlyList<SessionScreenshot> GetAllowedScreenshots();
 
     IReadOnlyList<SessionScreenshot> GetActivityChecks();

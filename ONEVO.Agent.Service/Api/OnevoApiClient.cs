@@ -360,7 +360,51 @@ public sealed class OnevoApiClient
         return new AttendanceStatusResult(
             true, null, payload.IsClockedIn, payload.ClockedInAtUtc,
             payload.IsOnBreak, payload.BreakStartedAtUtc,
-            payload.CanStartBreak ?? true, payload.BreakAllowanceMinutes, payload.CompletedBreakMinutes);
+            payload.CanStartBreak ?? true, payload.BreakAllowanceMinutes, payload.CompletedBreakMinutes,
+            payload.DayClockedInAtUtc, payload.DayClockedOutAtUtc);
+    }
+
+    /// <summary>Fetches the tasks this employee clocked in on today. Auth: Bearer Device JWT.</summary>
+    public async Task<DailyTasksResult> GetDailyTasksAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.TrayDailyTasks);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.TrayDailyTasks);
+            return new DailyTasksResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized)
+            return new DailyTasksResult(false, "UNAUTHORIZED", null);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("OnevoApi call to {Route} returned {Status}", AgentApiRoutes.TrayDailyTasks, (int)response.StatusCode);
+            return new DailyTasksResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        TrayDailyTasksPayload? payload;
+        try
+        {
+            payload = await response.Content.ReadFromJsonAsync<TrayDailyTasksPayload>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi response from {Route} could not be parsed", AgentApiRoutes.TrayDailyTasks);
+            return new DailyTasksResult(false, "SERVICE_UNAVAILABLE", null);
+        }
+
+        return payload is null
+            ? new DailyTasksResult(false, "SERVICE_UNAVAILABLE", null)
+            : new DailyTasksResult(true, null, payload);
     }
 
     /// <summary>Clocks in via the tray, backend-enforced. Auth: Bearer Device JWT.</summary>
@@ -405,7 +449,12 @@ public sealed class OnevoApiClient
         if (response.StatusCode is HttpStatusCode.Conflict)
         {
             var detail = await TryReadProblemDetailAsync(response, ct);
-            return new ClockActionResult(false, "CONFLICT", detail);
+            // The backend's machine code for "today's attendance is already closed". Give it a
+            // stable error code so the tray can route to the finished-day screen instead of
+            // showing a raw backend string.
+            return string.Equals(detail, "already_clocked_out", StringComparison.OrdinalIgnoreCase)
+                ? new ClockActionResult(false, ClockActionErrorCodes.AlreadyClockedOut, "You've already clocked out for today.")
+                : new ClockActionResult(false, "CONFLICT", detail);
         }
 
         if (!response.IsSuccessStatusCode)
@@ -1143,7 +1192,35 @@ public sealed record TrayAttendanceStatusPayload(
     [property: JsonPropertyName("break_started_at_utc")] DateTimeOffset? BreakStartedAtUtc = null,
     [property: JsonPropertyName("can_start_break")] bool? CanStartBreak = null,
     [property: JsonPropertyName("break_allowance_minutes")] int? BreakAllowanceMinutes = null,
-    [property: JsonPropertyName("completed_break_minutes")] int CompletedBreakMinutes = 0);
+    [property: JsonPropertyName("completed_break_minutes")] int CompletedBreakMinutes = 0,
+    [property: JsonPropertyName("day_clocked_in_at_utc")] DateTimeOffset? DayClockedInAtUtc = null,
+    [property: JsonPropertyName("day_clocked_out_at_utc")] DateTimeOffset? DayClockedOutAtUtc = null);
+
+/// <summary>Wire-format mirror of the backend's TrayDailyTasksDto.</summary>
+public sealed record TrayDailyTasksPayload(
+    [property: JsonPropertyName("work_date")] DateOnly WorkDate,
+    [property: JsonPropertyName("total_minutes")] int TotalMinutes,
+    [property: JsonPropertyName("task_count")] int TaskCount,
+    [property: JsonPropertyName("done_count")] int DoneCount,
+    [property: JsonPropertyName("tasks")] IReadOnlyList<TrayDailyTaskPayload>? Tasks);
+
+public sealed record TrayDailyTaskPayload(
+    [property: JsonPropertyName("task_id")] Guid TaskId,
+    [property: JsonPropertyName("short_id")] string? ShortId,
+    [property: JsonPropertyName("title")] string? Title,
+    [property: JsonPropertyName("project_name")] string? ProjectName,
+    [property: JsonPropertyName("status_name")] string? StatusName,
+    [property: JsonPropertyName("status_color")] string? StatusColor,
+    [property: JsonPropertyName("progress_percent")] int ProgressPercent,
+    [property: JsonPropertyName("minutes_today")] int MinutesToday,
+    [property: JsonPropertyName("is_done")] bool IsDone,
+    [property: JsonPropertyName("is_clocked_in_now")] bool IsClockedInNow,
+    [property: JsonPropertyName("today_from_percent")] int? TodayFromPercent = null,
+    [property: JsonPropertyName("today_to_percent")] int? TodayToPercent = null,
+    [property: JsonPropertyName("first_clock_in_at_utc")] DateTimeOffset? FirstClockInAtUtc = null,
+    [property: JsonPropertyName("last_activity_at_utc")] DateTimeOffset? LastActivityAtUtc = null);
+
+public sealed record DailyTasksResult(bool Success, string? ErrorCode, TrayDailyTasksPayload? Payload);
 
 public sealed record AttendanceStatusResult(
     bool Success,
@@ -1154,7 +1231,9 @@ public sealed record AttendanceStatusResult(
     DateTimeOffset? BreakStartedAtUtc = null,
     bool CanStartBreak = true,
     int? BreakAllowanceMinutes = null,
-    int CompletedBreakMinutes = 0);
+    int CompletedBreakMinutes = 0,
+    DateTimeOffset? DayClockedInAtUtc = null,
+    DateTimeOffset? DayClockedOutAtUtc = null);
 
 public sealed record ClockActionResult(bool Success, string? ErrorCode, string? Message);
 

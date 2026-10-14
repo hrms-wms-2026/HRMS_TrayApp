@@ -111,6 +111,16 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             .ToList();
     }
 
+    public int? GetPeakFocusHour()
+    {
+        var snapshot = _hourlyFocus.ToArray();
+        if (snapshot.Length == 0)
+            return null;
+
+        var peak = snapshot.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key).First();
+        return peak.Value > TimeSpan.Zero ? peak.Key : null;
+    }
+
     public IReadOnlyList<SessionScreenshot> GetAllowedScreenshots()
     {
         lock (_gate)
