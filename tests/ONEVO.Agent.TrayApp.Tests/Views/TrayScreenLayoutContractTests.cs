@@ -19,8 +19,8 @@ public sealed class TrayScreenLayoutContractTests
         yield return ["ONEVO.Agent.TrayApp/Views/IdentityVerificationPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml"];
         yield return ["ONEVO.Agent.TrayApp/Views/EndSessionPage.xaml"];
-        // Daily Summary is a fixed one-screen dashboard. Its only ScrollView is the
-        // horizontal screenshot strip, asserted in DailySummaryPage_FitsOneScreen.
+        // Daily Summary is a fixed one-screen dashboard. Its ScrollViews (horizontal screenshot
+        // strip, vertical task list) are asserted in DailySummaryPage_FitsOneScreen.
     }
 
     [Fact]
@@ -314,6 +314,24 @@ public sealed class TrayScreenLayoutContractTests
         Assert.DoesNotContain("Continue Working", xaml, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("ONEVO.Agent.TrayApp/Views/ActiveSessionPage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/LegalConsentPage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/PrepareWorkspacePage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/PrivacyTransparencyPage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/IdentityVerificationPage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/PhotoCaptureWindow.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/PrivacyConsentPage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/ReviewSetupPage.xaml")]
+    [InlineData("ONEVO.Agent.TrayApp/Views/WorkLocationPage.xaml")]
+    public void FooterConnection_IsBoundToServiceState(string relativePath)
+    {
+        var xaml = ReadSource(relativePath);
+        Assert.Contains("IsConnected=\"{Binding Connection.IsConnected}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsConnected=\"True\"", xaml, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void EndSessionPage_MatchesWorkdayCompletedMock()
     {
@@ -326,7 +344,10 @@ public sealed class TrayScreenLayoutContractTests
         // the window stayed on yesterday's completed-session snapshot with no way back in.
         Assert.Contains("BackCommand", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Download Summary", xaml, StringComparison.Ordinal);
-        Assert.Contains("Synced to OneXso Cloud", xaml, StringComparison.Ordinal);
+        // Cloud sync card and footer connection are driven by real Service state, not static text.
+        Assert.Contains("{Binding SyncTitle}", xaml, StringComparison.Ordinal);
+        Assert.Contains("{Binding Connection.IsConnected}", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsConnected=\"True\"", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_end_check.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_end_briefcase.png", xaml, StringComparison.Ordinal);
         Assert.Contains("icon_end_coffee.png", xaml, StringComparison.Ordinal);
@@ -345,34 +366,43 @@ public sealed class TrayScreenLayoutContractTests
         var xaml = ReadSource("ONEVO.Agent.TrayApp/Views/DailySummaryPage.xaml");
         Assert.Contains("Daily ", xaml, StringComparison.Ordinal);
         Assert.Contains("Summary", xaml, StringComparison.Ordinal);
-        Assert.Contains("Total Focus Time", xaml, StringComparison.Ordinal);
-        Assert.Contains("Active Time", xaml, StringComparison.Ordinal);
-        Assert.Contains("Idle Time", xaml, StringComparison.Ordinal);
-        Assert.Contains("Total Break Time", xaml, StringComparison.Ordinal);
-        Assert.Contains("Work Pattern Insights", xaml, StringComparison.Ordinal);
+        // KPI row: Work Time + Daily Goal ring | Completed Tasks ring.
+        Assert.Contains("Text=\"Work Time\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Daily Goal\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding GoalRingSegments", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Completed Tasks\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding TaskRingSegments", xaml, StringComparison.Ordinal);
+        // Work Timeline: segments come from the Service's break/idle intervals.
+        Assert.Contains("Work Timeline", xaml, StringComparison.Ordinal);
+        Assert.Contains("WorkTimelineBar", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding TimelineSegments", xaml, StringComparison.Ordinal);
+        Assert.Contains("Clock-in", xaml, StringComparison.Ordinal);
+        Assert.Contains("Clock-out", xaml, StringComparison.Ordinal);
+        // Clock-out minus clock-in minus breaks (idle included) - distinct from the active-only Work Time.
+        Assert.Contains("Time on Clock (excl. breaks)", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Worked Time (excl. breaks)", xaml, StringComparison.Ordinal);
+        // Bottom row: schedule (real backend task clock-ins), app usage, screenshot grid.
+        Assert.Contains("Today's Schedule", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding Tasks}", xaml, StringComparison.Ordinal);
         Assert.Contains("App Used Time", xaml, StringComparison.Ordinal);
-        Assert.Contains("Most Productive Period", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding AppUsageRows", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Screenshots\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Binding ScreenshotTiles", xaml, StringComparison.Ordinal);
         Assert.Contains("Snapshots from your active working hours", xaml, StringComparison.Ordinal);
-        Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
-        Assert.Contains("View Full Report", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Done\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("View insights ›", xaml, StringComparison.Ordinal);
-        Assert.Contains("icon3d_clock.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("icon3d_monitor.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("icon3d_coffee.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("icon3d_stopwatch.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("icon3d_trophy.png", xaml, StringComparison.Ordinal);
-        Assert.Contains("FractionBar", xaml, StringComparison.Ordinal);
-        Assert.Contains("MultiSegmentDonutChart", xaml, StringComparison.Ordinal);
-        Assert.Contains("Binding Screenshots", xaml, StringComparison.Ordinal);
         Assert.Contains("Screenshot skipped", xaml, StringComparison.Ordinal);
         Assert.Contains("Binding IsSkipped", xaml, StringComparison.Ordinal);
         Assert.Contains("StatusRedSoft", xaml, StringComparison.Ordinal);
-        Assert.Contains("ColumnDefinitions=\"*,*,*,*\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("ColumnDefinitions=\"*,1.15*\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Orientation=\"Horizontal\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ColumnDefinitions=\"*,*,*\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Download Summary", xaml, StringComparison.Ordinal);
+        Assert.Contains("View Full Report", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Done\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("icon3d_trophy.png", xaml, StringComparison.Ordinal);
+        Assert.Contains("FractionBar", xaml, StringComparison.Ordinal);
+        Assert.Contains("MultiSegmentDonutChart", xaml, StringComparison.Ordinal);
+        // Only the schedule list scrolls; everything else fits one screen.
         Assert.Equal(1, CountOf(xaml, "<ScrollView"));
+        // No "vs yesterday" deltas: the tray has no previous-day data to back them.
+        Assert.DoesNotContain("vs. yesterday", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("ColumnDefinitions=\"*,*,*,*,*,*\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("SplitDonutChart", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Session Snapshot", xaml, StringComparison.Ordinal);
@@ -388,7 +418,6 @@ public sealed class TrayScreenLayoutContractTests
         Assert.DoesNotContain("Tasks Completed", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"Meetings\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("icon3d_people.png", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("icon3d_tasks.png", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("icon3d_meditation.png", xaml, StringComparison.Ordinal);
     }
 

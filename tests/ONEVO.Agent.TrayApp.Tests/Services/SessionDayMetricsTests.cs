@@ -142,4 +142,92 @@ public sealed class SessionDayMetricsTests
         metrics.ResetDay();
         Assert.Empty(metrics.GetHourlyFocusFractions());
     }
+
+    [Fact]
+    public void GetPeakFocusHour_ReturnsHourWithMostFocus_OrNullWhenEmpty()
+    {
+        var metrics = new SessionDayMetrics();
+        Assert.Null(metrics.GetPeakFocusHour());
+
+        var day = new DateTimeOffset(2026, 10, 13, 0, 0, 0, TimeSpan.Zero);
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(20), day.AddHours(9));
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(50), day.AddHours(14));
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(10), day.AddHours(16));
+
+        Assert.Equal(14, metrics.GetPeakFocusHour());
+    }
+
+    private static readonly DateTimeOffset MondayClockIn = DateTimeOffset.Parse("2026-10-12T09:00:00+05:30");
+    private static readonly DateTimeOffset TuesdayClockIn = DateTimeOffset.Parse("2026-10-13T09:00:00+05:30");
+
+    private static SessionDayMetrics MetricsWithMondayData()
+    {
+        var metrics = new SessionDayMetrics();
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(30), MondayClockIn.AddHours(1));
+        metrics.AddIdleSample(TimeSpan.FromMinutes(5));
+        metrics.AddAllowedScreenshot(Guid.NewGuid(), MondayClockIn.AddHours(2), new byte[] { 1 });
+        return metrics;
+    }
+
+    [Fact]
+    public void BeginSession_FirstCall_KeepsDataAlreadyCollected()
+    {
+        // Tray restarted mid-session: whatever it collected since launch belongs to this session.
+        var metrics = MetricsWithMondayData();
+
+        metrics.BeginSession(MondayClockIn);
+
+        Assert.Single(metrics.GetTopApps());
+        Assert.Equal(TimeSpan.FromMinutes(5), metrics.TotalIdle);
+        Assert.Single(metrics.GetActivityChecks());
+    }
+
+    [Fact]
+    public void BeginSession_SameClockIn_KeepsData()
+    {
+        var metrics = new SessionDayMetrics();
+        metrics.BeginSession(MondayClockIn);
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(30), MondayClockIn.AddHours(1));
+
+        metrics.BeginSession(MondayClockIn); // repeated status broadcast for the same session
+
+        Assert.Single(metrics.GetTopApps());
+        Assert.NotEmpty(metrics.GetHourlyFocusFractions());
+    }
+
+    [Fact]
+    public void BeginSession_NewClockIn_ClearsPreviousSessionData()
+    {
+        var metrics = new SessionDayMetrics();
+        metrics.BeginSession(MondayClockIn);
+        metrics.AddAppUsageSample("code.exe", TimeSpan.FromMinutes(30), MondayClockIn.AddHours(1));
+        metrics.AddIdleSample(TimeSpan.FromMinutes(5));
+        metrics.AddAllowedScreenshot(Guid.NewGuid(), MondayClockIn.AddHours(2), new byte[] { 1 });
+        metrics.AddSkippedScreenshot(Guid.NewGuid(), MondayClockIn.AddHours(3));
+
+        metrics.BeginSession(TuesdayClockIn);
+
+        Assert.Empty(metrics.GetTopApps());
+        Assert.Empty(metrics.GetHourlyFocusFractions());
+        Assert.Null(metrics.GetPeakFocusHour());
+        Assert.Equal(TimeSpan.Zero, metrics.TotalIdle);
+        Assert.Empty(metrics.GetActivityChecks());
+    }
+
+    [Fact]
+    public void BeginSession_NewClockIn_KeepsLastCompletedSession()
+    {
+        // App.xaml.cs compares a rebroadcast Stopped status against LastCompletedSession to avoid
+        // re-opening yesterday's summary, so starting a new session must not forget it.
+        var metrics = new SessionDayMetrics();
+        var monday = new ONEVO.Agent.Shared.IPC.SessionSnapshot(
+            MondayClockIn, MondayClockIn.AddHours(8), false, null,
+            TimeSpan.FromMinutes(30), TimeSpan.FromHours(7), null, 1);
+        metrics.BeginSession(MondayClockIn);
+        metrics.RememberCompletedSession(monday);
+
+        metrics.BeginSession(TuesdayClockIn);
+
+        Assert.Same(monday, metrics.LastCompletedSession);
+    }
 }

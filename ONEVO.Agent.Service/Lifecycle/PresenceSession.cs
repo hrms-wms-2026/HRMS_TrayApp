@@ -26,6 +26,7 @@ public sealed class PresenceSession
     private int? _breakAllowanceMinutes;
     private int _completedBreakMinutes;
     private bool _canStartBreak = true;
+    private readonly List<SessionPauseInterval> _pauses = [];
 
     public void SetBreakAllowance(bool canStartBreak, int? allowanceMinutes, int completedBreakMinutes)
     {
@@ -59,6 +60,7 @@ public sealed class PresenceSession
             _accumulatedBreak = TimeSpan.Zero;
             _accumulatedIdle = TimeSpan.Zero;
             _breakSessionCount = 0;
+            _pauses.Clear();
             _sessionId = Guid.NewGuid();
             _lastKnownActivityAt = at;
             _idleWatermark = at;
@@ -129,6 +131,34 @@ public sealed class PresenceSession
         }
     }
 
+    /// <summary>
+    /// Rebuilds a day that was already clocked out before this process started (Service restart),
+    /// so the tray's finished-day screen shows real totals. Ignored while a session is open.
+    /// </summary>
+    public void RestoreCompletedDay(
+        DateTimeOffset clockInAt,
+        DateTimeOffset clockOutAt,
+        TimeSpan accumulatedBreak,
+        TimeSpan accumulatedIdle,
+        int breakSessionCount)
+    {
+        lock (_lock)
+        {
+            if (_clockInAt is not null && _clockOutAt is null)
+                return;
+
+            _clockInAt = clockInAt;
+            _clockOutAt = clockOutAt;
+            _openPause = null;
+            _accumulatedBreak = accumulatedBreak < TimeSpan.Zero ? TimeSpan.Zero : accumulatedBreak;
+            _accumulatedIdle = accumulatedIdle < TimeSpan.Zero ? TimeSpan.Zero : accumulatedIdle;
+            _breakSessionCount = Math.Max(0, breakSessionCount);
+            _pauses.Clear();
+            _lastKnownActivityAt = clockOutAt;
+            _idleWatermark = clockOutAt;
+        }
+    }
+
     public void Clear()
     {
         lock (_lock)
@@ -139,6 +169,7 @@ public sealed class PresenceSession
             _accumulatedBreak = TimeSpan.Zero;
             _accumulatedIdle = TimeSpan.Zero;
             _breakSessionCount = 0;
+            _pauses.Clear();
         }
     }
 
@@ -236,7 +267,8 @@ public sealed class PresenceSession
                 CurrentIdleStartedAt: idleStart,
                 BreakAllowanceMinutes: _breakAllowanceMinutes,
                 CompletedBreakMinutes: _completedBreakMinutes,
-                CanStartBreak: _canStartBreak);
+                CanStartBreak: _canStartBreak,
+                Pauses: SnapshotPausesUnlocked(now));
         }
     }
 
@@ -289,8 +321,51 @@ public sealed class PresenceSession
             _idleWatermark = endedAt;
         }
 
+        RecordPauseUnlocked(open.Reason, open.StartedAt, open.StartedAt + duration);
         _openPause = null;
         _lastKnownActivityAt = endedAt;
+    }
+
+    private void RecordPauseUnlocked(PauseReason reason, DateTimeOffset start, DateTimeOffset end)
+    {
+        if (end <= start)
+            return;
+
+        var kind = reason == PauseReason.ManualBreak ? SessionPauseInterval.Break : SessionPauseInterval.Idle;
+        _pauses.Add(new SessionPauseInterval(kind, start, end));
+
+        // Bounded: on a very fragmented day the shortest stretch goes first, keeping the shape
+        // of the timeline. The accumulators above stay exact either way.
+        if (_pauses.Count > SessionPauseInterval.MaxPerSession)
+        {
+            var shortest = 0;
+            for (var i = 1; i < _pauses.Count; i++)
+            {
+                if (_pauses[i].EndedAt - _pauses[i].StartedAt < _pauses[shortest].EndedAt - _pauses[shortest].StartedAt)
+                    shortest = i;
+            }
+            _pauses.RemoveAt(shortest);
+        }
+    }
+
+    private IReadOnlyList<SessionPauseInterval>? SnapshotPausesUnlocked(DateTimeOffset now)
+    {
+        if (_clockInAt is null)
+            return null;
+        // A day restored after a Service restart has totals but no intervals: report "unknown"
+        // rather than an empty list the tray would draw as one unbroken active stretch.
+        if (_pauses.Count == 0 && _openPause is null
+            && (_accumulatedBreak > TimeSpan.Zero || _accumulatedIdle > TimeSpan.Zero))
+            return null;
+
+        var list = new List<SessionPauseInterval>(_pauses.Count + 1);
+        list.AddRange(_pauses);
+        if (_openPause is { } open && now > open.StartedAt)
+        {
+            var kind = open.Reason == PauseReason.ManualBreak ? SessionPauseInterval.Break : SessionPauseInterval.Idle;
+            list.Add(new SessionPauseInterval(kind, open.StartedAt, now));
+        }
+        return list;
     }
 
     private void ApplyGapIfNeededUnlocked(DateTimeOffset now)

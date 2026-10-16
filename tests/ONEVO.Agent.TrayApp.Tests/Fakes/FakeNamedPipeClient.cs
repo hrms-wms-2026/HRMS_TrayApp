@@ -266,6 +266,15 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
             NextLocationChangePendingResult ?? new LocationChangePendingResultPayload(true, null, null));
     }
 
+    /// <summary>Optional canned result for SendDailyTasksRequestAsync. Null = timeout/no reply.</summary>
+    public DailyTasksResultPayload? NextDailyTasksResult { get; set; }
+
+    public Task<DailyTasksResultPayload?> SendDailyTasksRequestAsync(CancellationToken ct)
+    {
+        SentEnvelopes.Add(new IpcEnvelope { Type = IpcMessageTypes.DailyTasksRequest });
+        return Task.FromResult(NextDailyTasksResult);
+    }
+
     /// <summary>Optional canned result for SendLocationChangeRespondAsync. Null = auto-success.</summary>
     public LocationChangeRespondResultPayload? NextLocationChangeRespondResult { get; set; }
 

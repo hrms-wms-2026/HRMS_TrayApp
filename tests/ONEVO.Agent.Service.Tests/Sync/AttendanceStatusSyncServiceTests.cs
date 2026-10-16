@@ -114,4 +114,26 @@ public class AttendanceStatusSyncServiceTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(_respond(request));
     }
+
+    [Fact]
+    public async Task PollOnceAsync_DayAlreadyClockedOut_RestoresCompletedDay()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                is_clocked_in = false,
+                day_clocked_in_at_utc = DateTimeOffset.UtcNow.AddHours(-8),
+                day_clocked_out_at_utc = DateTimeOffset.UtcNow.AddMinutes(-5),
+            })
+        });
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var reconciler = new RecordingPresenceReconciler();
+        var sut = new AttendanceStatusSyncService(
+            NullLogger<AttendanceStatusSyncService>.Instance, apiClient, new CredentialStore(), reconciler);
+
+        await sut.PollOnceAsync("device-jwt", CancellationToken.None);
+
+        Assert.Equal(["Stopped", "CompletedDay", "BreakAllowance"], reconciler.Calls);
+    }
 }

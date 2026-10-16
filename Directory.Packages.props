@@ -11,7 +11,8 @@
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.0" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <!-- 10.0.13+: SignalR.Common <= 10.0.12 is affected by CVE-2026-70159 (GHSA-334f-vvp4-7g6p). -->
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="9.0.0" />
     <!-- TrayApp -->
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />

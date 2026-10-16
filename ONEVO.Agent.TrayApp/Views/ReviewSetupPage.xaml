@@ -134,8 +134,7 @@
     </Grid>
 
     <controls:FooterStatusBar Grid.Row="1"
-                              VersionText="Version 1.0.0"
-                              ConnectionLabel="Connected"
-                              IsConnected="True" />
+                              ConnectionLabel="{Binding Connection.Label}"
+                              IsConnected="{Binding Connection.IsConnected}" />
   </Grid>
 </ContentPage>

@@ -15,8 +15,12 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     [ObservableProperty] private bool _notificationsEnabled  = true;
     [ObservableProperty] private bool _keyboardMouseEnabled  = true;
 
-    public PrivacyConsentViewModel(INamedPipeClient pipe)
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
+    public PrivacyConsentViewModel(INamedPipeClient pipe, ServiceConnectionStatus? connection = null)
     {
+        Connection = connection ?? new ServiceConnectionStatus();
         Title = "Allow Required Permissions";
         _pipe = pipe;
     }

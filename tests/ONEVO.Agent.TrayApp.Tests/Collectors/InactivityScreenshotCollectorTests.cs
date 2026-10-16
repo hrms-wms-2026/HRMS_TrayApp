@@ -560,6 +560,9 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public Task<LocationChangePendingResultPayload?> SendLocationChangePendingCheckAsync(CancellationToken ct) =>
         Task.FromResult<LocationChangePendingResultPayload?>(null);
 
+    public Task<DailyTasksResultPayload?> SendDailyTasksRequestAsync(CancellationToken ct) =>
+        Task.FromResult<DailyTasksResultPayload?>(null);
+
     public Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
         Guid id, bool apply, CancellationToken ct) =>
         Task.FromResult<LocationChangeRespondResultPayload?>(null);

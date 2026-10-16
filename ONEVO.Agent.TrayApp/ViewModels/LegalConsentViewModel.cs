@@ -14,9 +14,14 @@ public sealed partial class LegalConsentViewModel : BaseViewModel
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private bool _isSubmitting;
 
-    public LegalConsentViewModel(INamedPipeClient pipe, IPreferencesStore preferences)
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
+    public LegalConsentViewModel(INamedPipeClient pipe, IPreferencesStore preferences,
+        ServiceConnectionStatus? connection = null)
     {
         Title = "Before You Continue";
+        Connection = connection ?? new ServiceConnectionStatus();
         _pipe = pipe;
         _preferences = preferences;
         PendingDocuments = LoadPendingDocuments();

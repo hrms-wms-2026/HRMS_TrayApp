@@ -20,32 +20,43 @@ public sealed class ClockInViewModelTests
     }
 
     [Fact]
-    public void ConnectionStatus_DefaultsConnected()
+    public void ConnectionStatus_StartsConnecting_UntilServiceReplies()
     {
-        var vm = Make();
+        var pipe = new FakeNamedPipeClient();
+        var vm = Make(pipe);
+        Assert.False(vm.IsConnected);
+        Assert.Equal("Connecting…", vm.ConnectionStatus);
+        Assert.Equal("Connecting…", vm.WorkspaceStatus);
+
+        pipe.SimulateStatus(new StatusResponsePayload(MonitoringState.Stopped, DateTimeOffset.UtcNow));
+        Assert.True(vm.IsConnected);
         Assert.Equal("Connected", vm.ConnectionStatus);
+        Assert.Equal("Connected", vm.WorkspaceStatus);
     }
 
     [Fact]
-    public void WorkspaceStatus_DefaultsSecure()
+    public void PoliciesStatus_WaitsForPolicy_ThenShowsLoaded()
     {
-        var vm = Make();
-        Assert.Equal("Secure", vm.WorkspaceStatus);
-        Assert.Equal("All policies active", vm.PoliciesStatus);
+        var pipe = new FakeNamedPipeClient();
+        var vm = Make(pipe);
+        Assert.Equal("Waiting for policy", vm.PoliciesStatus);
+
+        pipe.SimulatePolicy(new AgentPolicy { Version = "1" });
+        Assert.Equal("Policy loaded", vm.PoliciesStatus);
     }
 
     [Fact]
-    public void InternetStatus_DefaultsExcellentConnection()
+    public void InternetStatus_DoesNotClaimQualityItCannotMeasure()
     {
         var vm = Make();
-        Assert.Equal("Excellent", vm.InternetStatus);
+        Assert.DoesNotContain("Excellent", vm.InternetStatus);
     }
 
     [Fact]
-    public void DeviceType_DefaultsWindowsDesktop()
+    public void DeviceType_IsDetected_NotAssumed()
     {
         var vm = Make();
-        Assert.Equal("Windows Desktop", vm.DeviceType);
+        Assert.Contains(vm.DeviceType, new[] { "Windows Desktop", "Windows Laptop", "Windows PC" });
     }
 
     [Fact]
@@ -174,5 +185,22 @@ public sealed class ClockInViewModelTests
         vm.OnAppearing();
 
         Assert.Equal("Work From Home", vm.WorkLocation);
+    }
+
+    [Fact]
+    public async Task ClockInAsync_AlreadyClockedOut_DoesNotShowRawError()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextLifecycleResult = new LifecycleResultPayload(
+                false, ClockActionErrorCodes.AlreadyClockedOut, "You've already clocked out for today.",
+                MonitoringState.Stopped, null)
+        };
+        var vm = Make(pipe);
+
+        await vm.ClockInCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.False(vm.IsClockinIn);
     }
 }

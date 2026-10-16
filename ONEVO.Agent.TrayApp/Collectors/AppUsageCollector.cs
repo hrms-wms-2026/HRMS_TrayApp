@@ -15,21 +15,25 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
     private readonly INamedPipeClient _pipe;
     private readonly ISessionDayMetrics _dayMetrics;
     private readonly IAppIconCache _iconCache;
+    private readonly IIdleTimeProvider _idleTime;
     private CancellationTokenSource? _cts;
     private Task? _loop;
     private bool _running;
+    private int _idleThresholdSeconds = IdleDetector.DefaultIdleThresholdSeconds;
     private static readonly TimeSpan SampleWindow = TimeSpan.FromSeconds(60);
 
     public AppUsageCollector(
         ILogger<AppUsageCollector> logger,
         INamedPipeClient pipe,
         ISessionDayMetrics dayMetrics,
-        IAppIconCache iconCache)
+        IAppIconCache iconCache,
+        IIdleTimeProvider idleTime)
     {
         _logger     = logger;
         _pipe       = pipe;
         _dayMetrics = dayMetrics;
         _iconCache  = iconCache;
+        _idleTime   = idleTime;
     }
 
     public Task StartAsync(AgentPolicy policy, CancellationToken ct)
@@ -37,6 +41,10 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
         if (!policy.AppUsageEnabled || _running)
             return Task.CompletedTask;
 
+        // A zero threshold would mark every sample idle and drop all app time from the summary.
+        _idleThresholdSeconds = policy.IdleThresholdMinutes > 0
+            ? policy.IdleThresholdMinutes * 60
+            : IdleDetector.DefaultIdleThresholdSeconds;
         _cts     = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _loop    = SampleLoopAsync(_cts.Token);
         _running = true;
@@ -72,11 +80,8 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
             if (hwnd == IntPtr.Zero) return;
 
             string? processName = PrivacyScrubber.GetForegroundProcessNameSafe();
-            if (!string.IsNullOrWhiteSpace(processName))
-            {
-                _dayMetrics.AddAppUsageSample(processName, SampleWindow);
-                _iconCache.TryCacheFromForegroundWindow(hwnd, processName);
-            }
+            if (CountTowardDay(processName))
+                _iconCache.TryCacheFromForegroundWindow(hwnd, processName!);
 
             // Hash window title in memory immediately — raw title is never stored or sent (§8.3)
             var buf = new StringBuilder(512);
@@ -106,6 +111,23 @@ public sealed class AppUsageCollector : IAgentCollector, IAsyncDisposable
         {
             _logger.LogDebug(ex, "{Name}: sample failed", Name);
         }
+    }
+
+    /// <summary>
+    /// Adds this sample to the Daily Summary app time unless the user has been idle past the policy
+    /// threshold - the same idle the Service excludes from work time, so a window left open while
+    /// away doesn't count as app use or focus. Only the local summary is gated; the record sent to
+    /// the Service is unchanged.
+    /// </summary>
+    internal bool CountTowardDay(string? processName)
+    {
+        if (string.IsNullOrWhiteSpace(processName))
+            return false;
+        if (_idleTime.GetIdleSeconds() >= _idleThresholdSeconds)
+            return false;
+
+        _dayMetrics.AddAppUsageSample(processName, SampleWindow);
+        return true;
     }
 
     public async ValueTask DisposeAsync() => await StopAsync(CancellationToken.None);

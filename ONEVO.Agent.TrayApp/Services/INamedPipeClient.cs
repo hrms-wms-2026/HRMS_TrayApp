@@ -98,6 +98,12 @@ public interface INamedPipeClient
     Task<LocationChangePendingResultPayload?> SendLocationChangePendingCheckAsync(CancellationToken ct);
 
     /// <summary>
+    /// Asks the Service for today's task clock-ins (Daily Summary), waiting for the correlated
+    /// DailyTasksResult. Returns null on timeout or when the pipe is down.
+    /// </summary>
+    Task<DailyTasksResultPayload?> SendDailyTasksRequestAsync(CancellationToken ct);
+
+    /// <summary>
     /// Answers the "save this as your new location?" prompt and waits for the correlated
     /// LocationChangeRespondResult (or timeout).
     /// </summary>

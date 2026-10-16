@@ -59,7 +59,7 @@
               <Grid Grid.Column="2" RowDefinitions="Auto,32,Auto,Auto" RowSpacing="2">
                 <Image Source="icon_end_briefcase.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" HorizontalOptions="Center" />
                 <Label Grid.Row="1" Text="Total Work Duration" Style="{StaticResource EndSessionMetricLabel}" />
-                <Label Grid.Row="2" Text="{Binding WorkingTimeDisplay}" Style="{StaticResource EndSessionMetricValue}" />
+                <Label Grid.Row="2" Text="{Binding WorkDurationDisplay}" Style="{StaticResource EndSessionMetricValue}" />
                 <Label Grid.Row="3" Text="Hrs" Style="{StaticResource DeltaNeutral}" HorizontalOptions="Center" HorizontalTextAlignment="Center" />
               </Grid>
               <BoxView Grid.Column="3" WidthRequest="1" Color="{StaticResource Separator}" Margin="6,10" />
@@ -84,8 +84,8 @@
           <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
             <Image Source="icon_end_check.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
             <VerticalStackLayout Grid.Column="1">
-              <Label Text="Your work data has been securely saved." FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-              <Label Text="All logs, activity, and timesheets are recorded." FontSize="14" TextColor="{StaticResource TextSecondary}" />
+              <Label Text="{Binding SavedTitle}" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+              <Label Text="{Binding SavedCaption}" FontSize="14" TextColor="{StaticResource TextSecondary}" />
             </VerticalStackLayout>
             <Label Grid.Column="2" Text="{Binding SavedAtDisplay}" FontSize="13" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
           </Grid>
@@ -95,10 +95,10 @@
           <Grid ColumnDefinitions="36,*,Auto" ColumnSpacing="10">
             <Image Source="icon_end_cloud.png" WidthRequest="32" HeightRequest="32" Aspect="AspectFit" VerticalOptions="Center" />
             <VerticalStackLayout Grid.Column="1">
-              <Label Text="Synced to OneXso Cloud" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
-              <Label Text="Your data is backed up and available across your devices." FontSize="14" TextColor="{StaticResource TextSecondary}" />
+              <Label Text="{Binding SyncTitle}" FontAttributes="Bold" FontSize="13" TextColor="{StaticResource TextPrimary}" />
+              <Label Text="{Binding SyncCaption}" FontSize="14" TextColor="{StaticResource TextSecondary}" />
             </VerticalStackLayout>
-            <Label Grid.Column="2" Text="{Binding SavedAtDisplay}" FontSize="13" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+            <Label Grid.Column="2" Text="{Binding SyncTimeDisplay}" FontSize="13" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
           </Grid>
         </Border>
 
@@ -149,6 +149,8 @@
       </VerticalStackLayout>
     </Grid>
 
-    <controls:FooterStatusBar Grid.Row="1" VersionText="Version 1.0.0" ConnectionLabel="Connected" IsConnected="True" />
+    <controls:FooterStatusBar Grid.Row="1"
+                              ConnectionLabel="{Binding Connection.Label}"
+                              IsConnected="{Binding Connection.IsConnected}" />
   </Grid>
 </ContentPage>

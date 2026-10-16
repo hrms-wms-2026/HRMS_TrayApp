@@ -100,6 +100,9 @@ public sealed class AttendanceStatusSyncService : BackgroundService
         else
         {
             _reconciler.ApplyPresenceStopped(now);
+
+            if (result.DayClockedInAtUtc is { } dayIn && result.DayClockedOutAtUtc is { } dayOut)
+                _reconciler.ApplyCompletedDay(dayIn, dayOut, result.CompletedBreakMinutes);
         }
 
         _reconciler.ApplyBreakAllowance(result.CanStartBreak, result.BreakAllowanceMinutes, result.CompletedBreakMinutes);

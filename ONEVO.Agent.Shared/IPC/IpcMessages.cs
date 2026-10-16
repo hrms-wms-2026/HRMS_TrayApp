@@ -140,6 +140,12 @@ public static class IpcMessageTypes
 
     /// <summary>Service → Tray: result of a LegalAcceptanceSubmit call.</summary>
     public const string LegalAcceptanceResult = "LegalAcceptanceResult";
+
+    /// <summary>Tray → Service: fetch the tasks the employee clocked in on today (Daily Summary).</summary>
+    public const string DailyTasksRequest = "DailyTasksRequest";
+
+    /// <summary>Service → Tray: reply to DailyTasksRequest.</summary>
+    public const string DailyTasksResult = "DailyTasksResult";
 }
 
 public enum LifecycleAction
@@ -168,7 +174,21 @@ public sealed record SessionSnapshot(
     DateTimeOffset? CurrentIdleStartedAt = null,
     int? BreakAllowanceMinutes = null,
     int CompletedBreakMinutes = 0,
-    bool CanStartBreak = true);
+    bool CanStartBreak = true,
+    // Break/idle intervals of this session, oldest first (an open one ends at the snapshot time).
+    // Null from older Service builds or a day restored after a Service restart.
+    IReadOnlyList<SessionPauseInterval>? Pauses = null);
+
+/// <summary>One break or idle stretch inside a presence session. <see cref="Kind"/> is
+/// <see cref="Break"/> or <see cref="Idle"/>.</summary>
+public sealed record SessionPauseInterval(string Kind, DateTimeOffset StartedAt, DateTimeOffset EndedAt)
+{
+    public const string Break = "break";
+    public const string Idle = "idle";
+
+    /// <summary>Keeps the status reply well inside the IPC message cap on long, fragmented days.</summary>
+    public const int MaxPerSession = 48;
+}
 
 public sealed record StatusResponsePayload(
     MonitoringState State,
@@ -192,6 +212,13 @@ public sealed record LifecycleResultPayload(
     string? Message,
     MonitoringState State,
     SessionSnapshot? Session);
+
+/// <summary>Stable <see cref="LifecycleResultPayload.ErrorCode"/> values the tray branches on.</summary>
+public static class ClockActionErrorCodes
+{
+    /// <summary>Today's attendance is already closed; the tray shows the finished-day screen.</summary>
+    public const string AlreadyClockedOut = "ALREADY_CLOCKED_OUT";
+}
 
 public sealed record CollectionRecordSubmitPayload
 {
@@ -439,3 +466,39 @@ public sealed record LegalAcceptanceItemPayload(string DocumentType, string Vers
 public sealed record LegalAcceptanceSubmitPayload(IReadOnlyList<LegalAcceptanceItemPayload> Acceptances);
 
 public sealed record LegalAcceptanceResultPayload(bool Success, string? ErrorCode);
+
+public sealed record DailyTasksRequestPayload;
+
+/// <summary>Service → Tray: today's task clock-ins. Titles are trimmed to
+/// <see cref="DailyTaskItemPayload.MaxTitleLength"/> so the reply stays one bounded IPC line.</summary>
+public sealed record DailyTasksResultPayload(
+    bool Success,
+    string? ErrorCode,
+    DateOnly? WorkDate,
+    int TotalMinutes,
+    int TaskCount,
+    int DoneCount,
+    IReadOnlyList<DailyTaskItemPayload> Tasks);
+
+public sealed record DailyTaskItemPayload(
+    Guid TaskId,
+    string ShortId,
+    string Title,
+    string? ProjectName,
+    string? StatusName,
+    string? StatusColor,
+    int ProgressPercent,
+    int MinutesToday,
+    bool IsDone,
+    bool IsClockedInNow,
+    // Today's own pushes on this task: % before the first and after the last. Null = no push today
+    // (or an older Service build that doesn't send it).
+    int? TodayFromPercent = null,
+    int? TodayToPercent = null,
+    // First task clock-in and last activity on this task today (spans any gaps between its
+    // sessions). Null from an older Service build.
+    DateTimeOffset? FirstClockInAtUtc = null,
+    DateTimeOffset? LastActivityAtUtc = null)
+{
+    public const int MaxTitleLength = 120;
+}

@@ -16,4 +16,8 @@ public interface IPresenceReconciler
     /// <summary>Stores the company break allowance so the tray can lock Start Break
     /// and notify as soon as today's break time passes it.</summary>
     void ApplyBreakAllowance(bool canStartBreak, int? allowanceMinutes, int completedBreakMinutes);
+
+    /// <summary>The backend reports today's attendance already closed. Restores that finished day
+    /// into the local session if this process doesn't know it yet (e.g. after a restart).</summary>
+    void ApplyCompletedDay(DateTimeOffset clockedInAt, DateTimeOffset clockedOutAt, int completedBreakMinutes);
 }

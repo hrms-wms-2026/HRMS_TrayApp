@@ -5,13 +5,13 @@ namespace ONEVO.Agent.TrayApp.Controls;
 public partial class FooterStatusBar : ContentView
 {
     public static readonly BindableProperty VersionTextProperty =
-        BindableProperty.Create(nameof(VersionText), typeof(string), typeof(FooterStatusBar), "Version 1.0.0");
+        BindableProperty.Create(nameof(VersionText), typeof(string), typeof(FooterStatusBar), CurrentVersionText());
 
     public static readonly BindableProperty ConnectionLabelProperty =
-        BindableProperty.Create(nameof(ConnectionLabel), typeof(string), typeof(FooterStatusBar), "Connected");
+        BindableProperty.Create(nameof(ConnectionLabel), typeof(string), typeof(FooterStatusBar), "Connecting…");
 
     public static readonly BindableProperty IsConnectedProperty =
-        BindableProperty.Create(nameof(IsConnected), typeof(bool), typeof(FooterStatusBar), true);
+        BindableProperty.Create(nameof(IsConnected), typeof(bool), typeof(FooterStatusBar), false);
 
     public static readonly BindableProperty ShowSignOutProperty =
         BindableProperty.Create(nameof(ShowSignOut), typeof(bool), typeof(FooterStatusBar), false);
@@ -50,4 +50,15 @@ public partial class FooterStatusBar : ContentView
     }
 
     public FooterStatusBar() => InitializeComponent();
+
+    /// <summary>Installed app version (package/assembly), not a hardcoded string.</summary>
+    private static string CurrentVersionText()
+    {
+        try { return $"Version {Services.UpdateChecker.ToThreePartVersion(AppInfo.Current.VersionString)}"; }
+        catch
+        {
+            var v = typeof(FooterStatusBar).Assembly.GetName().Version;
+            return v is null ? "Version —" : $"Version {v.Major}.{v.Minor}.{v.Build}";
+        }
+    }
 }

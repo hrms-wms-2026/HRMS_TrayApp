@@ -21,8 +21,12 @@ public sealed partial class ReviewSetupViewModel : BaseViewModel
     public string FaceVerificationStatusText =>
         FaceVerificationCompleted ? "Enrolled" : "Pending";
 
-    public ReviewSetupViewModel(IPreferencesStore preferences)
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
+    public ReviewSetupViewModel(IPreferencesStore preferences, ServiceConnectionStatus? connection = null)
     {
+        Connection = connection ?? new ServiceConnectionStatus();
         Title = "Confirm Your Details";
         _preferences = preferences;
     }

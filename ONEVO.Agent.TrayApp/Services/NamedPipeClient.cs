@@ -531,6 +531,46 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public async Task<DailyTasksResultPayload?> SendDailyTasksRequestAsync(CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            var envelope = new IpcEnvelope
+            {
+                Type = IpcMessageTypes.DailyTasksRequest,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(new DailyTasksRequestPayload())
+            };
+            await WriteEnvelopeAsync(envelope, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            IpcEnvelope reply;
+            try
+            {
+                reply = await tcs.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("Daily tasks request timed out waiting for result");
+                return null;
+            }
+
+            return reply.Payload?.Deserialize<DailyTasksResultPayload>();
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
         Guid id, bool apply, CancellationToken ct)
     {

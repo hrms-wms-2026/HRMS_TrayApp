@@ -1,3 +1,5 @@
+using ONEVO.Agent.Shared.IPC;
+using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
@@ -6,10 +8,25 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 
 public sealed class PrepareWorkspaceViewModelTests
 {
+    private static FakeNamedPipeClient EnrolledPipe() => new()
+    {
+        LastKnownStatus = new StatusResponsePayload(MonitoringState.Stopped, DateTimeOffset.UtcNow),
+    };
+
     private static PrepareWorkspaceViewModel MakeVm(
         FakePreferencesStore? preferences = null,
-        FakeWorkLocationStore? workLocationStore = null) =>
-        new(preferences ?? new FakePreferencesStore(), workLocationStore ?? new FakeWorkLocationStore());
+        FakeWorkLocationStore? workLocationStore = null,
+        FakeNamedPipeClient? pipe = null) =>
+        new(preferences ?? new FakePreferencesStore(), workLocationStore ?? new FakeWorkLocationStore(),
+            pipe: pipe ?? EnrolledPipe());
+
+    private static FakePreferencesStore EnrolledPrefs()
+    {
+        var prefs = new FakePreferencesStore();
+        prefs.Set(SessionPreferenceKeys.EmployeeDisplayName, "Acme Owner");
+        prefs.Set(SessionPreferenceKeys.DeviceName, "ACME-PC");
+        return prefs;
+    }
 
     private static WorkLocationReference AReference() => new(
         WorkLocationKind.Office, "OFFICE", "Office",
@@ -124,7 +141,7 @@ public sealed class PrepareWorkspaceViewModelTests
     [Fact]
     public async Task LoadAsync_WithLocationAlreadySaved_DoesNotNeedLocationScreen()
     {
-        var vm = MakeVm(workLocationStore: new FakeWorkLocationStore { Value = AReference() });
+        var vm = MakeVm(EnrolledPrefs(), new FakeWorkLocationStore { Value = AReference() });
         await vm.LoadAsync(CancellationToken.None);
         Assert.False(vm.ShouldOpenLocation);
         Assert.True(vm.CanContinue);
@@ -133,7 +150,7 @@ public sealed class PrepareWorkspaceViewModelTests
     [Fact]
     public async Task LoadAsync_FinishesSettingUpAndMarksComplete()
     {
-        var prefs = new FakePreferencesStore();
+        var prefs = EnrolledPrefs();
         var vm = MakeVm(prefs, new FakeWorkLocationStore { Value = AReference() });
         await vm.LoadAsync(CancellationToken.None);
 
@@ -195,6 +212,56 @@ public sealed class PrepareWorkspaceViewModelTests
         Assert.True(vm.WelcomeWorkspaceDone);
         Assert.Equal("Acme Owner", vm.EmployeeFullName);
         Assert.Equal(100, vm.ProgressPercent);
+    }
+
+    [Fact]
+    public async Task WelcomeBack_ReportsRealCheckResults_NotInventedDurations()
+    {
+        var prefs = new FakePreferencesStore();
+        WorkLocationFlow.MarkSetupComplete(prefs);
+        prefs.Set("onevo.employee_display_name", "Acme Owner");
+        var vm = MakeVm(prefs, new FakeWorkLocationStore { Value = AReference() });
+
+        await vm.LoadAsync(CancellationToken.None);
+
+        // No Service connected and no policy pushed in this test: those checks must not pass.
+        Assert.False(vm.WelcomeServerDone);
+        Assert.Equal("WorkPulse service not reachable", vm.WelcomeServerStatus);
+        Assert.False(vm.WelcomePoliciesDone);
+        Assert.True(vm.WelcomeProfileDone);
+        Assert.Equal("Profile loaded", vm.WelcomeProfileStatus);
+        foreach (var d in new[] { vm.WelcomeServerDuration, vm.WelcomeProfileDuration, vm.WelcomeWorkspaceDuration })
+            Assert.DoesNotContain(d, new[] { "2.1s", "1.3s", "1.8s", "1.2s", "0.8s" });
+    }
+
+    [Fact]
+    public async Task SetupSteps_NotTickedWhenServiceIsNotEnrolled()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            LastKnownStatus = new StatusResponsePayload(MonitoringState.Unenrolled, DateTimeOffset.UtcNow),
+        };
+        var vm = MakeVm(EnrolledPrefs(), new FakeWorkLocationStore { Value = AReference() }, pipe);
+
+        await vm.LoadAsync(CancellationToken.None);
+
+        Assert.False(vm.ActivationVerified);
+        Assert.False(vm.DeviceRegistered);
+        Assert.Equal("Not confirmed", vm.ActivationStepStatus);
+        Assert.False(vm.ActivationInProgress);
+        Assert.True(vm.UserDetailsFetched);
+    }
+
+    [Fact]
+    public async Task SetupSteps_DetailsNotTickedWithoutSavedProfile()
+    {
+        var vm = MakeVm(new FakePreferencesStore(), new FakeWorkLocationStore { Value = AReference() });
+
+        await vm.LoadAsync(CancellationToken.None);
+
+        Assert.True(vm.ActivationVerified);
+        Assert.False(vm.UserDetailsFetched);
+        Assert.Equal("Not confirmed", vm.DetailsStepStatus);
     }
 
     [Fact]

@@ -91,10 +91,15 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
 
     private string _afterConfirmRoute = WorkLocationFlow.PrepareRoute;
 
+    /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
+    public ServiceConnectionStatus Connection { get; }
+
     public WorkLocationViewModel(
         ILocationService location, IWorkLocationStore store, IPreferencesStore preferences, INamedPipeClient pipe,
-        IGeofenceEvaluator geofence)
+        IGeofenceEvaluator geofence,
+        ServiceConnectionStatus? connection = null)
     {
+        Connection = connection ?? new ServiceConnectionStatus();
         Title = "Confirm Today's Work Location";
         _location = location;
         _store = store;
