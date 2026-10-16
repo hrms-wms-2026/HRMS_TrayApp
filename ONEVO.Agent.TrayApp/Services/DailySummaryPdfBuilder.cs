@@ -14,11 +14,12 @@ public sealed record DailySummaryPdfData(
     string TotalShiftDisplay,
     string WorkingTimeDisplay,
     string BreakTimeDisplay,
-    string ProductiveTimeDisplay,
     string IdleTimeDisplay,
     string BreakSessionsDisplay,
     IReadOnlyList<TopAppItem> TopApps,
-    IReadOnlyList<DailySummaryPdfScreenshot>? Screenshots = null);
+    IReadOnlyList<DailySummaryPdfScreenshot>? Screenshots = null,
+    // Local date of the summarized session; null falls back to today.
+    DateTime? SessionDay = null);
 
 /// <summary>
 /// Renders the same locally-known session summary shown on EndSessionPage as a one-page
@@ -44,7 +45,7 @@ public static class DailySummaryPdfBuilder
                 {
                     col.Item().Text("OneXso WorkPulse").FontSize(18).Bold();
                     col.Item().Text("Daily Work Summary").FontSize(12).FontColor(Colors.Grey.Darken1);
-                    col.Item().PaddingTop(2).Text(DateTime.Now.ToString("dddd, d MMMM yyyy"))
+                    col.Item().PaddingTop(2).Text(HeaderDate(data.SessionDay))
                         .FontSize(10).FontColor(Colors.Grey.Medium);
                 });
 
@@ -64,14 +65,8 @@ public static class DailySummaryPdfBuilder
                     {
                         row.RelativeItem().Component(new SummaryTile("Working Time", data.WorkingTimeDisplay));
                         row.RelativeItem().Component(new SummaryTile("Break Time", data.BreakTimeDisplay));
-                        row.RelativeItem().Component(new SummaryTile("Break Sessions", data.BreakSessionsDisplay));
-                    });
-
-                    col.Item().Row(row =>
-                    {
-                        row.RelativeItem().Component(new SummaryTile("Productive Time", data.ProductiveTimeDisplay));
                         row.RelativeItem().Component(new SummaryTile("Idle Time", data.IdleTimeDisplay));
-                        row.RelativeItem();
+                        row.RelativeItem().Component(new SummaryTile("Break Sessions", data.BreakSessionsDisplay));
                     });
 
                     col.Item().PaddingTop(8).Text("Top Applications Used Today").FontSize(12).Bold();
@@ -158,6 +153,10 @@ public static class DailySummaryPdfBuilder
 
         return document.GeneratePdf();
     }
+
+    /// <summary>Header date: the summarized session's day, so a summary downloaded later keeps its own date.</summary>
+    internal static string HeaderDate(DateTime? sessionDay) =>
+        (sessionDay ?? DateTime.Now).ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture);
 
     public static async Task<string> WriteToDownloadsAsync(DailySummaryPdfData data, CancellationToken ct = default)
     {

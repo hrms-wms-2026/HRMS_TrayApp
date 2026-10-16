@@ -30,6 +30,14 @@ public interface ISessionDayMetrics
 
     void AddSkippedScreenshot(Guid attemptId, DateTimeOffset skippedAt);
 
+    /// <summary>
+    /// Marks the Service presence session these metrics belong to, keyed by its clock-in time. A
+    /// different clock-in than the one already tracked starts a fresh day via <see cref="ResetDay"/>;
+    /// the same one (repeated status broadcasts) is a no-op.
+    /// </summary>
+    void BeginSession(DateTimeOffset clockInAt);
+
+    /// <summary>Clears the collected day data. <see cref="LastCompletedSession"/> is kept.</summary>
     void ResetDay();
 
     IReadOnlyList<(string Name, TimeSpan Duration)> GetTopApps(int take = 5);

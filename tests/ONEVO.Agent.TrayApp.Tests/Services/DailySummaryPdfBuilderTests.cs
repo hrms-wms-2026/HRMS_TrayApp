@@ -12,7 +12,6 @@ public sealed class DailySummaryPdfBuilderTests
         TotalShiftDisplay: "09:00:00",
         WorkingTimeDisplay: "08:10:00",
         BreakTimeDisplay: "00:50:00",
-        ProductiveTimeDisplay: "07:50:00",
         IdleTimeDisplay: "00:20:00",
         BreakSessionsDisplay: "2",
         TopApps: topApps ?? [new TopAppItem("Visual Studio Code", "02:30:00")]);
@@ -64,5 +63,28 @@ public sealed class DailySummaryPdfBuilderTests
         Assert.NotEmpty(bytes);
         Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
         Assert.True(bytes.Length > DailySummaryPdfBuilder.Build(SampleData() with { Screenshots = [] }).Length);
+    }
+
+    [Fact]
+    public void HeaderDate_UsesTheSessionDay_NotToday()
+    {
+        // Downloading yesterday's summary today must still be dated yesterday.
+        Assert.Equal("Monday, 12 October 2026", DailySummaryPdfBuilder.HeaderDate(new DateTime(2026, 10, 12)));
+    }
+
+    [Fact]
+    public void HeaderDate_NoSessionDay_FallsBackToToday()
+    {
+        Assert.Equal(
+            DateTime.Now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture),
+            DailySummaryPdfBuilder.HeaderDate(null));
+    }
+
+    [Fact]
+    public void Build_WithSessionDay_ProducesValidPdf()
+    {
+        var bytes = DailySummaryPdfBuilder.Build(SampleData() with { SessionDay = new DateTime(2026, 10, 12) });
+
+        Assert.Equal("%PDF"u8.ToArray(), bytes[..4]);
     }
 }

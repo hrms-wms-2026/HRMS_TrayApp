@@ -222,7 +222,7 @@
               </Border>
               <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                 <Label Text="{Binding WorkedExclBreaksDisplay}" FontSize="15" FontAttributes="Bold" TextColor="{StaticResource StatusBlue}" />
-                <Label Text="Worked Time (excl. breaks)" Style="{StaticResource KpiLabel}" />
+                <Label Text="Time on Clock (excl. breaks)" Style="{StaticResource KpiLabel}" />
               </VerticalStackLayout>
             </Grid>
             <BoxView Grid.Column="5" Color="{StaticResource Separator}" />

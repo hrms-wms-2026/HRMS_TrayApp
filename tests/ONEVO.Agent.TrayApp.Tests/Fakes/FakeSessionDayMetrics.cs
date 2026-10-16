@@ -41,10 +41,11 @@ public sealed class FakeSessionDayMetrics : ISessionDayMetrics
         ActivityChecks.Add(new SessionScreenshot(attemptId, skippedAt, [], IsSkipped: true));
     }
 
+    public void BeginSession(DateTimeOffset clockInAt) { }
+
     public void ResetDay()
     {
         TotalIdle = TimeSpan.Zero;
-        LastCompletedSession = null;
         AllowedScreenshots.Clear();
         ActivityChecks.Clear();
     }

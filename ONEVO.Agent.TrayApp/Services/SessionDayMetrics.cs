@@ -14,6 +14,7 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
     private readonly object _gate = new();
     private TimeSpan _idle;
     private SessionSnapshot? _lastCompleted;
+    private DateTimeOffset? _sessionClockInAt;
 
     public SessionSnapshot? LastCompletedSession
     {
@@ -76,6 +77,19 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
             _screenshots.RemoveAt(0);
     }
 
+    public void BeginSession(DateTimeOffset clockInAt)
+    {
+        lock (_gate)
+        {
+            // First session seen since launch: what was collected so far belongs to it.
+            if (_sessionClockInAt is { } current && current != clockInAt)
+                ResetDay();
+            _sessionClockInAt = clockInAt;
+        }
+    }
+
+    /// <remarks>Keeps <see cref="LastCompletedSession"/>: App.xaml.cs compares a rebroadcast
+    /// Stopped status against it so a new clock-in doesn't reopen the previous summary.</remarks>
     public void ResetDay()
     {
         _appSeconds.Clear();
@@ -83,7 +97,6 @@ public sealed class SessionDayMetrics : ISessionDayMetrics
         lock (_gate)
         {
             _idle = TimeSpan.Zero;
-            _lastCompleted = null;
             _screenshots.Clear();
         }
     }

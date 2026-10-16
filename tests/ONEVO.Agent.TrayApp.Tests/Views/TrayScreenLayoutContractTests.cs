@@ -378,7 +378,9 @@ public sealed class TrayScreenLayoutContractTests
         Assert.Contains("Binding TimelineSegments", xaml, StringComparison.Ordinal);
         Assert.Contains("Clock-in", xaml, StringComparison.Ordinal);
         Assert.Contains("Clock-out", xaml, StringComparison.Ordinal);
-        Assert.Contains("Worked Time (excl. breaks)", xaml, StringComparison.Ordinal);
+        // Clock-out minus clock-in minus breaks (idle included) - distinct from the active-only Work Time.
+        Assert.Contains("Time on Clock (excl. breaks)", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Worked Time (excl. breaks)", xaml, StringComparison.Ordinal);
         // Bottom row: schedule (real backend task clock-ins), app usage, screenshot grid.
         Assert.Contains("Today's Schedule", xaml, StringComparison.Ordinal);
         Assert.Contains("Binding Tasks}", xaml, StringComparison.Ordinal);

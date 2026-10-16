@@ -412,4 +412,38 @@ public sealed class DailySummaryViewModelTests
         Assert.Equal($"{first.ToLocalTime():HH:mm} - {first.AddHours(1).ToLocalTime():HH:mm}", vm.Tasks[0].TimeRange);
         Assert.Contains("completed 3 tasks", vm.BannerMessage);
     }
+
+    private static SessionSnapshot MondaySession() => new(
+        new DateTimeOffset(2026, 10, 12, 9, 0, 0, TimeSpan.FromHours(5.5)),
+        new DateTimeOffset(2026, 10, 12, 18, 0, 0, TimeSpan.FromHours(5.5)),
+        false, null, TimeSpan.FromMinutes(30), TimeSpan.FromHours(8), null, 1);
+
+    [Fact]
+    public void ToPdfData_ListsTheSameAppRowsAsThePage_IncludingOthers()
+    {
+        var metrics = new ONEVO.Agent.TrayApp.Services.SessionDayMetrics();
+        var minutes = new[] { 60, 50, 40, 30, 20, 10 };
+        for (var i = 0; i < minutes.Length; i++)
+            metrics.AddAppUsageSample($"app{i}.exe", TimeSpan.FromMinutes(minutes[i]));
+        var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), metrics);
+        vm.LoadFromSnapshot(MondaySession());
+
+        var pdf = vm.ToPdfData();
+
+        Assert.Equal(vm.AppUsageRows.Select(r => r.Name), pdf.TopApps.Select(a => a.Name));
+        Assert.Equal(vm.AppUsageRows.Select(r => r.DurationText), pdf.TopApps.Select(a => a.Duration));
+        Assert.Equal(6, pdf.TopApps.Count);
+        Assert.Equal("Others", pdf.TopApps[^1].Name);
+    }
+
+    [Fact]
+    public void ToPdfData_IsDatedWithTheSessionDay()
+    {
+        var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), new ONEVO.Agent.TrayApp.Services.SessionDayMetrics());
+        var session = MondaySession();
+        vm.LoadFromSnapshot(session);
+
+        Assert.Equal(session.ClockOutAt!.Value.ToLocalTime().Date, vm.ToPdfData().SessionDay);
+        Assert.Equal(session.ClockOutAt.Value.ToLocalTime().ToString("MMMM d, yyyy"), vm.DateDisplay);
+    }
 }

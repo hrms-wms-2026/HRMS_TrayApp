@@ -100,6 +100,13 @@ public partial class App : Microsoft.Maui.Controls.Application
             }
             if (status.State == MonitoringState.Active)
                 showEndAfterClockOut = false;
+
+            // The Service resets its work/break/idle totals on every clock-in; start the Tray's
+            // app/focus/screenshot day data over with it so the summary never mixes in an
+            // earlier session's (e.g. yesterday's) data.
+            if (status.State is MonitoringState.Active or MonitoringState.Paused
+                && status.Session?.ClockInAt is { } sessionClockIn)
+                _dayMetrics.BeginSession(sessionClockIn);
         };
 
         _pipeClient.OnStateReceived += state =>

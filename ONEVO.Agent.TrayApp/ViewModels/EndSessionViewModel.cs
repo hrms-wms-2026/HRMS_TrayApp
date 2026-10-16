@@ -50,6 +50,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
     [ObservableProperty] private string _greetingMessage = "Your workday is complete.";
     private int? _activeSharePercent;
     [ObservableProperty] private string _sessionEndedCaption = "Your work session has ended.";
+    private DateTime? _sessionDay;
     [ObservableProperty] private string _savedAtDisplay = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string _employeeName = string.Empty;
@@ -289,6 +290,7 @@ public sealed partial class EndSessionViewModel : BaseViewModel
 
         StatusText = "Clocked Out";
         var sessionDay = session.ClockOutAt?.ToLocalTime() ?? session.ClockInAt?.ToLocalTime();
+        _sessionDay = sessionDay?.Date;
         SessionEndedCaption = sessionDay is null
             ? "Your work session has ended."
             : $"Your work session for {sessionDay.Value:MMMM d, yyyy} has ended.";
@@ -414,14 +416,15 @@ public sealed partial class EndSessionViewModel : BaseViewModel
 
     internal DailySummaryPdfData ToPdfData() => new(
         StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
-        WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
+        WorkingTimeDisplay, BreakTimeDisplay, IdleTimeDisplay,
         BreakSessionsDisplay, [.. TopApps],
         _dayMetrics.GetActivityChecks()
             .Select(s => new DailySummaryPdfScreenshot(
                 s.CapturedAt.ToLocalTime().ToString("h:mm tt"),
                 s.JpegBytes,
                 s.IsSkipped))
-            .ToList());
+            .ToList(),
+        _sessionDay);
 
     [RelayCommand]
     private static void OpenDashboard()

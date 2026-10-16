@@ -10,6 +10,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     private readonly INamedPipeClient _pipe;
     private readonly ISessionDayMetrics _dayMetrics;
     private readonly IAppIconCache _iconCache;
+    private DateTime? _sessionDay;
 
     [ObservableProperty] private string _employeeName = string.Empty;
     [ObservableProperty] private string _dateDisplay = DateTime.Now.ToString("MMMM d, yyyy");
@@ -142,12 +143,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         StatusText = source.StatusText;
 
         var session = _dayMetrics.LastCompletedSession ?? _pipe.LastKnownStatus?.Session;
-        var sessionDay = session?.ClockOutAt?.ToLocalTime() ?? session?.ClockInAt?.ToLocalTime();
-        if (sessionDay is not null)
-        {
-            DateDisplay = sessionDay.Value.ToString("MMMM d, yyyy");
-            WeekdayDisplay = sessionDay.Value.ToString("dddd");
-        }
+        ApplySessionDay(session);
 
         TopApps.Clear();
         foreach (var app in source.TopApps)
@@ -413,6 +409,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         IdleTimeDisplay = source.IdleTimeDisplay;
         BreakSessionsDisplay = source.BreakSessionsDisplay;
         StatusText = source.StatusText;
+        ApplySessionDay(session);
         TopApps.Clear();
         foreach (var app in source.TopApps)
             TopApps.Add(app);
@@ -422,6 +419,17 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         WorkedExclBreaksDisplay = Compact(Parse(source.WorkDurationDisplay));
         ApplyDerived();
         ApplySessionVisuals(session);
+    }
+
+    private void ApplySessionDay(SessionSnapshot? session)
+    {
+        var sessionDay = session?.ClockOutAt?.ToLocalTime() ?? session?.ClockInAt?.ToLocalTime();
+        _sessionDay = sessionDay?.Date;
+        if (sessionDay is not null)
+        {
+            DateDisplay = sessionDay.Value.ToString("MMMM d, yyyy");
+            WeekdayDisplay = sessionDay.Value.ToString("dddd");
+        }
     }
 
     private void LoadScreenshots()
@@ -615,6 +623,16 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         return $"{Math.Max(0, t.Seconds)}s";
     }
 
+    /// <summary>PDF content: the same App Used Time rows the page shows (top apps plus "Others"),
+    /// dated with the session's day.</summary>
+    internal DailySummaryPdfData ToPdfData() => new(
+        StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
+        WorkingTimeDisplay, BreakTimeDisplay, IdleTimeDisplay,
+        BreakSessionsDisplay,
+        AppUsageRows.Select(row => new TopAppItem(row.Name, row.DurationText)).ToList(),
+        Screenshots.Select(s => new DailySummaryPdfScreenshot(s.TimeDisplay, s.JpegBytes, s.IsSkipped)).ToList(),
+        _sessionDay);
+
     [RelayCommand]
     private Task RetryTasksAsync() => LoadTasksAsync(CancellationToken.None);
 
@@ -623,11 +641,7 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
     {
         try
         {
-            var path = await DailySummaryPdfBuilder.WriteToDownloadsAsync(new DailySummaryPdfData(
-                StatusText, ClockInDisplay, ClockOutDisplay, TotalShiftDisplay,
-                WorkingTimeDisplay, BreakTimeDisplay, ProductiveTimeDisplay, IdleTimeDisplay,
-                BreakSessionsDisplay, [.. TopApps],
-                Screenshots.Select(s => new DailySummaryPdfScreenshot(s.TimeDisplay, s.JpegBytes, s.IsSkipped)).ToList()));
+            var path = await DailySummaryPdfBuilder.WriteToDownloadsAsync(ToPdfData());
             Message = $"Summary saved to {path}";
             ErrorMessage = null;
         }

@@ -8,6 +8,18 @@ namespace ONEVO.Agent.TrayApp.Tests.ViewModels;
 public sealed class EndSessionViewModelTests
 {
     [Fact]
+    public void ToPdfData_IsDatedWithTheSessionDay()
+    {
+        var vm = new EndSessionViewModel(new FakeNamedPipeClient());
+        var clockOut = new DateTimeOffset(2026, 10, 12, 18, 0, 0, TimeSpan.FromHours(5.5));
+        vm.LoadFromSnapshot(new SessionSnapshot(
+            clockOut.AddHours(-9), clockOut, false, null,
+            TimeSpan.FromMinutes(30), TimeSpan.FromHours(8), null, 1));
+
+        Assert.Equal(clockOut.ToLocalTime().Date, vm.ToPdfData().SessionDay);
+    }
+
+    [Fact]
     public void LoadFromSnapshot_FormatsDisplays()
     {
         var vm = new EndSessionViewModel(new FakeNamedPipeClient());
