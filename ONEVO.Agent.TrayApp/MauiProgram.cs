@@ -76,6 +76,12 @@ public static class MauiProgram
             sp.GetRequiredService<NamedPipeClient>());
         builder.Services.AddSingleton<ServiceConnectionStatus>();
         builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<IGenericNotificationToast>(sp => sp.GetRequiredService<NotificationService>());
+        builder.Services.AddSingleton(_ => new ShownNotificationLog());
+        builder.Services.AddSingleton(sp => new GenericNotificationPresenter(
+            sp.GetRequiredService<INamedPipeClient>(),
+            sp.GetRequiredService<IGenericNotificationToast>(),
+            sp.GetRequiredService<ShownNotificationLog>()));
         builder.Services.AddSingleton<IUpdateChecker, UpdateChecker>();
         builder.Services.AddSingleton<UpdateNotifier>();
         builder.Services.AddSingleton<NotificationActivationRouter>();

@@ -100,5 +100,31 @@ public sealed class NotificationPollingService : BackgroundService
 
         if (pending.Count > 0)
             _logger.LogInformation("Delivered {Count} wellness notification(s) to tray", pending.Count);
+
+        // Generic deliveries are acknowledged only after the tray process confirms it accepted the toast
+        // (GenericNotificationAccepted → AgentWorker), so a closed or crashed tray never loses one: it stays
+        // pending server-side and is offered again here. The tray suppresses repeats by delivery id.
+        var deliveries = await _apiClient.GetPendingTrayDeliveriesAsync(jwt, ct);
+        foreach (var delivery in deliveries)
+        {
+            await _broadcaster.BroadcastAsync(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.GenericNotificationPush,
+                Payload = JsonSerializer.SerializeToElement(new GenericNotificationPushPayload
+                {
+                    DeliveryId = delivery.DeliveryId,
+                    EventKey = delivery.EventKey,
+                    Title = delivery.Title,
+                    Message = delivery.Message,
+                    ActionKey = delivery.ActionKey,
+                    RelatedEntityType = delivery.RelatedEntityType,
+                    RelatedEntityId = delivery.RelatedEntityId,
+                    ExpiresAt = delivery.ExpiresAt
+                })
+            }, ct);
+        }
+
+        if (deliveries.Count > 0)
+            _logger.LogInformation("Forwarded {Count} notification delivery(ies) to tray", deliveries.Count);
     }
 }

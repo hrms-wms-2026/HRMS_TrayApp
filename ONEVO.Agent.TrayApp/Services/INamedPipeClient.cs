@@ -10,6 +10,7 @@ public interface INamedPipeClient
     event Action<StatusResponsePayload>? OnStatusReceived;
     event Action<AgentPolicy>? OnPolicyReceived;
     event Action<NotificationPushPayload>? OnNotificationReceived;
+    event Action<GenericNotificationPushPayload>? OnGenericNotificationReceived;
     event Action<DevicePairingResultPayload>? OnDevicePairingResult;
 
     /// <summary>Last status received from the service — null until first response arrives.</summary>
