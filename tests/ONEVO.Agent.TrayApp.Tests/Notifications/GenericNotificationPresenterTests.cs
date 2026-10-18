@@ -79,6 +79,31 @@ public sealed class GenericNotificationPresenterTests : IDisposable
     }
 
     [Fact]
+    public async Task ToastFailure_ThenRetry_IsShownOnTheNextOffer()
+    {
+        var payload = Payload();
+        _toast.Fail = true;
+        await Build().HandleAsync(payload, CancellationToken.None);
+
+        _toast.Fail = false;
+        await Build().HandleAsync(payload, CancellationToken.None);
+
+        Assert.Single(_toast.Shown);
+        Assert.Equal([payload.DeliveryId], AcceptedIds());
+    }
+
+    [Fact]
+    public async Task ConcurrentOffersOfTheSameDelivery_ShowItOnce()
+    {
+        var presenter = Build();
+        var payload = Payload();
+
+        await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => Task.Run(() => presenter.HandleAsync(payload, CancellationToken.None))));
+
+        Assert.Single(_toast.Shown);
+    }
+
+    [Fact]
     public void ShownLog_IsBounded_KeepingTheNewestIds()
     {
         var log = new ShownNotificationLog(_logPath, capacity: 3);
@@ -111,7 +136,8 @@ public sealed class GenericNotificationPresenterTests : IDisposable
         {
             if (Fail)
                 return false;
-            Shown.Add((payload, activationArguments));
+            lock (Shown)
+                Shown.Add((payload, activationArguments));
             return true;
         }
     }

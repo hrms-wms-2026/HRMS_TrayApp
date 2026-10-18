@@ -39,12 +39,29 @@ public sealed class ShownNotificationLog
             return _ids.Contains(deliveryId);
     }
 
-    public void Add(Guid deliveryId)
+    public void Add(Guid deliveryId) => TryAdd(deliveryId);
+
+    /// <summary>Atomically records the id; false if it was already there. Overlapping polls (push-triggered and
+    /// fallback) therefore cannot both decide to show the same toast.</summary>
+    public bool TryAdd(Guid deliveryId)
     {
         lock (_gate)
         {
             if (!Remember(deliveryId))
+                return false;
+            Save();
+            return true;
+        }
+    }
+
+    /// <summary>Forgets an id whose toast could not be shown, so a later offer can show it.</summary>
+    public void Remove(Guid deliveryId)
+    {
+        lock (_gate)
+        {
+            if (!_ids.Remove(deliveryId))
                 return;
+            _order.Remove(deliveryId);
             Save();
         }
     }

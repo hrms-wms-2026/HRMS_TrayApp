@@ -5,8 +5,10 @@ using ONEVO.Agent.Shared.IPC;
 /// <summary>
 /// Toast activation arguments for generic notifications (<c>kind=generic;delivery={id};action={key}</c>, the
 /// same semicolon-separated shape Windows App SDK produces for the inactivity prompt). A click only ever maps a
-/// registered action to a URL built here from the configured portal - never a URL taken from the payload - and
-/// the web app checks the user's access to the item it opens.
+/// registered action to a URL built here from the configured portal - never a URL taken from the payload.
+/// The web app has no record deep link the tray can build (bell clicks resolve their target in the browser), so
+/// open_related opens the dashboard, where the same notification is in the bell. A record deep link needs a web
+/// route first.
 /// </summary>
 public static class GenericNotificationActivation
 {
@@ -45,6 +47,6 @@ public static class GenericNotificationActivation
             || (portal.Scheme != Uri.UriSchemeHttps && portal.Scheme != Uri.UriSchemeHttp))
             return null;
 
-        return portalBaseUrl.TrimEnd('/') + "/inbox";
+        return portalBaseUrl.TrimEnd('/') + "/dashboard";
     }
 }

@@ -39,11 +39,11 @@ public sealed class GenericNotificationPresenter
             if (payload.ExpiresAt is { } expiresAt && expiresAt <= _clock())
                 return;
 
-            if (!_shown.Contains(payload.DeliveryId))
+            if (_shown.TryAdd(payload.DeliveryId)
+                && !_toast.Show(payload, GenericNotificationActivation.BuildArguments(payload)))
             {
-                if (!_toast.Show(payload, GenericNotificationActivation.BuildArguments(payload)))
-                    return; // not shown - leave it pending so the service offers it again
-                _shown.Add(payload.DeliveryId);
+                _shown.Remove(payload.DeliveryId);
+                return; // not shown - leave it pending so the service offers it again
             }
 
             await _pipe.SendEnvelopeAsync(new IpcEnvelope

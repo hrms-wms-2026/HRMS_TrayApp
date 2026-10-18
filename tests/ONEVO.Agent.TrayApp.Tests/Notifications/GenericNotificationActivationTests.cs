@@ -15,14 +15,14 @@ public sealed class GenericNotificationActivationTests
     };
 
     [Fact]
-    public void OpenRelated_RoundTrips_ToThePortalInbox()
+    public void OpenRelated_RoundTrips_ToThePortalDashboard()
     {
         var args = GenericNotificationActivation.BuildArguments(Payload("open_related"));
 
         var url = GenericNotificationActivation.TryGetNavigationUrl(args, Portal);
 
-        // The web app resolves the item and enforces access; the tray never builds record links itself.
-        Assert.Equal($"{Portal}/inbox", url);
+        // The web app resolves the item from the bell and enforces access; the tray never builds record links.
+        Assert.Equal($"{Portal}/dashboard", url);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class GenericNotificationActivationTests
     {
         var url = GenericNotificationActivation.TryGetNavigationUrl(args, Portal);
 
-        Assert.True(url is null || url == $"{Portal}/inbox");
+        Assert.True(url is null || url == $"{Portal}/dashboard");
     }
 
     [Fact]
