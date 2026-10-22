@@ -96,4 +96,32 @@ public sealed class PrivacyConsentViewModelTests
         vm.ApplyPolicy(policy);
         Assert.True(vm.CameraAccessEnabled);
     }
+
+    [Fact]
+    public async Task AllowAndContinue_SavesTheTogglesOnTheBackend()
+    {
+        var pipe = new FakeNamedPipeClient();
+        var vm = new PrivacyConsentViewModel(pipe) { AppTrackingEnabled = false, CameraAccessEnabled = true };
+
+        await vm.AllowAndContinueCommand.ExecuteAsync(null);
+
+        var saved = Assert.Single(pipe.SubmittedPermissionConsents);
+        Assert.True(saved.ScreenMonitoring);
+        Assert.False(saved.AppTracking);
+        Assert.True(saved.CameraAccess);
+    }
+
+    [Fact]
+    public async Task AllowAndContinue_SaveFails_StillContinues()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextPermissionConsentSubmitResult = new(false, "SERVICE_UNAVAILABLE", false, null)
+        };
+        var vm = new PrivacyConsentViewModel(pipe);
+
+        await vm.AllowAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Single(pipe.SubmittedPermissionConsents);
+    }
 }

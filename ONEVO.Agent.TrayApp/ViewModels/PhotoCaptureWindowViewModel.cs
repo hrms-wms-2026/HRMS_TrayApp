@@ -589,8 +589,9 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
         _prefs.Set(SessionPreferenceKeys.FaceVerified, "true");
         try
         {
-            await Shell.Current.GoToAsync(
-                SetupFlow.AfterFaceEnrollment(_pipe.LastKnownPolicy?.AllowsDailyLocationChoice ?? false));
+            await Shell.Current.GoToAsync(SetupFlow.AfterFaceEnrollment(
+                _pipe.LastKnownPolicy?.AllowsDailyLocationChoice ?? false,
+                _prefs.Get(SessionPreferenceKeys.PermissionConsentOnFile, string.Empty) == "true"));
         }
         catch { /* unit tests */ }
     }

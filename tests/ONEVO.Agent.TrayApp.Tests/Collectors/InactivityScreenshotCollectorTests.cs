@@ -582,6 +582,12 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct) =>
         Task.FromResult<FaceReferenceStatusResultPayload?>(null);
 
+    public Task<PermissionConsentResultPayload?> GetPermissionConsentAsync(CancellationToken ct) =>
+        Task.FromResult<PermissionConsentResultPayload?>(null);
+
+    public Task<PermissionConsentResultPayload?> SubmitPermissionConsentAsync(PermissionConsentPayload consent, CancellationToken ct) =>
+        Task.FromResult<PermissionConsentResultPayload?>(null);
+
     public Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
         IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct) =>
         Task.FromResult<LegalAcceptanceResultPayload?>(null);

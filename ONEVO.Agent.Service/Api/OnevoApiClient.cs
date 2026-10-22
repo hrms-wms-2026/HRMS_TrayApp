@@ -702,6 +702,67 @@ public sealed class OnevoApiClient
     }
 
     /// <summary>
+    /// The employee's latest privacy/permissions acceptance, if any. Auth: Bearer Device JWT.
+    /// </summary>
+    public Task<PermissionConsentResultPayload> GetPermissionConsentAsync(string accessToken, CancellationToken ct) =>
+        SendPermissionConsentAsync(accessToken, new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.PermissionConsent), ct);
+
+    /// <summary>
+    /// Records that the employee agreed and allowed these permissions. Auth: Bearer Device JWT.
+    /// </summary>
+    public Task<PermissionConsentResultPayload> RecordPermissionConsentAsync(
+        string accessToken, PermissionConsentPayload consent, CancellationToken ct) =>
+        SendPermissionConsentAsync(accessToken, new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.PermissionConsent)
+        {
+            Content = JsonContent.Create(new PermissionConsentBody(
+                consent.ScreenMonitoring, consent.AppTracking, consent.LocationAccess,
+                consent.CameraAccess, consent.Notifications, consent.KeyboardMouse))
+        }, ct);
+
+    private async Task<PermissionConsentResultPayload> SendPermissionConsentAsync(
+        string accessToken, HttpRequestMessage request, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var _ = request;
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            using var response = await client.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new PermissionConsentResultPayload(
+                    false, response.StatusCode == HttpStatusCode.Unauthorized ? "UNAUTHORIZED" : "SERVICE_UNAVAILABLE",
+                    false, null);
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var root = doc.RootElement;
+            var accepted = ReadBool(root, "accepted");
+            return new PermissionConsentResultPayload(true, null, accepted, accepted
+                ? new PermissionConsentPayload(
+                    ReadBool(root, "screen_monitoring"), ReadBool(root, "app_tracking"),
+                    ReadBool(root, "location_access"), ReadBool(root, "camera_access"),
+                    ReadBool(root, "notifications"), ReadBool(root, "keyboard_mouse"))
+                : null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.PermissionConsent);
+            return new PermissionConsentResultPayload(false, "SERVICE_UNAVAILABLE", false, null);
+        }
+    }
+
+    private sealed record PermissionConsentBody(
+        [property: JsonPropertyName("screen_monitoring")] bool ScreenMonitoring,
+        [property: JsonPropertyName("app_tracking")] bool AppTracking,
+        [property: JsonPropertyName("location_access")] bool LocationAccess,
+        [property: JsonPropertyName("camera_access")] bool CameraAccess,
+        [property: JsonPropertyName("notifications")] bool Notifications,
+        [property: JsonPropertyName("keyboard_mouse")] bool KeyboardMouse);
+
+    /// <summary>
     /// Tray face setup: saves the look-straight photo as the employee's reference.
     /// Auth: Bearer Device JWT.
     /// </summary>

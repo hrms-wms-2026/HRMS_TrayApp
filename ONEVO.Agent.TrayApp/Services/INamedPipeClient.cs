@@ -142,6 +142,15 @@ public interface INamedPipeClient
     Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct);
 
     /// <summary>
+    /// The employee's latest privacy/permissions acceptance from the backend (device setup then
+    /// skips both screens). Null when the Service did not answer — treat as unknown and show them.
+    /// </summary>
+    Task<PermissionConsentResultPayload?> GetPermissionConsentAsync(CancellationToken ct);
+
+    /// <summary>Saves the employee's privacy/permissions acceptance on the backend.</summary>
+    Task<PermissionConsentResultPayload?> SubmitPermissionConsentAsync(PermissionConsentPayload consent, CancellationToken ct);
+
+    /// <summary>
     /// Submits every pending legal document the employee accepted on the consent screen in one
     /// action and waits for the correlated LegalAcceptanceResult (or timeout).
     /// </summary>

@@ -1,3 +1,5 @@
+using ONEVO.Agent.Shared.IPC;
+using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.Tests.Fakes;
 using ONEVO.Agent.TrayApp.ViewModels;
@@ -34,17 +36,115 @@ public sealed class ReviewSetupViewModelTests
         Assert.Equal("Enrolled", vm.FaceVerificationStatusText);
     }
 
+    private static readonly PermissionConsentPayload AllAllowed = new(true, true, true, true, true, true);
+
+    private static PermissionConsentResultPayload Accepted(PermissionConsentPayload consent) =>
+        new(true, null, true, consent);
+
+    private static FaceReferenceStatusResultPayload FaceOnFile => new(true, null, true, 1);
+
     [Fact]
-    public async Task ConfirmAndContinue_AlwaysGoesToFaceSetup()
+    public async Task ConfirmAndContinue_NoPipe_GoesToFaceSetup()
     {
-        // Even an employee with a face on file re-takes the three setup photos.
-        var prefs = new FakePreferencesStore();
-        prefs.Set(SessionPreferenceKeys.FaceVerified, "true");
-        var vm = new ReviewSetupViewModel(prefs);
+        var vm = new ReviewSetupViewModel(new FakePreferencesStore());
 
         await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
 
         Assert.Equal(SetupFlow.FaceEnrollment, vm.LastRoute);
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_ServiceDoesNotAnswer_GoesToFaceSetup()
+    {
+        var prefs = new FakePreferencesStore();
+        var vm = new ReviewSetupViewModel(prefs, pipe: new FakeNamedPipeClient());
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(SetupFlow.FaceEnrollment, vm.LastRoute);
+        Assert.Equal("false", prefs.Get(SessionPreferenceKeys.PermissionConsentOnFile, string.Empty));
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_FaceAndConsentOnFile_SkipsToPrepare()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceReferenceStatus = FaceOnFile,
+            NextPermissionConsentStatus = Accepted(AllAllowed)
+        };
+        var vm = new ReviewSetupViewModel(prefs, pipe: pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(SetupFlow.Prepare, vm.LastRoute);
+        Assert.True(vm.FaceVerificationCompleted);
+        Assert.Equal("true", prefs.Get(SessionPreferenceKeys.FaceVerified, string.Empty));
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_FaceAndConsentOnFile_DailyLocationChoice_GoesToLocationThenPrepare()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceReferenceStatus = FaceOnFile,
+            NextPermissionConsentStatus = Accepted(AllAllowed),
+            LastKnownPolicy = new AgentPolicy { Version = "1", AllowsDailyLocationChoice = true }
+        };
+        var vm = new ReviewSetupViewModel(new FakePreferencesStore(), pipe: pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(WorkLocationFlow.LocationThenPrepare, vm.LastRoute);
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_FaceOnFile_NoConsent_GoesToPrivacy()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceReferenceStatus = FaceOnFile,
+            NextPermissionConsentStatus = new PermissionConsentResultPayload(true, null, false, null)
+        };
+        var vm = new ReviewSetupViewModel(new FakePreferencesStore(), pipe: pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(SetupFlow.Privacy, vm.LastRoute);
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_ConsentOnFile_NoFace_GoesToFaceSetupAndRemembersConsent()
+    {
+        var prefs = new FakePreferencesStore();
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceReferenceStatus = new FaceReferenceStatusResultPayload(true, null, false, 0),
+            NextPermissionConsentStatus = Accepted(AllAllowed)
+        };
+        var vm = new ReviewSetupViewModel(prefs, pipe: pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(SetupFlow.FaceEnrollment, vm.LastRoute);
+        Assert.Equal("true", prefs.Get(SessionPreferenceKeys.PermissionConsentOnFile, string.Empty));
+    }
+
+    [Fact]
+    public async Task ConfirmAndContinue_PolicyNowNeedsCameraNotAllowedBefore_ShowsScreensAgain()
+    {
+        var pipe = new FakeNamedPipeClient
+        {
+            NextFaceReferenceStatus = FaceOnFile,
+            NextPermissionConsentStatus = Accepted(AllAllowed with { CameraAccess = false }),
+            LastKnownPolicy = new AgentPolicy { Version = "1", CameraVerificationEnabled = true }
+        };
+        var vm = new ReviewSetupViewModel(new FakePreferencesStore(), pipe: pipe);
+
+        await vm.ConfirmAndContinueCommand.ExecuteAsync(null);
+
+        Assert.Equal(SetupFlow.Privacy, vm.LastRoute);
     }
 
     [Fact]
