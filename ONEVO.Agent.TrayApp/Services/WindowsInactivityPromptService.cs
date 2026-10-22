@@ -166,7 +166,30 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         // Intentionally does nothing beyond routing: no Window.Activate(), no Shell navigation, no
         // foregrounding of the MAUI window. That is how this satisfies "do not activate or
         // foreground the MAUI window" for both the Allow and Skip buttons.
+        if (GenericNotificationActivation.IsGeneric(args.Argument))
+        {
+            OpenGenericNotificationTarget(args.Argument);
+            return;
+        }
+
         _router.Route(args.Argument);
+    }
+
+    /// <summary>Generic notification clicks share this single NotificationInvoked subscription (Windows App SDK
+    /// requires it to exist before Register()). Only a registered action maps to a portal URL.</summary>
+    private static void OpenGenericNotificationTarget(string arguments)
+    {
+        var url = GenericNotificationActivation.TryGetNavigationUrl(arguments, WorkspaceLinks.PortalUrl);
+        if (url is null)
+            return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            BootLog($"Opening generic notification target failed: {ex.Message}");
+        }
     }
 
     private static void BootLog(string message)
