@@ -26,6 +26,8 @@ public class AgentWorkerFaceSetupTests : IDisposable
     private readonly List<string> _previewBodies = [];
     private bool _previewPasses = true;
     private object _referenceStatusJson = new { enrolled = false, reference_photo_count = 0 };
+    private object _consentJson = new { accepted = false };
+    private readonly List<string> _consentBodies = [];
 
     public void Dispose() => new CredentialStore().ClearDeviceJwt();
 
@@ -42,6 +44,13 @@ public class AgentWorkerFaceSetupTests : IDisposable
             if (request.RequestUri!.AbsolutePath == AgentApiRoutes.FaceReference)
             {
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_referenceStatusJson) };
+            }
+
+            if (request.RequestUri!.AbsolutePath == AgentApiRoutes.PermissionConsent)
+            {
+                if (request.Method == HttpMethod.Post)
+                    _consentBodies.Add(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult());
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(_consentJson) };
             }
 
             var body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
@@ -184,6 +193,73 @@ public class AgentWorkerFaceSetupTests : IDisposable
         Assert.True(result!.Success);
         Assert.True(result.Enrolled);
         Assert.Equal(3, result.ReferencePhotoCount);
+    }
+
+    private static async Task<PermissionConsentResultPayload?> ConsentAsync(AgentWorker worker, IpcEnvelope envelope)
+    {
+        PermissionConsentResultPayload? result = null;
+        await worker.HandlePermissionConsentAsync(envelope, reply =>
+        {
+            result = reply.Payload!.Value.Deserialize<PermissionConsentResultPayload>();
+            return Task.CompletedTask;
+        });
+        return result;
+    }
+
+    [Fact]
+    public async Task PermissionConsentStatus_RelaysLatestAcceptance()
+    {
+        var worker = BuildWorker(new FaceSetupPhotoStaging());
+        _consentJson = new
+        {
+            accepted = true, screen_monitoring = true, app_tracking = true, location_access = false,
+            camera_access = true, notifications = true, keyboard_mouse = true
+        };
+
+        var result = await ConsentAsync(worker,
+            new IpcEnvelope { Type = IpcMessageTypes.PermissionConsentStatus, CorrelationId = "s" });
+
+        Assert.True(result!.Success);
+        Assert.True(result.Accepted);
+        Assert.True(result.Consent!.CameraAccess);
+        Assert.False(result.Consent.LocationAccess);
+    }
+
+    [Fact]
+    public async Task PermissionConsentStatus_NeverAccepted_HasNoConsent()
+    {
+        var worker = BuildWorker(new FaceSetupPhotoStaging());
+
+        var result = await ConsentAsync(worker,
+            new IpcEnvelope { Type = IpcMessageTypes.PermissionConsentStatus, CorrelationId = "s" });
+
+        Assert.True(result!.Success);
+        Assert.False(result.Accepted);
+        Assert.Null(result.Consent);
+    }
+
+    [Fact]
+    public async Task PermissionConsentSubmit_PostsTogglesToBackend()
+    {
+        var worker = BuildWorker(new FaceSetupPhotoStaging());
+        _consentJson = new
+        {
+            accepted = true, screen_monitoring = true, app_tracking = false, location_access = true,
+            camera_access = false, notifications = true, keyboard_mouse = true
+        };
+
+        var result = await ConsentAsync(worker, new IpcEnvelope
+        {
+            Type = IpcMessageTypes.PermissionConsentSubmit,
+            CorrelationId = "p",
+            Payload = JsonSerializer.SerializeToElement(
+                new PermissionConsentPayload(true, false, true, false, true, true))
+        });
+
+        Assert.True(result!.Success);
+        var body = Assert.Single(_consentBodies);
+        Assert.Contains("\"screen_monitoring\":true", body);
+        Assert.Contains("\"app_tracking\":false", body);
     }
 
     [Fact]

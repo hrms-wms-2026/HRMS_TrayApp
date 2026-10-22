@@ -697,6 +697,54 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
+    public Task<PermissionConsentResultPayload?> GetPermissionConsentAsync(CancellationToken ct) =>
+        RequestPermissionConsentAsync(IpcMessageTypes.PermissionConsentStatus, null, ct);
+
+    public Task<PermissionConsentResultPayload?> SubmitPermissionConsentAsync(
+        PermissionConsentPayload consent, CancellationToken ct) =>
+        RequestPermissionConsentAsync(
+            IpcMessageTypes.PermissionConsentSubmit, JsonSerializer.SerializeToElement(consent), ct);
+
+    // A Service built before these messages existed never replies, so keep the wait short:
+    // setup then just shows the screens as before.
+    private async Task<PermissionConsentResultPayload?> RequestPermissionConsentAsync(
+        string type, JsonElement? payload, CancellationToken ct)
+    {
+        var correlationId = Guid.NewGuid().ToString("N");
+        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _pending[correlationId] = tcs;
+
+        try
+        {
+            await WriteEnvelopeAsync(new IpcEnvelope
+            {
+                Type = type,
+                CorrelationId = correlationId,
+                Payload = payload
+            }, ct);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(8));
+            await using var reg = timeoutCts.Token.Register(
+                () => tcs.TrySetCanceled(timeoutCts.Token));
+
+            try
+            {
+                var reply = await tcs.Task.ConfigureAwait(false);
+                return reply.Payload?.Deserialize<PermissionConsentResultPayload>();
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("{Type} timed out waiting for result", type);
+                return null;
+            }
+        }
+        finally
+        {
+            _pending.TryRemove(correlationId, out _);
+        }
+    }
+
     public async Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct)
     {
         var correlationId = Guid.NewGuid().ToString("N");

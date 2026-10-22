@@ -1,5 +1,8 @@
 namespace ONEVO.Agent.TrayApp.Services;
 
+using ONEVO.Agent.Shared.IPC;
+using ONEVO.Agent.Shared.Models;
+
 /// <summary>
 /// Canonical first-run and returning-user screen order for the tray journey.
 /// Matches the OneXso WorkPulse mockup sequence (activation → setup → workday).
@@ -30,8 +33,33 @@ public static class SetupFlow
     /// clock-in/check-in) - see WorkLocationFlow.RouteToStartWork for the equivalent daily-return
     /// skip.
     /// </summary>
-    public static string AfterFaceEnrollment(bool allowsDailyLocationChoice) =>
-        allowsDailyLocationChoice ? LocationThenPrivacy : Privacy;
+    /// <remarks>
+    /// When the employee's privacy/permissions acceptance is already on the backend (see
+    /// <see cref="ConsentCovers"/>), the Privacy and Permissions screens are skipped.
+    /// </remarks>
+    public static string AfterFaceEnrollment(bool allowsDailyLocationChoice, bool consentOnFile = false) =>
+        consentOnFile
+            ? allowsDailyLocationChoice ? WorkLocationFlow.LocationThenPrepare : Prepare
+            : allowsDailyLocationChoice ? LocationThenPrivacy : Privacy;
+
+    /// <summary>
+    /// The employee's latest acceptance still covers what the current policy collects: screen
+    /// monitoring, plus app tracking and the camera whenever the policy turns those on. A policy
+    /// that starts collecting something they did not allow brings the screens back.
+    /// </summary>
+    public static bool ConsentCovers(PermissionConsentResultPayload? status, AgentPolicy? policy)
+    {
+        if (status is not { Success: true, Accepted: true, Consent: { ScreenMonitoring: true } consent })
+            return false;
+
+        if (policy is null)
+            return true;
+
+        if (policy.AppUsageEnabled && !consent.AppTracking)
+            return false;
+
+        return !(policy.CameraVerificationEnabled || policy.PhotoRequiredEnabled) || consent.CameraAccess;
+    }
 
     public static string AfterPrivacy => Permissions;
     public static string AfterPermissions => Prepare;

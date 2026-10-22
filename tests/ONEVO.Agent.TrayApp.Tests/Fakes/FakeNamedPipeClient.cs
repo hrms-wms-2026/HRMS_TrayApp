@@ -352,6 +352,26 @@ public sealed class FakeNamedPipeClient : INamedPipeClient
         return Task.FromResult(NextFaceReferenceStatus);
     }
 
+    /// <summary>Canned permission consent status. Null = service did not answer.</summary>
+    public PermissionConsentResultPayload? NextPermissionConsentStatus { get; set; }
+
+    /// <summary>Canned permission consent submit result. Null = service did not answer.</summary>
+    public PermissionConsentResultPayload? NextPermissionConsentSubmitResult { get; set; }
+    public List<PermissionConsentPayload> SubmittedPermissionConsents { get; } = [];
+
+    public Task<PermissionConsentResultPayload?> GetPermissionConsentAsync(CancellationToken ct)
+    {
+        CallOrder.Add("permission-consent");
+        return Task.FromResult(NextPermissionConsentStatus);
+    }
+
+    public Task<PermissionConsentResultPayload?> SubmitPermissionConsentAsync(PermissionConsentPayload consent, CancellationToken ct)
+    {
+        CallOrder.Add("permission-consent-submit");
+        SubmittedPermissionConsents.Add(consent);
+        return Task.FromResult(NextPermissionConsentSubmitResult);
+    }
+
     public Task<FaceEnrollCommitResultPayload?> CommitFaceEnrollmentAsync(Guid enrollmentSessionId, CancellationToken ct)
     {
         CallOrder.Add("enroll-commit");

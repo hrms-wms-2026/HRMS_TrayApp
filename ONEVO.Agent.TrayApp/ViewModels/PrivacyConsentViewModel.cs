@@ -1,10 +1,13 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
+using Microsoft.Extensions.Logging;
+using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.TrayApp.Services;
 
 public sealed partial class PrivacyConsentViewModel : BaseViewModel
 {
     private readonly INamedPipeClient _pipe;
+    private readonly ILogger<PrivacyConsentViewModel>? _logger;
 
     // Always on — required by policy, toggle locked in UI
     [ObservableProperty] private bool _screenMonitoringEnabled = true;
@@ -18,11 +21,15 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
     /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
     public ServiceConnectionStatus Connection { get; }
 
-    public PrivacyConsentViewModel(INamedPipeClient pipe, ServiceConnectionStatus? connection = null)
+    public PrivacyConsentViewModel(
+        INamedPipeClient pipe,
+        ServiceConnectionStatus? connection = null,
+        ILogger<PrivacyConsentViewModel>? logger = null)
     {
         Connection = connection ?? new ServiceConnectionStatus();
         Title = "Allow Required Permissions";
         _pipe = pipe;
+        _logger = logger;
     }
 
     public void OnAppearing()
@@ -58,9 +65,28 @@ public sealed partial class PrivacyConsentViewModel : BaseViewModel
         catch { /* browser unavailable */ }
     }
 
+    /// <summary>
+    /// Saves the acceptance on the backend so later sign-ins skip the Privacy and Permissions
+    /// screens. A failed save never blocks setup — the screens simply come back next sign-in.
+    /// </summary>
     [RelayCommand]
     private async Task AllowAndContinue()
     {
+        try
+        {
+            var result = await _pipe.SubmitPermissionConsentAsync(
+                new PermissionConsentPayload(
+                    ScreenMonitoringEnabled, AppTrackingEnabled, LocationAccessEnabled,
+                    CameraAccessEnabled, NotificationsEnabled, KeyboardMouseEnabled),
+                CancellationToken.None);
+            if (result is not { Success: true })
+                _logger?.LogWarning("Permission consent was not saved: {Error}", result?.ErrorCode ?? "no reply");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Permission consent was not saved");
+        }
+
         try { await Shell.Current.GoToAsync(SetupFlow.AfterPermissions); }
         catch { /* unit tests */ }
     }

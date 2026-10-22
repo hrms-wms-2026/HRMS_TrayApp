@@ -129,6 +129,15 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: outcome of <see cref="FaceReferenceStatus"/>.</summary>
     public const string FaceReferenceStatusResult = "FaceReferenceStatusResult";
 
+    /// <summary>Tray → Service: did this device's employee already accept the privacy notice and permissions? (device setup skips both screens if so)</summary>
+    public const string PermissionConsentStatus = "PermissionConsentStatus";
+
+    /// <summary>Tray → Service: the employee agreed and tapped "Allow &amp; Continue"; save it on the backend.</summary>
+    public const string PermissionConsentSubmit = "PermissionConsentSubmit";
+
+    /// <summary>Service → Tray: outcome of <see cref="PermissionConsentStatus"/> or <see cref="PermissionConsentSubmit"/>.</summary>
+    public const string PermissionConsentResult = "PermissionConsentResult";
+
     /// <summary>Tray → Service: save the three staged face setup photos as the employee's references.</summary>
     public const string FaceEnrollCommit = "FaceEnrollCommit";
 
@@ -458,6 +467,20 @@ public sealed record FacePhotoValidateResultPayload(
 /// <param name="Success">The Service reached the backend; false means "unknown" — show face setup.</param>
 public sealed record FaceReferenceStatusResultPayload(
     bool Success, string? ErrorCode, bool Enrolled, int ReferencePhotoCount);
+
+/// <summary>The permission toggles on the tray's "Allow Required Permissions" screen.</summary>
+public sealed record PermissionConsentPayload(
+    bool ScreenMonitoring,
+    bool AppTracking,
+    bool LocationAccess,
+    bool CameraAccess,
+    bool Notifications,
+    bool KeyboardMouse);
+
+/// <param name="Success">The Service reached the backend; false means "unknown" — show the screens.</param>
+/// <param name="Accepted">The employee has accepted before; <paramref name="Consent"/> is their latest acceptance.</param>
+public sealed record PermissionConsentResultPayload(
+    bool Success, string? ErrorCode, bool Accepted, PermissionConsentPayload? Consent);
 
 public sealed record LegalAcceptanceItemPayload(string DocumentType, string Version);
 

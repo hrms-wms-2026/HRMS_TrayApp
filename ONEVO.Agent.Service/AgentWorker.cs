@@ -325,6 +325,11 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 await HandleFaceReferenceStatusAsync(envelope, reply);
                 break;
 
+            case IpcMessageTypes.PermissionConsentStatus:
+            case IpcMessageTypes.PermissionConsentSubmit:
+                await HandlePermissionConsentAsync(envelope, reply);
+                break;
+
             case IpcMessageTypes.LegalAcceptanceSubmit:
                 await HandleLegalAcceptanceSubmitAsync(envelope, reply);
                 break;
@@ -1558,6 +1563,43 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         var result = await _apiClient.GetFaceReferenceStatusAsync(jwt, CancellationToken.None);
         await Reply(new FaceReferenceStatusResultPayload(
             result.Success, result.ErrorCode, result.Enrolled, result.ReferencePhotoCount));
+    }
+
+    /// <summary>
+    /// Reads (PermissionConsentStatus) or saves (PermissionConsentSubmit) the employee's
+    /// privacy/permissions acceptance on the backend.
+    /// </summary>
+    internal async Task HandlePermissionConsentAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    {
+        async Task Reply(PermissionConsentResultPayload payload) =>
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.PermissionConsentResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(payload)
+            });
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+        {
+            await Reply(new PermissionConsentResultPayload(false, "NO_DEVICE_CREDENTIAL", false, null));
+            return;
+        }
+
+        if (envelope.Type == IpcMessageTypes.PermissionConsentStatus)
+        {
+            await Reply(await _apiClient.GetPermissionConsentAsync(jwt, CancellationToken.None));
+            return;
+        }
+
+        var consent = envelope.Payload?.Deserialize<PermissionConsentPayload>();
+        if (consent is null)
+        {
+            await Reply(new PermissionConsentResultPayload(false, "INVALID_PAYLOAD", false, null));
+            return;
+        }
+
+        await Reply(await _apiClient.RecordPermissionConsentAsync(jwt, consent, CancellationToken.None));
     }
 
     /// <summary>
