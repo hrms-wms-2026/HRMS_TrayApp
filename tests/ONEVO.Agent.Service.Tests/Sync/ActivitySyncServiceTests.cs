@@ -30,7 +30,7 @@ public class ActivitySyncServiceTests
         return new ActivitySyncService(
             NullLogger<ActivitySyncService>.Instance,
             buffer,
-            credentials ?? new CredentialStore(),
+            credentials ?? TestStores.NewCredentialStore(),
             factory ?? new NeverCalledHttpClientFactory(),
             protector ?? new PassthroughEvidenceProtector(),
             spoolStore ?? new EvidenceSpoolStore(Path.Combine(Path.GetTempPath(), $"onevo-spool-{Guid.NewGuid():N}")),
@@ -69,7 +69,7 @@ public class ActivitySyncServiceTests
 
     private static void WithJwt(Action<CredentialStore> action)
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         try
         {
             credentials.StoreDeviceJwt("test-jwt");

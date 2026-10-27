@@ -27,7 +27,7 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
@@ -55,7 +55,7 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
@@ -75,7 +75,7 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
@@ -92,7 +92,7 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
@@ -130,7 +130,7 @@ public class AttendanceStatusSyncServiceTests
         var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
         var reconciler = new RecordingPresenceReconciler();
         var sut = new AttendanceStatusSyncService(
-            NullLogger<AttendanceStatusSyncService>.Instance, apiClient, new CredentialStore(), reconciler);
+            NullLogger<AttendanceStatusSyncService>.Instance, apiClient, TestStores.NewCredentialStore(), reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
 

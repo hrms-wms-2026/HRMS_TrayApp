@@ -40,7 +40,7 @@ public class AgentWorkerDevicePairingTests
             new LifecycleGate(),
             Options.Create(new AgentOptions()),
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             deviceIdentityStore ?? new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by device pairing
             null!, // InactivityEvidenceHandler — not touched by device pairing

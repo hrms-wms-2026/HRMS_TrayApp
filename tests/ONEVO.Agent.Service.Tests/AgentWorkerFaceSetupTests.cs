@@ -29,11 +29,11 @@ public class AgentWorkerFaceSetupTests : IDisposable
     private object _consentJson = new { accepted = false };
     private readonly List<string> _consentBodies = [];
 
-    public void Dispose() => new CredentialStore().ClearDeviceJwt();
+    public void Dispose() => TestStores.NewCredentialStore().ClearDeviceJwt();
 
     private AgentWorker BuildWorker(FaceSetupPhotoStaging staging)
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         credentials.StoreDeviceJwt("test-device-jwt");
 
         var stateMachine = new AgentStateMachine();

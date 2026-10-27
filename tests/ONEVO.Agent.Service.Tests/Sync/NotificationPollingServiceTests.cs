@@ -22,11 +22,11 @@ public class NotificationPollingServiceTests : IDisposable
     private readonly List<HttpRequestMessage> _requests = [];
     private readonly RecordingBroadcaster _broadcaster = new();
 
-    public void Dispose() => new CredentialStore().ClearDeviceJwt();
+    public void Dispose() => TestStores.NewCredentialStore().ClearDeviceJwt();
 
     private NotificationPollingService Build(string legacyJson, string genericJson)
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         credentials.StoreDeviceJwt("test-device-jwt");
         var handler = new StubHandler(request =>
         {

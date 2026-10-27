@@ -26,7 +26,7 @@ public class EnrollmentCoordinatorTests
     [Fact]
     public async Task StartAsync_WhenNoDeviceJwt_ReturnsFailure()
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         credentials.ClearDeviceJwt();
         var coordinator = Build(credentials, new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)));
 
@@ -39,7 +39,7 @@ public class EnrollmentCoordinatorTests
     [Fact]
     public async Task StartAsync_WithDeviceJwt_ReturnsAwsSessionDetails()
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         try
         {
             credentials.StoreDeviceJwt("device-jwt");
@@ -76,7 +76,7 @@ public class EnrollmentCoordinatorTests
     [Fact]
     public async Task StartAsync_WhenBackendUnauthorized_ReturnsErrorCode()
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         try
         {
             credentials.StoreDeviceJwt("device-jwt");
@@ -97,7 +97,7 @@ public class EnrollmentCoordinatorTests
     [Fact]
     public async Task CompleteAsync_WhenNoDeviceJwt_ReturnsFailure()
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         credentials.ClearDeviceJwt();
         var coordinator = Build(credentials, new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)));
 
@@ -110,7 +110,7 @@ public class EnrollmentCoordinatorTests
     [Fact]
     public async Task CompleteAsync_WithDeviceJwt_ReturnsProfileStatus()
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         try
         {
             credentials.StoreDeviceJwt("device-jwt");

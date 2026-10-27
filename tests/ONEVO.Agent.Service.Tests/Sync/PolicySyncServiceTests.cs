@@ -40,7 +40,7 @@ public class PolicySyncServiceTests
         new(
             NullLogger<PolicySyncService>.Instance,
             new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance),
-            new CredentialStore(), // never touched by RefreshOnceAsync(jwt, ct) — jwt passed explicitly
+            TestStores.NewCredentialStore(), // never touched by RefreshOnceAsync(jwt, ct) — jwt passed explicitly
             cache ?? new PolicyCache(),
             broadcaster ?? new RecordingBroadcaster(),
             presenceSession ?? new PresenceSession());
@@ -218,7 +218,7 @@ public class PolicySyncServiceTests
         var svc = new PolicySyncService(
             NullLogger<PolicySyncService>.Instance,
             new OnevoApiClient(factory, NullLogger<OnevoApiClient>.Instance),
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             new PolicyCache(),
             new RecordingBroadcaster(),
             new PresenceSession());
