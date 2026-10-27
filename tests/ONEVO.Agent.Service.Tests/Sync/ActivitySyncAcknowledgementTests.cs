@@ -71,7 +71,7 @@ public class ActivitySyncAcknowledgementTests
 
     private static void Flush(ActivityRecordBuffer buffer, IHttpClientFactory factory)
     {
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         try
         {
             credentials.StoreDeviceJwt("test-jwt");

@@ -6,22 +6,31 @@ using Microsoft.Win32;
 
 public sealed class CredentialStore
 {
-    private static readonly string CredentialPath = Path.Combine(
+    private static readonly string DefaultCredentialDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ONEVO", "Agent", "credential.dat");
+        "ONEVO", "Agent");
 
-    private static readonly string RefreshTokenPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ONEVO", "Agent", "refresh.dat");
+    private readonly string _credentialPath;
+    private readonly string _refreshTokenPath;
 
-    public void StoreDeviceJwt(string jwt) => ProtectAndWrite(CredentialPath, jwt);
+    /// <summary>Production callers use the parameterless constructor (real ProgramData path).
+    /// Tests pass <paramref name="credentialDirectoryOverride"/> (a per-test temp directory) so a
+    /// test run never overwrites or deletes a real enrolled agent's credentials (AUD-017).</summary>
+    public CredentialStore(string? credentialDirectoryOverride = null)
+    {
+        var directory = credentialDirectoryOverride ?? DefaultCredentialDirectory;
+        _credentialPath = Path.Combine(directory, "credential.dat");
+        _refreshTokenPath = Path.Combine(directory, "refresh.dat");
+    }
 
-    public string? ReadDeviceJwt() => ReadAndUnprotect(CredentialPath);
+    public void StoreDeviceJwt(string jwt) => ProtectAndWrite(_credentialPath, jwt);
+
+    public string? ReadDeviceJwt() => ReadAndUnprotect(_credentialPath);
 
     public void ClearDeviceJwt()
     {
-        if (File.Exists(CredentialPath))
-            File.Delete(CredentialPath);
+        if (File.Exists(_credentialPath))
+            File.Delete(_credentialPath);
     }
 
     /// <summary>
@@ -29,14 +38,14 @@ public sealed class CredentialStore
     /// short-lived). Rotation must write the new token before the caller discards
     /// the old one, so a crash mid-refresh cannot brick enrollment.
     /// </summary>
-    public void StoreRefreshToken(string refreshToken) => ProtectAndWrite(RefreshTokenPath, refreshToken);
+    public void StoreRefreshToken(string refreshToken) => ProtectAndWrite(_refreshTokenPath, refreshToken);
 
-    public string? ReadRefreshToken() => ReadAndUnprotect(RefreshTokenPath);
+    public string? ReadRefreshToken() => ReadAndUnprotect(_refreshTokenPath);
 
     public void ClearRefreshToken()
     {
-        if (File.Exists(RefreshTokenPath))
-            File.Delete(RefreshTokenPath);
+        if (File.Exists(_refreshTokenPath))
+            File.Delete(_refreshTokenPath);
     }
 
     private static void ProtectAndWrite(string path, string value)

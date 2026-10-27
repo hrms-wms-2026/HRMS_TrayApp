@@ -41,6 +41,37 @@ public sealed class ProgramDataStoreCollectionContractTests
             + string.Join(Environment.NewLine, offenders));
     }
 
+    /// <summary>
+    /// AUD-017: a parameterless CredentialStore()/DeviceIdentityStore() is bound to the real
+    /// %ProgramData%\ONEVO\Agent\ files. Tests that used it overwrote and then deleted a real
+    /// enrolled agent's credential.dat/refresh.dat. Every test must inject a temp directory.
+    /// </summary>
+    [Fact]
+    public void NoTestConstructsStoresBoundToRealProgramData()
+    {
+        var testsRoot = FindTestsRoot();
+        var offenders = new List<string>();
+
+        foreach (var path in Directory.EnumerateFiles(testsRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            if (path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                || path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                || path.EndsWith(nameof(ProgramDataStoreCollectionContractTests) + ".cs", StringComparison.Ordinal))
+                continue;
+
+            var source = File.ReadAllText(path);
+            if (source.Contains("new CredentialStore()", StringComparison.Ordinal)
+                || source.Contains("new DeviceIdentityStore()", StringComparison.Ordinal))
+                offenders.Add(Path.GetRelativePath(testsRoot, path));
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "These test files construct a CredentialStore/DeviceIdentityStore bound to the real "
+            + "%ProgramData%\\ONEVO\\Agent\\ files; use TestStores instead:\n"
+            + string.Join(Environment.NewLine, offenders));
+    }
+
     private static string FindTestsRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

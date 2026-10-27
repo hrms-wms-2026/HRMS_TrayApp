@@ -31,7 +31,7 @@ namespace ONEVO.Agent.Service.Tests;
 [Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerLifecycleGateTests : IDisposable
 {
-    public void Dispose() => new CredentialStore().ClearDeviceJwt();
+    public void Dispose() => TestStores.NewCredentialStore().ClearDeviceJwt();
 
 
     // TrayClockInEnabled is a distinct, orthogonal gate from the monitoring-toggle capabilities
@@ -57,7 +57,7 @@ public class AgentWorkerLifecycleGateTests : IDisposable
             ValidUntil = DateTimeOffset.UtcNow.AddHours(1)
         });
 
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         credentials.StoreDeviceJwt("test-device-jwt");
 
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));

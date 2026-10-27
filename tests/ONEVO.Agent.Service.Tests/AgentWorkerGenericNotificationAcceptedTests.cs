@@ -18,14 +18,14 @@ using Xunit;
 [Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerGenericNotificationAcceptedTests : IDisposable
 {
-    public void Dispose() => new CredentialStore().ClearDeviceJwt();
+    public void Dispose() => TestStores.NewCredentialStore().ClearDeviceJwt();
 
     private static AgentWorker BuildWorker(HttpMessageHandler handler, bool storeDeviceJwt = true)
     {
         var stateMachine = new AgentStateMachine();
         stateMachine.TryTransition(MonitoringState.Stopped, out _);
 
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         if (storeDeviceJwt)
             credentials.StoreDeviceJwt("test-device-jwt");
         else

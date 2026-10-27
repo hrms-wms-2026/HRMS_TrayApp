@@ -27,13 +27,41 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
 
         Assert.True(applyActiveCalled);
         Assert.Equal(["Active", "BreakEnded", "BreakAllowance"], reconciler.Calls);
+    }
+
+    // AUD-001: a restart-time resume must carry the day's completed breaks, not just the clock-in.
+    [Fact]
+    public async Task PollOnceAsync_BackendReportsClockedIn_PassesClockInAndCompletedBreaks()
+    {
+        var clockedInAt = DateTimeOffset.UtcNow.AddHours(-4);
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new
+            {
+                is_clocked_in = true,
+                clocked_in_at_utc = clockedInAt,
+                completed_break_minutes = 30
+            })
+        });
+        var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
+        var reconciler = new RecordingPresenceReconciler();
+        var sut = new AttendanceStatusSyncService(
+            NullLogger<AttendanceStatusSyncService>.Instance,
+            apiClient,
+            TestStores.NewCredentialStore(),
+            reconciler);
+
+        await sut.PollOnceAsync("device-jwt", CancellationToken.None);
+
+        Assert.Equal(clockedInAt, reconciler.ActiveClockedInAt);
+        Assert.Equal(30, reconciler.ActiveCompletedBreakMinutes);
     }
 
     [Fact]
@@ -55,7 +83,7 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
@@ -75,7 +103,7 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
@@ -92,7 +120,7 @@ public class AttendanceStatusSyncServiceTests
         var sut = new AttendanceStatusSyncService(
             NullLogger<AttendanceStatusSyncService>.Instance,
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
@@ -130,7 +158,7 @@ public class AttendanceStatusSyncServiceTests
         var apiClient = new OnevoApiClient(new StubHttpClientFactory(handler), NullLogger<OnevoApiClient>.Instance);
         var reconciler = new RecordingPresenceReconciler();
         var sut = new AttendanceStatusSyncService(
-            NullLogger<AttendanceStatusSyncService>.Instance, apiClient, new CredentialStore(), reconciler);
+            NullLogger<AttendanceStatusSyncService>.Instance, apiClient, TestStores.NewCredentialStore(), reconciler);
 
         await sut.PollOnceAsync("device-jwt", CancellationToken.None);
 

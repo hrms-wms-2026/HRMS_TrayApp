@@ -18,7 +18,7 @@ using Xunit;
 [Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerTests : IDisposable
 {
-    public void Dispose() => new CredentialStore().ClearDeviceJwt();
+    public void Dispose() => TestStores.NewCredentialStore().ClearDeviceJwt();
 
     private static AgentWorker CreateSut(
         PolicyCache? policyCache = null,
@@ -29,7 +29,7 @@ public class AgentWorkerTests : IDisposable
         var stateMachine = new AgentStateMachine();
         stateMachine.TryTransition(MonitoringState.Stopped, out _);
 
-        var credentials = new CredentialStore();
+        var credentials = TestStores.NewCredentialStore();
         if (storeDeviceJwt)
             credentials.StoreDeviceJwt("test-device-jwt");
         else

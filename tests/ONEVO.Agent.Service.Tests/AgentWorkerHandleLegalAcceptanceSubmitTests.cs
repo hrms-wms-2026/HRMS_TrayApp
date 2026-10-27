@@ -21,7 +21,7 @@ using Xunit;
 [Collection(CredentialStoreFileCollection.Name)]
 public class AgentWorkerHandleLegalAcceptanceSubmitTests : IDisposable
 {
-    public void Dispose() => new CredentialStore().ClearDeviceJwt();
+    public void Dispose() => TestStores.NewCredentialStore().ClearDeviceJwt();
 
     private static AgentWorker BuildWorker(HttpMessageHandler handler, PendingLegalChallengeStore challengeStore)
     {
@@ -40,7 +40,7 @@ public class AgentWorkerHandleLegalAcceptanceSubmitTests : IDisposable
             new LifecycleGate(),
             Options.Create(new AgentOptions()),
             apiClient,
-            new CredentialStore(),
+            TestStores.NewCredentialStore(),
             new DeviceIdentityStore(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString())),
             null!, // EnrollmentCoordinator — not touched by this handler
             null!, // InactivityEvidenceHandler — not touched by this handler
