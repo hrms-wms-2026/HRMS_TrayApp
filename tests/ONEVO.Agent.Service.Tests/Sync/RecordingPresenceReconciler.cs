@@ -10,9 +10,14 @@ public sealed class RecordingPresenceReconciler : IPresenceReconciler
 
     public RecordingPresenceReconciler(Action? onApplyActive = null) => _onApplyActive = onApplyActive;
 
-    public bool ApplyPresenceActive(DateTimeOffset now)
+    public DateTimeOffset? ActiveClockedInAt { get; private set; }
+    public int? ActiveCompletedBreakMinutes { get; private set; }
+
+    public bool ApplyPresenceActive(DateTimeOffset clockedInAt, int completedBreakMinutes = 0)
     {
         Calls.Add("Active");
+        ActiveClockedInAt = clockedInAt;
+        ActiveCompletedBreakMinutes = completedBreakMinutes;
         _onApplyActive?.Invoke();
         return true;
     }

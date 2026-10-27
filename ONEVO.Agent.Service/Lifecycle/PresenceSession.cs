@@ -52,19 +52,34 @@ public sealed class PresenceSession
 
     public void ClockIn(DateTimeOffset at)
     {
-        lock (_lock)
-        {
-            _clockInAt = at;
-            _clockOutAt = null;
-            _openPause = null;
-            _accumulatedBreak = TimeSpan.Zero;
-            _accumulatedIdle = TimeSpan.Zero;
-            _breakSessionCount = 0;
-            _pauses.Clear();
-            _sessionId = Guid.NewGuid();
-            _lastKnownActivityAt = at;
-            _idleWatermark = at;
-        }
+        lock (_lock) StartSessionUnlocked(at, TimeSpan.Zero, at);
+    }
+
+    /// <summary>
+    /// Rebuilds a session that is still open on the backend after this process restarted (AUD-001).
+    /// Activity tracking starts at <paramref name="observedAt"/>, so the gap fallback does not turn
+    /// the whole time since <paramref name="clockInAt"/> into idle, and the day's completed breaks
+    /// come from the backend. The interval breakdown before the restart is unknown.
+    /// </summary>
+    public void ResumeOpenSession(DateTimeOffset clockInAt, TimeSpan completedBreak, DateTimeOffset observedAt)
+    {
+        lock (_lock) StartSessionUnlocked(clockInAt, completedBreak, observedAt);
+    }
+
+    private void StartSessionUnlocked(DateTimeOffset clockInAt, TimeSpan completedBreak, DateTimeOffset observedAt)
+    {
+        var trackingFrom = observedAt > clockInAt ? observedAt : clockInAt;
+
+        _clockInAt = clockInAt;
+        _clockOutAt = null;
+        _openPause = null;
+        _accumulatedBreak = completedBreak > TimeSpan.Zero ? completedBreak : TimeSpan.Zero;
+        _accumulatedIdle = TimeSpan.Zero;
+        _breakSessionCount = _accumulatedBreak > TimeSpan.Zero ? 1 : 0;
+        _pauses.Clear();
+        _sessionId = Guid.NewGuid();
+        _lastKnownActivityAt = trackingFrom;
+        _idleWatermark = trackingFrom;
     }
 
     public void StartBreak(DateTimeOffset at)

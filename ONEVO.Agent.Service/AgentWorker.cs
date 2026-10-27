@@ -582,7 +582,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     /// future biometric). Still goes through LifecycleGate.CanActivate either way — a poll-detected
     /// clock-in doesn't bypass consent/enrollment/etc.
     /// </summary>
-    public bool ApplyPresenceActive(DateTimeOffset now)
+    /// <param name="clockedInAt">When the session started: now for a tray clock-in, or the backend's
+    /// clock-in time when the poller finds a session that was opened before this process started.</param>
+    /// <param name="completedBreakMinutes">Breaks already completed today per the backend.</param>
+    public bool ApplyPresenceActive(DateTimeOffset clockedInAt, int completedBreakMinutes = 0)
     {
         var current = _stateMachine.CurrentState;
         if (current is MonitoringState.Active or MonitoringState.Paused)
@@ -600,7 +603,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         if (!_stateMachine.TryTransition(MonitoringState.Active, out _))
             return false;
 
-        _presenceSession.ClockIn(now);
+        _presenceSession.ResumeOpenSession(
+            clockedInAt, TimeSpan.FromMinutes(Math.Max(0, completedBreakMinutes)), DateTimeOffset.UtcNow);
         return true;
     }
 

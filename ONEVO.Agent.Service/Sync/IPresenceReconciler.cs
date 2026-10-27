@@ -2,7 +2,10 @@ namespace ONEVO.Agent.Service.Sync;
 
 public interface IPresenceReconciler
 {
-    bool ApplyPresenceActive(DateTimeOffset now);
+    /// <summary>Reconciles local state to Active for a session that started at
+    /// <paramref name="clockedInAt"/>, with <paramref name="completedBreakMinutes"/> of breaks
+    /// already completed today. No-op (returns true) if already Active/Paused.</summary>
+    bool ApplyPresenceActive(DateTimeOffset clockedInAt, int completedBreakMinutes = 0);
     bool ApplyPresenceStopped(DateTimeOffset now);
 
     /// <summary>Reconciles local state to Paused when the backend reports an open break started
