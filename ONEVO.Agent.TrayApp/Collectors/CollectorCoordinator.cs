@@ -19,12 +19,14 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
     /// Used when Service sends Active before PolicyPush arrives (or policy message is missed).
     /// Activity is on; other collectors stay off until real policy arrives — this MUST keep
     /// InactivityScreenshotEnabled false, since there is no real, version-checked policy behind it.
+    /// AppUsageEnabled stays false for the same reason: the org may have turned app usage off.
+    /// Built per use so ValidUntil is not already expired after the tray has run for a day.
     /// </summary>
-    private static readonly AgentPolicy LocalDefaultPolicy = new()
+    private static AgentPolicy CreateLocalDefaultPolicy() => new()
     {
         Version = "tray-local-default",
         ActivitySignalEnabled = true,
-        AppUsageEnabled = true,
+        AppUsageEnabled = false,
         ScreenshotEnabled = false,
         CameraVerificationEnabled = false,
         InactivityScreenshotEnabled = false,
@@ -141,7 +143,7 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
             // Phase-1: if Active but policy not yet received, use local default
             // so keyboard/mouse capture can start immediately after auth.
             var effective = policy
-                ?? (state == MonitoringState.Active ? LocalDefaultPolicy : null);
+                ?? (state == MonitoringState.Active ? CreateLocalDefaultPolicy() : null);
 
             var shouldRun = state == MonitoringState.Active
                 && effective is not null
