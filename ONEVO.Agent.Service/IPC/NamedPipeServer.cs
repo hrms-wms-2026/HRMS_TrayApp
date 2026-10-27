@@ -13,15 +13,20 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
 {
     private readonly ILogger<NamedPipeServer> _logger;
     private readonly NamedPipeAuthenticator _authenticator;
+    private readonly IIpcClientVerifier _clientVerifier;
     private readonly ConcurrentDictionary<Guid, IpcConnection> _connections = new();
     private CancellationTokenSource? _cts;
 
     public event Func<IpcEnvelope, Func<IpcEnvelope, Task>, Task>? MessageReceived;
 
-    public NamedPipeServer(ILogger<NamedPipeServer> logger, NamedPipeAuthenticator authenticator)
+    public NamedPipeServer(
+        ILogger<NamedPipeServer> logger,
+        NamedPipeAuthenticator authenticator,
+        IIpcClientVerifier clientVerifier)
     {
         _logger = logger;
         _authenticator = authenticator;
+        _clientVerifier = clientVerifier;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -39,7 +44,7 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
             NamedPipeServerStream? pipe = null;
             try
             {
-                pipe = CreatePipe();
+                pipe = CreateSecurePipe();
                 _logger.LogDebug("Waiting for IPC client on {Pipe}", Constants.PipeName);
                 await pipe.WaitForConnectionAsync(ct);
                 _logger.LogInformation("IPC client connected — authenticating");
@@ -53,6 +58,7 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
             }
             catch (Exception ex)
             {
+                // Includes a failed secure-pipe create: retry it, never fall back to a default-ACL pipe.
                 _logger.LogError(ex, "Pipe accept failed — retrying");
                 pipe?.Dispose();
                 try { await Task.Delay(500, ct); }
@@ -72,7 +78,15 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
     {
         using (pipe)
         {
-            if (!await _authenticator.AuthenticateAsync(pipe, ct))
+            // Before anything is sent: an untrusted client must not even get the handshake.
+            if (!_clientVerifier.IsTrusted(pipe))
+                return;
+
+            var reader = new BoundedLineReader(pipe, Constants.MaxMessageLengthBytes);
+            reader.OversizedLineSkipped += bytes =>
+                _logger.LogWarning("Oversized IPC message discarded ({Bytes} bytes)", bytes);
+
+            if (!await _authenticator.AuthenticateAsync(pipe, reader, ct))
             {
                 _logger.LogWarning("IPC client failed authentication — connection dropped");
                 return;
@@ -93,18 +107,12 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
 
             Task SendAsync(IpcEnvelope envelope) => connection.SendAsync(envelope, ct);
 
-            using var reader = new StreamReader(pipe, utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
             try
             {
                 while (pipe.IsConnected && !ct.IsCancellationRequested)
                 {
                     var line = await reader.ReadLineAsync(ct);
                     if (line is null) break;
-                    if (line.Length > Constants.MaxMessageLengthBytes)
-                    {
-                        _logger.LogWarning("Oversized IPC message discarded ({Bytes} bytes)", line.Length);
-                        continue;
-                    }
 
                     IpcEnvelope? envelope;
                     try { envelope = JsonSerializer.Deserialize<IpcEnvelope>(line); }
@@ -145,25 +153,6 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
                 // block once the read loop notices; broadcasting to the rest must not stop.
                 _logger.LogDebug(ex, "Broadcast to connection {ConnectionId} failed", connectionId);
             }
-        }
-    }
-
-    private NamedPipeServerStream CreatePipe()
-    {
-        try
-        {
-            return CreateSecurePipe();
-        }
-        catch (Exception ex)
-        {
-            // ACL pipe creation can fail in some host contexts; fall back so IPC still works.
-            _logger.LogWarning(ex, "Secure pipe ACL create failed — using default ACL pipe");
-            return new NamedPipeServerStream(
-                Constants.PipeName,
-                PipeDirection.InOut,
-                NamedPipeServerStream.MaxAllowedServerInstances,
-                PipeTransmissionMode.Byte,
-                PipeOptions.Asynchronous);
         }
     }
 

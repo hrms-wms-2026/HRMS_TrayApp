@@ -52,6 +52,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<DeviceIdentityStore>();
         services.AddSingleton<PendingLegalChallengeStore>();
         services.AddSingleton<NamedPipeAuthenticator>();
+        services.AddSingleton<IClientProcessInspector, WindowsClientProcessInspector>();
+        services.AddSingleton<IIpcClientVerifier, IpcClientVerifier>();
         services.AddSingleton<NamedPipeServer>();
         services.AddSingleton<IIpcBroadcaster>(sp => sp.GetRequiredService<NamedPipeServer>());
 
