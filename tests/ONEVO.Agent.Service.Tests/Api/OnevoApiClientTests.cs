@@ -238,12 +238,35 @@ public class OnevoApiClientTests
         });
         var client = Build(handler);
 
-        var success = await client.SendHeartbeatAsync("access-token", CancellationToken.None);
+        var result = await client.SendHeartbeatAsync("access-token", CancellationToken.None);
 
-        Assert.True(success);
+        Assert.Equal(HeartbeatResult.Accepted, result);
         Assert.Equal(AgentApiRoutes.ActivationHeartbeat, captured!.RequestUri!.AbsolutePath);
         Assert.Equal("Bearer", captured.Headers.Authorization!.Scheme);
         Assert.Equal("access-token", captured.Headers.Authorization.Parameter);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, HeartbeatResult.Unauthorized)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, HeartbeatResult.Unavailable)]
+    [InlineData(HttpStatusCode.Forbidden, HeartbeatResult.Unavailable)]
+    public async Task SendHeartbeatAsync_ClassifiesFailureStatus(HttpStatusCode status, HeartbeatResult expected)
+    {
+        var client = Build(new StubHandler(_ => new HttpResponseMessage(status)));
+
+        var result = await client.SendHeartbeatAsync("access-token", CancellationToken.None);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public async Task SendHeartbeatAsync_NetworkError_ReturnsUnavailable()
+    {
+        var client = Build(new StubHandler(_ => throw new HttpRequestException("offline")));
+
+        var result = await client.SendHeartbeatAsync("access-token", CancellationToken.None);
+
+        Assert.Equal(HeartbeatResult.Unavailable, result);
     }
 
     [Fact]

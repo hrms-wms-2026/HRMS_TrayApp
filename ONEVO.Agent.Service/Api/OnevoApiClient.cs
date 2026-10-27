@@ -112,7 +112,11 @@ public sealed class OnevoApiClient
         }
     }
 
-    public async Task<bool> SendHeartbeatAsync(string accessToken, CancellationToken ct)
+    /// <summary>
+    /// Sends a tray presence heartbeat. Distinguishes a rejected access token (401 — the caller
+    /// should refresh and retry) from the backend being unreachable (keep credentials, retry later).
+    /// </summary>
+    public async Task<HeartbeatResult> SendHeartbeatAsync(string accessToken, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("OnevoApi");
         using var request = new HttpRequestMessage(HttpMethod.Post, AgentApiRoutes.ActivationHeartbeat);
@@ -121,12 +125,21 @@ public sealed class OnevoApiClient
         try
         {
             using var response = await client.SendAsync(request, ct);
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode)
+                return HeartbeatResult.Accepted;
+
+            return response.StatusCode is HttpStatusCode.Unauthorized
+                ? HeartbeatResult.Unauthorized
+                : HeartbeatResult.Unavailable;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.ActivationHeartbeat);
-            return false;
+            return HeartbeatResult.Unavailable;
         }
     }
 
@@ -1213,6 +1226,15 @@ public sealed record TrayAuthPayload(
     [property: JsonPropertyName("legal_csrf_token")] string? LegalCsrfToken = null);
 
 public sealed record TrayAuthResult(bool Success, string? ErrorCode, TrayAuthPayload? Auth);
+
+public enum HeartbeatResult
+{
+    Accepted,
+    /// <summary>401 — the access token is expired or rejected; refresh before retrying.</summary>
+    Unauthorized,
+    /// <summary>Network error, timeout, or non-401 failure — transient, retain credentials.</summary>
+    Unavailable,
+}
 
 /// <summary>
 /// Wire-format mirror of the backend's tray-policy response (snake_case). Kept separate from

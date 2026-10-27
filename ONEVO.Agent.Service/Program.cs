@@ -121,6 +121,8 @@ var host = Host.CreateDefaultBuilder(args)
                 context.HostingEnvironment.IsDevelopment());
         });
         services.AddSingleton<OnevoApiClient>();
+        // Single-flight token rotation shared by HeartbeatService and TokenRefreshService.
+        services.AddSingleton<DeviceTokenRefresher>();
         services.AddSingleton<EnrollmentCoordinator>();
 
         services.AddSingleton<ONEVO.Agent.Service.Biometrics.FaceSetupPhotoStaging>();

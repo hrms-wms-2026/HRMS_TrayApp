@@ -30,6 +30,28 @@ public static class JwtClaimsReader
         }
     }
 
+    /// <summary>
+    /// The token's <c>exp</c> claim as an absolute UTC instant, or null when it cannot be read.
+    /// Callers compare it against wall-clock time, which stays correct across sleep/wake.
+    /// </summary>
+    public static DateTimeOffset? ReadExpiry(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return null;
+
+            using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(Base64UrlDecode(parts[1])));
+            return doc.RootElement.TryGetProperty("exp", out var exp) && exp.TryGetInt64(out var seconds)
+                ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static byte[] Base64UrlDecode(string input)
     {
         var padded = input.Replace('-', '+').Replace('_', '/');

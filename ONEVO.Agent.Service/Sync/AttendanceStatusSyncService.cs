@@ -26,6 +26,7 @@ public sealed class AttendanceStatusSyncService : BackgroundService
     private readonly IPresenceReconciler _reconciler;
     private readonly PushChannelState _push;
     private readonly AgentStateMachine? _stateMachine;
+    private readonly DeviceTokenRefresher? _refresher;
 
     public AttendanceStatusSyncService(
         ILogger<AttendanceStatusSyncService> logger,
@@ -33,7 +34,8 @@ public sealed class AttendanceStatusSyncService : BackgroundService
         CredentialStore credentials,
         IPresenceReconciler reconciler,
         PushChannelState? push = null,
-        AgentStateMachine? stateMachine = null)
+        AgentStateMachine? stateMachine = null,
+        DeviceTokenRefresher? refresher = null)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -41,6 +43,7 @@ public sealed class AttendanceStatusSyncService : BackgroundService
         _reconciler = reconciler;
         _push = push ?? new PushChannelState();
         _stateMachine = stateMachine;
+        _refresher = refresher;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -81,6 +84,15 @@ public sealed class AttendanceStatusSyncService : BackgroundService
     public async Task PollOnceAsync(string deviceJwt, CancellationToken ct)
     {
         var result = await _apiClient.GetAttendanceStatusAsync(deviceJwt, ct);
+
+        if (result.ErrorCode == "UNAUTHORIZED"
+            && _refresher is not null
+            && await _refresher.RefreshAsync(deviceJwt, ct) == TokenRefreshOutcome.Succeeded
+            && _credentials.ReadDeviceJwt() is { Length: > 0 } refreshedJwt)
+        {
+            result = await _apiClient.GetAttendanceStatusAsync(refreshedJwt, ct);
+        }
+
         if (!result.Success)
         {
             _logger.LogDebug("Attendance status fetch failed ({ErrorCode}) — keeping last-known local state", result.ErrorCode);

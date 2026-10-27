@@ -1,93 +1,97 @@
 namespace ONEVO.Agent.Service.Sync;
 
-using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared.Models;
 
 /// <summary>
-/// Refreshes the device access token before it expires. The access token issued
-/// by the backend is short-lived (3600s) — this is a single controlled refresh
-/// cycle, never an infinite fast retry (§10). A refresh failure means the stored
-/// credential is dead; it clears local state and lets the agent fall back to
-/// Unenrolled rather than keep retrying against a revoked/invalid token.
+/// Refreshes the device access token before it expires. The access token issued by the
+/// backend is short-lived (3600s). A transient failure (network, timeout, 5xx) keeps the
+/// credentials and retries with capped exponential backoff + jitter — bounded retry, never
+/// an infinite fast loop (§10). Only a backend rejection of the refresh token clears
+/// credentials and locks the agent; that decision lives in <see cref="DeviceTokenRefresher"/>.
 /// </summary>
 public sealed class TokenRefreshService : BackgroundService
 {
     // Access tokens live 3600s server-side; refresh well before that (§8.2 talks
     // about a 24h credential, but that does not match this token's real lifetime —
     // key the cadence off what the backend actually issues).
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(45);
+    internal static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(45);
+
+    internal static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(15);
+    internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromMinutes(5);
 
     private readonly ILogger<TokenRefreshService> _logger;
     private readonly AgentStateMachine _stateMachine;
-    private readonly OnevoApiClient _apiClient;
-    private readonly CredentialStore _credentials;
-    private readonly DeviceIdentityStore _deviceIdentityStore;
-    private readonly PendingLegalChallengeStore _pendingLegalChallenge;
+    private readonly DeviceTokenRefresher _refresher;
 
     public TokenRefreshService(
         ILogger<TokenRefreshService> logger,
         AgentStateMachine stateMachine,
-        OnevoApiClient apiClient,
-        CredentialStore credentials,
-        DeviceIdentityStore deviceIdentityStore,
-        PendingLegalChallengeStore pendingLegalChallenge)
+        DeviceTokenRefresher refresher)
     {
         _logger = logger;
         _stateMachine = stateMachine;
-        _apiClient = apiClient;
-        _credentials = credentials;
-        _deviceIdentityStore = deviceIdentityStore;
-        _pendingLegalChallenge = pendingLegalChallenge;
+        _refresher = refresher;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(RefreshInterval);
-
-        while (await timer.WaitForNextTickAsync(stoppingToken))
+        var consecutiveFailures = 0;
+        try
         {
-            if (_stateMachine.CurrentState is MonitoringState.Unenrolled or MonitoringState.Locked)
-                continue;
+            while (true)
+            {
+                await Task.Delay(NextDelay(consecutiveFailures, Random.Shared.NextDouble()), stoppingToken);
 
-            await RefreshOnceAsync(stoppingToken);
+                if (_stateMachine.CurrentState is MonitoringState.Unenrolled or MonitoringState.Locked)
+                {
+                    consecutiveFailures = 0;
+                    continue;
+                }
+
+                TokenRefreshOutcome outcome;
+                try
+                {
+                    outcome = await _refresher.RefreshAsync(rejectedAccessToken: null, stoppingToken);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // e.g. a DPAPI/IO failure writing the rotated token — must not stop the host.
+                    _logger.LogWarning(ex, "Scheduled token refresh threw; treating as transient");
+                    outcome = TokenRefreshOutcome.Transient;
+                }
+
+                if (outcome == TokenRefreshOutcome.Transient)
+                {
+                    consecutiveFailures++;
+                    _logger.LogWarning(
+                        "Scheduled token refresh failed transiently (attempt {Attempt}); retrying with backoff",
+                        consecutiveFailures);
+                }
+                else
+                {
+                    consecutiveFailures = 0;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
         }
     }
 
-    private async Task RefreshOnceAsync(CancellationToken ct)
+    /// <summary>
+    /// 45 min after a success; after <paramref name="consecutiveFailures"/> transient failures,
+    /// 15s doubling up to a 5 min cap, plus up to 20% jitter (<paramref name="jitterSample"/> in [0,1)).
+    /// </summary>
+    internal static TimeSpan NextDelay(int consecutiveFailures, double jitterSample)
     {
-        var identity = _deviceIdentityStore.Load();
-        var refreshToken = _credentials.ReadRefreshToken();
-        if (identity is null || string.IsNullOrWhiteSpace(refreshToken))
-            return;
+        if (consecutiveFailures <= 0)
+            return RefreshInterval;
 
-        var result = await _apiClient.RefreshTokenAsync(refreshToken, identity.DeviceFingerprint, ct);
-        if (result.Success && result.Auth is not null)
-        {
-            _credentials.StoreRefreshToken(result.Auth.RefreshToken);
-            _credentials.StoreDeviceJwt(result.Auth.AccessToken);
-            _pendingLegalChallenge.Set(result.Auth.LegalChallenge, result.Auth.LegalCsrfToken);
-            _logger.LogDebug("Device token refreshed on schedule");
-            return;
-        }
-
-        // Single controlled retry, not a loop — if it fails again the credential
-        // is treated as dead until the employee re-enrolls (§14).
-        _logger.LogWarning("Scheduled token refresh failed ({ErrorCode}); retrying once", result.ErrorCode);
-        var retry = await _apiClient.RefreshTokenAsync(refreshToken, identity.DeviceFingerprint, ct);
-        if (retry.Success && retry.Auth is not null)
-        {
-            _credentials.StoreRefreshToken(retry.Auth.RefreshToken);
-            _credentials.StoreDeviceJwt(retry.Auth.AccessToken);
-            _pendingLegalChallenge.Set(retry.Auth.LegalChallenge, retry.Auth.LegalCsrfToken);
-            return;
-        }
-
-        _logger.LogWarning(
-            "Token refresh failed twice ({ErrorCode}) — clearing credentials, moving to Locked", retry.ErrorCode);
-        _credentials.ClearDeviceJwt();
-        _credentials.ClearRefreshToken();
-        _deviceIdentityStore.Clear();
-        _stateMachine.TryTransition(MonitoringState.Locked, out _);
+        var exponent = Math.Min(consecutiveFailures - 1, 10);
+        var backoff = TimeSpan.FromTicks(Math.Min(
+            InitialRetryDelay.Ticks * (1L << exponent),
+            MaxRetryDelay.Ticks));
+        return backoff + backoff * (0.2 * jitterSample);
     }
 }

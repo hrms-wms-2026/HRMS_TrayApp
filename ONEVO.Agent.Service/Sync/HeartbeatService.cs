@@ -7,8 +7,9 @@ using ONEVO.Agent.Shared.Models;
 /// <summary>
 /// Sends authenticated tray presence heartbeats every 30 seconds.
 /// Credentials remain intact when a heartbeat cannot reach the backend; the next
-/// tick retries and the token-refresh service remains responsible for scheduled
-/// access-token rotation and unrecoverable refresh failures.
+/// tick retries. A token near expiry (e.g. after sleep/wake) is refreshed before the
+/// heartbeat, and a 401 triggers one refresh + one retry so the web app's tray-presence
+/// check is never blocked waiting for the 45-minute scheduled refresh.
 /// </summary>
 public sealed class HeartbeatService : BackgroundService
 {
@@ -22,6 +23,7 @@ public sealed class HeartbeatService : BackgroundService
     private readonly AgentStateMachine _stateMachine;
     private readonly OnevoApiClient _apiClient;
     private readonly CredentialStore _credentials;
+    private readonly DeviceTokenRefresher _refresher;
     private readonly PushChannelState _push;
 
     public HeartbeatService(
@@ -29,12 +31,14 @@ public sealed class HeartbeatService : BackgroundService
         AgentStateMachine stateMachine,
         OnevoApiClient apiClient,
         CredentialStore credentials,
+        DeviceTokenRefresher refresher,
         PushChannelState? push = null)
     {
         _logger = logger;
         _stateMachine = stateMachine;
         _apiClient = apiClient;
         _credentials = credentials;
+        _refresher = refresher;
         _push = push ?? new PushChannelState();
     }
 
@@ -68,25 +72,42 @@ public sealed class HeartbeatService : BackgroundService
         }
     }
 
-    private async Task SendHeartbeatAsync(CancellationToken ct)
+    internal async Task SendHeartbeatAsync(CancellationToken ct)
     {
         if (_stateMachine.CurrentState is MonitoringState.Unenrolled or MonitoringState.Locked)
+            return;
+
+        // Wall-clock exp check: after sleep/wake the scheduled refresh may not have fired.
+        // A transient failure here still lets the heartbeat try the current token.
+        if (await _refresher.EnsureFreshAsync(ct) == TokenRefreshOutcome.Rejected)
             return;
 
         var accessToken = _credentials.ReadDeviceJwt();
         if (string.IsNullOrWhiteSpace(accessToken))
             return;
 
-        var accepted = await _apiClient.SendHeartbeatAsync(accessToken, ct);
-        if (accepted)
+        var result = await _apiClient.SendHeartbeatAsync(accessToken, ct);
+        if (result == HeartbeatResult.Unauthorized)
+        {
+            _logger.LogInformation("Tray heartbeat returned 401; refreshing the device token and retrying once");
+            if (await _refresher.RefreshAsync(accessToken, ct) != TokenRefreshOutcome.Succeeded)
+                return;
+
+            var refreshed = _credentials.ReadDeviceJwt();
+            if (string.IsNullOrWhiteSpace(refreshed))
+                return;
+
+            result = await _apiClient.SendHeartbeatAsync(refreshed, ct);
+        }
+
+        if (result == HeartbeatResult.Accepted)
         {
             _logger.LogDebug("Tray heartbeat accepted");
             return;
         }
 
         // Do not clear credentials here: a network outage must not force a new
-        // activation code. TokenRefreshService handles scheduled refresh and the
-        // next heartbeat tick retries with the retained credential.
-        _logger.LogWarning("Tray heartbeat was rejected or unavailable; retaining credentials for retry");
+        // activation code. Only DeviceTokenRefresher decides a credential is dead.
+        _logger.LogWarning("Tray heartbeat was rejected or unavailable ({Result}); retaining credentials for retry", result);
     }
 }
