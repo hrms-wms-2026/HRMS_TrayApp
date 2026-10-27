@@ -48,6 +48,7 @@ public sealed class PolicySyncService : BackgroundService
     private readonly IIpcBroadcaster _broadcaster;
     private readonly PresenceSession _presenceSession;
     private readonly PushChannelState _push;
+    private readonly DeviceTokenRefresher? _refresher;
 
     public PolicySyncService(
         ILogger<PolicySyncService> logger,
@@ -56,7 +57,8 @@ public sealed class PolicySyncService : BackgroundService
         PolicyCache policyCache,
         IIpcBroadcaster broadcaster,
         PresenceSession presenceSession,
-        PushChannelState? push = null)
+        PushChannelState? push = null,
+        DeviceTokenRefresher? refresher = null)
     {
         _logger = logger;
         _apiClient = apiClient;
@@ -65,6 +67,7 @@ public sealed class PolicySyncService : BackgroundService
         _broadcaster = broadcaster;
         _presenceSession = presenceSession;
         _push = push ?? new PushChannelState();
+        _refresher = refresher;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -119,6 +122,11 @@ public sealed class PolicySyncService : BackgroundService
         }
 
         var result = await _apiClient.GetEffectivePolicyAsync(deviceJwt, ct);
+
+        // An expired access token must not disable monitoring: refresh it and try once more.
+        if (result.ErrorCode == "UNAUTHORIZED" && await TryRefreshAsync(deviceJwt, ct) is { } refreshedJwt)
+            result = await _apiClient.GetEffectivePolicyAsync(refreshedJwt, ct);
+
         if (!result.Success || result.Policy is null)
         {
             _logger.LogDebug("Policy refresh failed ({ErrorCode}) — clearing policy and disabling monitoring", result.ErrorCode);
@@ -170,5 +178,15 @@ public sealed class PolicySyncService : BackgroundService
             Type = IpcMessageTypes.PolicyPush,
             Payload = JsonSerializer.SerializeToElement(new PolicyPushPayload { Policy = disabled })
         }, ct);
+    }
+
+    private async Task<string?> TryRefreshAsync(string rejectedJwt, CancellationToken ct)
+    {
+        if (_refresher is null
+            || await _refresher.RefreshAsync(rejectedJwt, ct) != TokenRefreshOutcome.Succeeded)
+            return null;
+
+        var jwt = _credentials.ReadDeviceJwt();
+        return string.IsNullOrWhiteSpace(jwt) ? null : jwt;
     }
 }

@@ -99,7 +99,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     /// "Login": if a device identity and refresh token survived a restart, resume
     /// the session silently instead of showing the connect screen again (§9).
     /// </summary>
-    private async Task TryResumeSessionAsync(CancellationToken ct)
+    internal async Task TryResumeSessionAsync(CancellationToken ct)
     {
         var identity = _deviceIdentityStore.Load();
         var refreshToken = _credentials.ReadRefreshToken();
@@ -107,11 +107,21 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return;
 
         var result = await _apiClient.RefreshTokenAsync(refreshToken, identity.DeviceFingerprint, ct);
+        if (result.ErrorCode == "UNAUTHORIZED")
+        {
+            _logger.LogWarning("Silent session resume rejected by the backend — clearing stored credentials");
+            ClearStoredAuth();
+            return;
+        }
+
         if (!result.Success || result.Auth is null)
         {
+            // Backend unreachable at boot (network not up yet, API restarting): keep the
+            // enrollment. HeartbeatService refreshes the stale token once the backend answers.
             _logger.LogWarning(
-                "Silent session resume failed ({ErrorCode}) — clearing stored credentials", result.ErrorCode);
-            ClearStoredAuth();
+                "Silent session resume failed transiently ({ErrorCode}) — keeping stored credentials", result.ErrorCode);
+            ApplyEnrollmentGates();
+            _stateMachine.TryTransition(MonitoringState.Stopped, out _);
             return;
         }
 

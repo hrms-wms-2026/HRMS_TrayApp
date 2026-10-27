@@ -29,6 +29,23 @@ public class JwtClaimsReaderTests
         Assert.Null(tenantId);
     }
 
+    [Fact]
+    public void ReadExpiry_ValidToken_ReturnsExpAsUtcInstant()
+    {
+        var jwt = BuildFakeJwt(new { sub = "device-123", exp = 1_800_000_000L });
+
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1_800_000_000L), JwtClaimsReader.ReadExpiry(jwt));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-jwt")]
+    public void ReadExpiry_MalformedOrMissing_ReturnsNull(string malformed)
+    {
+        Assert.Null(JwtClaimsReader.ReadExpiry(malformed));
+        Assert.Null(JwtClaimsReader.ReadExpiry(BuildFakeJwt(new { sub = "device-123" })));
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not-a-jwt")]
