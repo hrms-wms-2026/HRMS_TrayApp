@@ -128,19 +128,13 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 
     // Drops the current connection so writes fail fast (WriteEnvelopeAsync sees a null writer)
     // instead of throwing "Pipe is broken", and so the old pipe handle is not leaked on reconnect.
-    private async Task ResetConnectionAsync()
+    // Deliberately not under _writeLock: a write can block forever on a Service that stopped
+    // reading, and disposing the pipe is what aborts it (WriteEnvelopeAsync then returns false).
+    private Task ResetConnectionAsync()
     {
         _writer = null;
-        await _writeLock.WaitAsync().ConfigureAwait(false);
-        try
-        {
-            _pipe?.Dispose();
-            _pipe = null;
-        }
-        finally
-        {
-            _writeLock.Release();
-        }
+        Interlocked.Exchange(ref _pipe, null)?.Dispose();
+        return Task.CompletedTask;
     }
 
     private static async Task AuthenticateAsync(NamedPipeClientStream pipe, CancellationToken ct)
@@ -484,9 +478,11 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             await writer.WriteLineAsync(JsonSerializer.Serialize(envelope).AsMemory(), ct);
             return true;
         }
-        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException
+            || (ex is OperationCanceledException && !ct.IsCancellationRequested))
         {
-            // The read loop sees the same drop, resets the connection and reconnects.
+            // The pipe dropped or was reset under this write (an aborted pipe write can surface
+            // as a cancellation). The read loop resets the connection and reconnects.
             _logger.LogWarning("IPC write of {Type} failed: {Msg}", envelope.Type, ex.Message);
             return false;
         }

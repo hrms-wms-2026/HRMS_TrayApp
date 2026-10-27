@@ -70,6 +70,30 @@ public sealed class NamedPipeClientConnectionTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task Dispose_WhileAWriteIsStuckOnAServiceThatStoppedReading_DoesNotHang()
+    {
+        var pipeName = NewPipeName();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var client = new NamedPipeClient(NullLogger<NamedPipeClient>.Instance, pipeName);
+        await using var server = new NamedPipeServerStream(
+            pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 0);
+
+        await client.StartAsync(cts.Token);
+        await AcceptAndHandshakeAsync(server, cts.Token);
+
+        // Zero-size pipe buffers: this write can only finish when the server reads, which it never does.
+        var stuckWrite = client.SendEnvelopeAsync(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.CollectionRecordSubmit,
+            Payload = JsonSerializer.SerializeToElement(new string('x', 60_000))
+        }, CancellationToken.None);
+        await Task.Delay(200);
+
+        await client.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        await stuckWrite.WaitAsync(TimeSpan.FromSeconds(5)); // ends without an exception escaping
+    }
+
     private static string NewPipeName() => $"ONEVO.Agent.Tests.{Guid.NewGuid():N}";
 
     private static NamedPipeServerStream CreateServer(string pipeName) =>
