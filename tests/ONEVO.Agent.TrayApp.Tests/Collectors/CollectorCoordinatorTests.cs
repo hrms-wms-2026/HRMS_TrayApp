@@ -46,6 +46,38 @@ public sealed class CollectorCoordinatorTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Active_BeforeAnyPolicy_LocalDefaultKeepsAppUsageOff()
+    {
+        // The org may have app usage tracking off; until the real policy says otherwise, only the
+        // minimal activity counting may run.
+        _pipe.SimulateState(MonitoringState.Active);
+
+        await _collector.WaitForStartAsync(Wait);
+
+        Assert.True(_collector.LastPolicy!.ActivitySignalEnabled);
+        Assert.False(_collector.LastPolicy.AppUsageEnabled);
+        Assert.False(_collector.LastPolicy.InactivityScreenshotEnabled);
+    }
+
+    [Fact]
+    public async Task Active_BeforeAnyPolicy_LocalDefaultValidUntilIsFreshOnEachStart()
+    {
+        _pipe.SimulateState(MonitoringState.Active);
+        await _collector.WaitForStartAsync(Wait);
+        var firstValidUntil = _collector.LastPolicy!.ValidUntil;
+
+        _collector.ResetSignals();
+        _pipe.SimulateState(MonitoringState.Paused);
+        await _collector.WaitForStopAsync(Wait);
+        await Task.Delay(20);
+        _pipe.SimulateState(MonitoringState.Active);
+        await _collector.WaitForStartAsync(Wait);
+
+        // A ValidUntil fixed at tray start would already be expired after a day of uptime.
+        Assert.True(_collector.LastPolicy!.ValidUntil > firstValidUntil);
+    }
+
+    [Fact]
     public async Task ClockedOut_EnabledPolicyAlreadyReceived_NeverStartsCollector()
     {
         // Policy arrives (or was already cached) while still Stopped (clocked out) - collectors
