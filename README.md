@@ -231,7 +231,6 @@ tray_app_maui/
 - Postman / API smoke: `docs/postman/README.md` (includes tray policy, inactivity attempt ingest, daily report)
 - Backend validation record: `HRMS-Backend-v1/docs/superpowers/workflow/INACTIVITY_SCREENSHOT_DAILY_REPORT_VALIDATION.md`
 - Architecture checklist: use team skill / architecture doc if available
-- UI design skill: `SKILL.md` (image → MAUI)
 
 ---
 

@@ -1,6 +1,6 @@
 # packages-guide.md → Implementation Plan (Tray + Service)
 
-Source: `packages-guide.md` Part 2 (Desktop Agent) + Week 3 checklist.  
+Source: `docs/packages-guide.md` Part 2 (Desktop Agent) + Week 3 checklist.  
 Scope: **this repo** (`tray_app_maui`) only — not HRMS backend Hangfire/MediatR.
 
 ## Status matrix
