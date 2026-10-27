@@ -33,6 +33,13 @@ public sealed class AgentOptions
     /// </summary>
     public bool AllowLocalLifecycleWithoutFullGates { get; set; }
 
+    /// <summary>
+    /// Development helper: accept a Tray App running from any folder (e.g. bin\Debug) rather than
+    /// only from its install directory. The executable name and console-session checks still
+    /// apply. Production must keep this false.
+    /// </summary>
+    public bool AllowIpcClientFromAnyPath { get; set; }
+
     /// <summary>Tenant root domain accepted by the browser activation protocol.</summary>
     public string PortalRootDomain { get; set; } = string.Empty;
 

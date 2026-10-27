@@ -107,7 +107,7 @@ public class NamedPipeServerBroadcastTests
     [Fact]
     public async Task BroadcastAsync_AfterClientDisconnects_DoesNotThrow_AndOtherConnectionsStillReceive()
     {
-        var server = new NamedPipeServer(NullLogger<NamedPipeServer>.Instance, new NamedPipeAuthenticator());
+        var server = new NamedPipeServer(NullLogger<NamedPipeServer>.Instance, new NamedPipeAuthenticator(), TrustAllClients.Instance);
         server.MessageReceived += RespondToPing;
         using var cts = new CancellationTokenSource();
 
@@ -158,7 +158,7 @@ public class NamedPipeServerBroadcastTests
 
     private static async Task<Harness> ConnectedClientAsync()
     {
-        var server = new NamedPipeServer(NullLogger<NamedPipeServer>.Instance, new NamedPipeAuthenticator());
+        var server = new NamedPipeServer(NullLogger<NamedPipeServer>.Instance, new NamedPipeAuthenticator(), TrustAllClients.Instance);
         server.MessageReceived += RespondToPing;
         var cts = new CancellationTokenSource();
 

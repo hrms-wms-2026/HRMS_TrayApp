@@ -7,9 +7,15 @@ using System.Text.Json;
 using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
 
+/// <summary>
+/// Protocol handshake only — NOT authentication: any client can echo the nonce back. Who may
+/// connect is decided by <see cref="IIpcClientVerifier"/> before this runs.
+/// </summary>
 public sealed class NamedPipeAuthenticator
 {
-    public async Task<bool> AuthenticateAsync(PipeStream pipe, CancellationToken ct)
+    /// <param name="reader">The connection's line reader, shared with the read loop that follows
+    /// so no bytes the client sends right after the handshake are lost to a second buffer.</param>
+    public async Task<bool> AuthenticateAsync(PipeStream pipe, BoundedLineReader reader, CancellationToken ct)
     {
         var nonce = Convert.ToBase64String(RandomNumberGenerator.GetBytes(Constants.NonceLengthBytes));
 
@@ -29,7 +35,6 @@ public sealed class NamedPipeAuthenticator
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(Constants.IpcConnectionTimeoutMs);
 
-        using var reader = new StreamReader(pipe, utf8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true);
         var line = await reader.ReadLineAsync(cts.Token);
         if (line is null) return false;
 
