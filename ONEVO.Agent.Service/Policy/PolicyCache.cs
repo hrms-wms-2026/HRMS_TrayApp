@@ -24,6 +24,12 @@ public sealed class PolicyCache
         }
     }
 
+    /// <summary>True while a server-authoritative policy is held and has not expired.</summary>
+    public bool IsAvailable
+    {
+        get { lock (_lock) return _policy.ValidUntil > DateTimeOffset.UtcNow; }
+    }
+
     public void Set(AgentPolicy policy)
     {
         lock (_lock) _policy = policy;

@@ -178,6 +178,15 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
 
         if (_policyCache is not null)
         {
+            // No valid server policy (Service just started, or offline past its 1 h validity): rows
+            // were captured while a real policy allowed them, so wait for the next fetch instead of
+            // judging them against the all-disabled fallback and quarantining the backlog (AUD-002).
+            if (!_policyCache.IsAvailable)
+            {
+                _logger.LogDebug("No valid server policy — leaving {Count} records pending", peeked.Count);
+                return FlushResult.Idle;
+            }
+
             var policy = _policyCache.Current;
             var blocked = peeked.Where(item => !IsAllowedByPolicy(item.Record.RecordType, policy)).ToList();
             if (blocked.Count > 0)
