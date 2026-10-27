@@ -15,9 +15,12 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     private readonly ConcurrentDictionary<string, TaskCompletionSource<IpcEnvelope>> _pending = new();
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<EvidenceTransferAckPayload?>> _pendingEvidenceAcks = new();
     private readonly EvidenceTransferClient _evidenceTransferClient;
+    private readonly string _pipeName;
     private NamedPipeClientStream? _pipe;
-    private StreamWriter? _writer;
+    // Cleared without the write lock by ResetConnectionAsync; WriteEnvelopeAsync reads it once.
+    private volatile StreamWriter? _writer;
     private CancellationTokenSource? _cts;
+    private Task? _connectLoop;
 
     // CRITICAL: all collectors MUST stop on this event (§2.3)
     public event Action? OnDisconnected;
@@ -30,26 +33,29 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public StatusResponsePayload? LastKnownStatus { get; private set; }
     public AgentPolicy? LastKnownPolicy { get; private set; }
 
-    public NamedPipeClient(ILogger<NamedPipeClient> logger)
+    public NamedPipeClient(ILogger<NamedPipeClient> logger) : this(logger, Constants.PipeName) { }
+
+    // Tests pass a unique pipe name so they never touch a real Agent Service's pipe.
+    internal NamedPipeClient(ILogger<NamedPipeClient> logger, string pipeName)
     {
         _logger = logger;
+        _pipeName = pipeName;
         _evidenceTransferClient = new EvidenceTransferClient(WriteEnvelopeAsync, WaitForEvidenceAckAsync);
     }
 
     public Task StartAsync(CancellationToken ct)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _ = ConnectWithRetryAsync(_cts.Token);
+        _connectLoop = ConnectWithRetryAsync(_cts.Token);
         return Task.CompletedTask;
     }
 
     private async Task ConnectWithRetryAsync(CancellationToken ct)
     {
         // Outer loop: keeps the client alive for the lifetime of the app. Each iteration runs one
-        // exponential-backoff burst; if the burst can't connect (or a live connection later drops),
-        // it falls back to a slow fixed-interval retry (Constants.ReconnectSteadyStateDelayMs)
-        // instead of giving up — the Service restarting/recovering minutes later must not require
-        // a manual Tray App relaunch to be noticed.
+        // exponential-backoff burst; if the burst can't connect it falls back to a slow fixed-interval
+        // retry (Constants.ReconnectSteadyStateDelayMs) instead of giving up — the Service
+        // restarting/recovering minutes later must not require a manual Tray App relaunch to be noticed.
         var disconnectedSignalled = false;
 
         while (!ct.IsCancellationRequested)
@@ -61,7 +67,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                 try
                 {
                     _pipe = new NamedPipeClientStream(
-                        ".", Constants.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                        ".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
                     await _pipe.ConnectAsync(Constants.IpcConnectionTimeoutMs, ct);
                     await AuthenticateAsync(_pipe, ct);
 
@@ -72,7 +78,8 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                     disconnectedSignalled = false;
 
                     await RequestStatusAsync(ct);
-                    await ReadLoopAsync(_pipe, utf8, ct); // blocks until disconnected; invokes OnDisconnected itself
+                    // Blocks until disconnected; resets the connection and invokes OnDisconnected itself.
+                    await ReadLoopAsync(_pipe, utf8, ct);
                     disconnectedSignalled = true;
                     break;
                 }
@@ -81,9 +88,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                 {
                     _logger.LogWarning("Connect attempt {Attempt}/{Max} failed: {Msg}",
                         attempt + 1, Constants.ReconnectMaxAttempts, ex.Message);
-                    _pipe?.Dispose();
-                    _pipe = null;
-                    _writer = null;
+                    await ResetConnectionAsync();
 
                     if (attempt < Constants.ReconnectMaxAttempts - 1)
                     {
@@ -106,14 +111,35 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                 OnDisconnected?.Invoke();
             }
 
+            // A live connection that just dropped (Service restart/update) goes straight back into the
+            // fast burst. The short pause stops a Service that accepts and then immediately closes
+            // from turning this into a tight reconnect loop.
+            var retryDelayMs = connected ? Constants.ReconnectBaseDelayMs : Constants.ReconnectSteadyStateDelayMs;
             try
             {
-                await Task.Delay(Constants.ReconnectSteadyStateDelayMs, ct);
+                await Task.Delay(retryDelayMs, ct);
             }
             catch (OperationCanceledException)
             {
                 return;
             }
+        }
+    }
+
+    // Drops the current connection so writes fail fast (WriteEnvelopeAsync sees a null writer)
+    // instead of throwing "Pipe is broken", and so the old pipe handle is not leaked on reconnect.
+    private async Task ResetConnectionAsync()
+    {
+        _writer = null;
+        await _writeLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            _pipe?.Dispose();
+            _pipe = null;
+        }
+        finally
+        {
+            _writeLock.Release();
         }
     }
 
@@ -158,703 +184,174 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public Task SendEnvelopeAsync(IpcEnvelope envelope, CancellationToken ct) =>
         WriteEnvelopeAsync(envelope, ct);
 
-    public async Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
+    public Task<EnrollmentResultPayload?> SendActivationAsync(string code, CancellationToken ct) =>
+        SendRequestAsync<EnrollmentResultPayload>(
+            IpcMessageTypes.ActivationCodeSubmit,
+            JsonSerializer.SerializeToElement(new ActivationCodeSubmitPayload(code.Trim().ToUpperInvariant())),
+            TimeSpan.FromSeconds(15), "Activation", ct);
 
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.ActivationCodeSubmit,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new ActivationCodeSubmitPayload(code.Trim().ToUpperInvariant()))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Activation timed out waiting for EnrollmentResult");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<EnrollmentResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<DevicePairingStartedPayload?> SendDevicePairingStartAsync(
-        string deviceName, string deviceOs, string clientVersion, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.DevicePairingStart,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new DevicePairingStartPayload(deviceName, deviceOs, clientVersion))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Device pairing start timed out waiting for DevicePairingStarted");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<DevicePairingStartedPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
+    public Task<DevicePairingStartedPayload?> SendDevicePairingStartAsync(
+        string deviceName, string deviceOs, string clientVersion, CancellationToken ct) =>
+        SendRequestAsync<DevicePairingStartedPayload>(
+            IpcMessageTypes.DevicePairingStart,
+            JsonSerializer.SerializeToElement(new DevicePairingStartPayload(deviceName, deviceOs, clientVersion)),
+            TimeSpan.FromSeconds(15), "Device pairing start", ct);
 
     public Task SendDevicePairingCancelAsync(CancellationToken ct) =>
         WriteEnvelopeAsync(new IpcEnvelope { Type = IpcMessageTypes.DevicePairingCancel }, ct);
 
-    public async Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
+    public Task<LogoutResultPayload?> SendLogoutAsync(CancellationToken ct) =>
+        SendRequestAsync<LogoutResultPayload>(
+            IpcMessageTypes.LogoutRequest, null, TimeSpan.FromSeconds(15), "Logout", ct);
 
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.LogoutRequest,
-                CorrelationId = correlationId
-            };
-            await WriteEnvelopeAsync(envelope, ct);
+    public Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct) =>
+        SendRequestAsync<UpdateCheckResultPayload>(
+            IpcMessageTypes.UpdateCheckRequest,
+            JsonSerializer.SerializeToElement(new UpdateCheckRequestPayload(currentVersion)),
+            TimeSpan.FromSeconds(20), "Update check", ct);
 
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Logout timed out waiting for LogoutResult");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<LogoutResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<UpdateCheckResultPayload?> SendUpdateCheckAsync(string currentVersion, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.UpdateCheckRequest,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(new UpdateCheckRequestPayload(currentVersion))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(20));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Update check timed out waiting for UpdateCheckResult");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<UpdateCheckResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<LifecycleResultPayload?> SendLifecycleAsync(
+    public Task<LifecycleResultPayload?> SendLifecycleAsync(
         LifecycleAction action,
         CancellationToken ct,
-        string? breakReason = null)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
+        string? breakReason = null) =>
+        SendRequestAsync<LifecycleResultPayload>(
+            IpcMessageTypes.LifecycleCommand,
+            JsonSerializer.SerializeToElement(new LifecycleCommandPayload(action, breakReason)),
+            TimeSpan.FromSeconds(10), $"Lifecycle {action}", ct);
 
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.LifecycleCommand,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new LifecycleCommandPayload(action, breakReason))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
+    public Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct) =>
+        SendRequestAsync<BiometricEnrollmentSessionReadyPayload>(
+            IpcMessageTypes.BiometricEnrollmentStart,
+            JsonSerializer.SerializeToElement(new BiometricEnrollmentStartPayload()),
+            TimeSpan.FromSeconds(15), "Biometric enrollment start", ct);
 
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
+    public Task<BiometricEnrollmentResultPayload?> CompleteBiometricEnrollmentAsync(
+        Guid attemptId, bool captureSucceeded, string? clientErrorCode, CancellationToken ct) =>
+        SendRequestAsync<BiometricEnrollmentResultPayload>(
+            IpcMessageTypes.BiometricEnrollmentCaptureFinished,
+            JsonSerializer.SerializeToElement(
+                new BiometricEnrollmentCaptureFinishedPayload(attemptId, captureSucceeded, clientErrorCode)),
+            TimeSpan.FromSeconds(30), "Biometric enrollment completion", ct);
 
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Lifecycle {Action} timed out waiting for result", action);
-                return null;
-            }
+    public Task<LocationChangeSubmitResultPayload?> SendLocationChangeSubmitAsync(
+        double latitude, double longitude, double? accuracyMeters, string reason, CancellationToken ct) =>
+        SendRequestAsync<LocationChangeSubmitResultPayload>(
+            IpcMessageTypes.LocationChangeSubmit,
+            JsonSerializer.SerializeToElement(
+                new LocationChangeSubmitPayload(latitude, longitude, accuracyMeters, reason)),
+            TimeSpan.FromSeconds(15), "Location change request submit", ct);
 
-            return reply.Payload?.Deserialize<LifecycleResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
+    public Task<LocationChangePendingResultPayload?> SendLocationChangePendingCheckAsync(CancellationToken ct) =>
+        SendRequestAsync<LocationChangePendingResultPayload>(
+            IpcMessageTypes.LocationChangePendingCheck,
+            JsonSerializer.SerializeToElement(new LocationChangePendingCheckPayload()),
+            TimeSpan.FromSeconds(10), "Location change pending check", ct);
 
-    public async Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
+    public Task<DailyTasksResultPayload?> SendDailyTasksRequestAsync(CancellationToken ct) =>
+        SendRequestAsync<DailyTasksResultPayload>(
+            IpcMessageTypes.DailyTasksRequest,
+            JsonSerializer.SerializeToElement(new DailyTasksRequestPayload()),
+            TimeSpan.FromSeconds(10), "Daily tasks request", ct);
 
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.BiometricEnrollmentStart,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(new BiometricEnrollmentStartPayload())
-            };
-            await WriteEnvelopeAsync(envelope, ct);
+    public Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
+        Guid id, bool apply, CancellationToken ct) =>
+        SendRequestAsync<LocationChangeRespondResultPayload>(
+            IpcMessageTypes.LocationChangeRespond,
+            JsonSerializer.SerializeToElement(new LocationChangeRespondPayload(id, apply)),
+            TimeSpan.FromSeconds(15), "Location change respond", ct);
 
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
+    public Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
+        string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct) =>
+        SendRequestAsync<WorkLocationConfirmResultPayload>(
+            IpcMessageTypes.WorkLocationConfirm,
+            JsonSerializer.SerializeToElement(
+                new WorkLocationConfirmPayload(locationType, latitude, longitude, accuracyMeters)),
+            TimeSpan.FromSeconds(10), "WorkLocationConfirm", ct);
 
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Biometric enrollment start timed out waiting for session");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<BiometricEnrollmentSessionReadyPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<BiometricEnrollmentResultPayload?> CompleteBiometricEnrollmentAsync(
-        Guid attemptId, bool captureSucceeded, string? clientErrorCode, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.BiometricEnrollmentCaptureFinished,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new BiometricEnrollmentCaptureFinishedPayload(attemptId, captureSucceeded, clientErrorCode))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(30));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Biometric enrollment completion timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<BiometricEnrollmentResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<LocationChangeSubmitResultPayload?> SendLocationChangeSubmitAsync(
-        double latitude, double longitude, double? accuracyMeters, string reason, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.LocationChangeSubmit,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new LocationChangeSubmitPayload(latitude, longitude, accuracyMeters, reason))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Location change request submit timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<LocationChangeSubmitResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<LocationChangePendingResultPayload?> SendLocationChangePendingCheckAsync(CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.LocationChangePendingCheck,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(new LocationChangePendingCheckPayload())
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Location change pending check timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<LocationChangePendingResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<DailyTasksResultPayload?> SendDailyTasksRequestAsync(CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.DailyTasksRequest,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(new DailyTasksRequestPayload())
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Daily tasks request timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<DailyTasksResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<LocationChangeRespondResultPayload?> SendLocationChangeRespondAsync(
-        Guid id, bool apply, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.LocationChangeRespond,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(new LocationChangeRespondPayload(id, apply))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Location change respond timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<LocationChangeRespondResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<WorkLocationConfirmResultPayload?> SendWorkLocationConfirmAsync(
-        string locationType, double? latitude, double? longitude, double? accuracyMeters, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.WorkLocationConfirm,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new WorkLocationConfirmPayload(locationType, latitude, longitude, accuracyMeters))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("WorkLocationConfirm timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<WorkLocationConfirmResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
+    public Task<FacePhotoValidateResultPayload?> ValidateFacePhotoAsync(
         string format, byte[] jpegBytes, string purpose, CancellationToken ct,
-        string? pose = null, Guid? enrollmentSessionId = null)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.FacePhotoValidate,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(new FacePhotoValidatePayload(
-                    format, Convert.ToBase64String(jpegBytes), purpose, pose, enrollmentSessionId))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Face photo validate timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<FacePhotoValidateResultPayload>();
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public Task<PermissionConsentResultPayload?> GetPermissionConsentAsync(CancellationToken ct) =>
-        RequestPermissionConsentAsync(IpcMessageTypes.PermissionConsentStatus, null, ct);
-
-    public Task<PermissionConsentResultPayload?> SubmitPermissionConsentAsync(
-        PermissionConsentPayload consent, CancellationToken ct) =>
-        RequestPermissionConsentAsync(
-            IpcMessageTypes.PermissionConsentSubmit, JsonSerializer.SerializeToElement(consent), ct);
+        string? pose = null, Guid? enrollmentSessionId = null) =>
+        SendRequestAsync<FacePhotoValidateResultPayload>(
+            IpcMessageTypes.FacePhotoValidate,
+            JsonSerializer.SerializeToElement(new FacePhotoValidatePayload(
+                format, Convert.ToBase64String(jpegBytes), purpose, pose, enrollmentSessionId)),
+            TimeSpan.FromSeconds(25), "Face photo validate", ct);
 
     // A Service built before these messages existed never replies, so keep the wait short:
     // setup then just shows the screens as before.
-    private async Task<PermissionConsentResultPayload?> RequestPermissionConsentAsync(
-        string type, JsonElement? payload, CancellationToken ct)
+    public Task<PermissionConsentResultPayload?> GetPermissionConsentAsync(CancellationToken ct) =>
+        SendRequestAsync<PermissionConsentResultPayload>(
+            IpcMessageTypes.PermissionConsentStatus, null,
+            TimeSpan.FromSeconds(8), IpcMessageTypes.PermissionConsentStatus, ct);
+
+    public Task<PermissionConsentResultPayload?> SubmitPermissionConsentAsync(
+        PermissionConsentPayload consent, CancellationToken ct) =>
+        SendRequestAsync<PermissionConsentResultPayload>(
+            IpcMessageTypes.PermissionConsentSubmit, JsonSerializer.SerializeToElement(consent),
+            TimeSpan.FromSeconds(8), IpcMessageTypes.PermissionConsentSubmit, ct);
+
+    public Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct) =>
+        SendRequestAsync<FaceReferenceStatusResultPayload>(
+            IpcMessageTypes.FaceReferenceStatus, null, TimeSpan.FromSeconds(15), "Face reference status", ct);
+
+    // Three DetectFaces, two CompareFaces and three uploads — slower than one preview.
+    public Task<FaceEnrollCommitResultPayload?> CommitFaceEnrollmentAsync(
+        Guid enrollmentSessionId, CancellationToken ct) =>
+        SendRequestAsync<FaceEnrollCommitResultPayload>(
+            IpcMessageTypes.FaceEnrollCommit,
+            JsonSerializer.SerializeToElement(new FaceEnrollCommitPayload(enrollmentSessionId)),
+            TimeSpan.FromSeconds(60), "Face setup commit", ct);
+
+    public Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
+        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct) =>
+        SendRequestAsync<LegalAcceptanceResultPayload>(
+            IpcMessageTypes.LegalAcceptanceSubmit,
+            JsonSerializer.SerializeToElement(new LegalAcceptanceSubmitPayload(acceptances)),
+            TimeSpan.FromSeconds(10), "LegalAcceptanceSubmit", ct);
+
+    /// <summary>
+    /// Sends one request envelope and waits for the reply with the same correlation id. Returns
+    /// null on timeout, on disconnect, or straight away when the pipe is not connected — no reply
+    /// can arrive then, so the UI must not sit out the whole timeout behind a spinner.
+    /// </summary>
+    private async Task<TReply?> SendRequestAsync<TReply>(
+        string type, JsonElement? payload, TimeSpan timeout, string label, CancellationToken ct)
+        where TReply : class
     {
         var correlationId = Guid.NewGuid().ToString("N");
+        // RunContinuationsAsynchronously keeps the caller's continuation off the pipe read loop.
         var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[correlationId] = tcs;
 
         try
         {
-            await WriteEnvelopeAsync(new IpcEnvelope
+            var sent = await WriteEnvelopeAsync(new IpcEnvelope
             {
                 Type = type,
                 CorrelationId = correlationId,
                 Payload = payload
             }, ct);
+            if (!sent)
+            {
+                _logger.LogWarning("{Request} not sent: not connected to the Agent Service", label);
+                return null;
+            }
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(8));
+            timeoutCts.CancelAfter(timeout);
             await using var reg = timeoutCts.Token.Register(
                 () => tcs.TrySetCanceled(timeoutCts.Token));
 
             try
             {
                 var reply = await tcs.Task.ConfigureAwait(false);
-                return reply.Payload?.Deserialize<PermissionConsentResultPayload>();
+                return reply.Payload?.Deserialize<TReply>();
             }
             catch (OperationCanceledException)
             {
-                _logger.LogWarning("{Type} timed out waiting for result", type);
+                _logger.LogWarning("{Request} timed out waiting for result", label);
                 return null;
             }
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<FaceReferenceStatusResultPayload?> GetFaceReferenceStatusAsync(CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            await WriteEnvelopeAsync(new IpcEnvelope
-            {
-                Type = IpcMessageTypes.FaceReferenceStatus,
-                CorrelationId = correlationId
-            }, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(15));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            try
-            {
-                var reply = await tcs.Task.ConfigureAwait(false);
-                return reply.Payload?.Deserialize<FaceReferenceStatusResultPayload>();
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Face reference status timed out waiting for result");
-                return null;
-            }
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<FaceEnrollCommitResultPayload?> CommitFaceEnrollmentAsync(
-        Guid enrollmentSessionId, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            await WriteEnvelopeAsync(new IpcEnvelope
-            {
-                Type = IpcMessageTypes.FaceEnrollCommit,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(new FaceEnrollCommitPayload(enrollmentSessionId))
-            }, ct);
-
-            // Three DetectFaces, two CompareFaces and three uploads — slower than one preview.
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            try
-            {
-                var reply = await tcs.Task.ConfigureAwait(false);
-                return reply.Payload?.Deserialize<FaceEnrollCommitResultPayload>();
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("Face setup commit timed out waiting for result");
-                return null;
-            }
-        }
-        finally
-        {
-            _pending.TryRemove(correlationId, out _);
-        }
-    }
-
-    public async Task<LegalAcceptanceResultPayload?> SendLegalAcceptanceSubmitAsync(
-        IReadOnlyList<LegalAcceptanceItemPayload> acceptances, CancellationToken ct)
-    {
-        var correlationId = Guid.NewGuid().ToString("N");
-        var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pending[correlationId] = tcs;
-
-        try
-        {
-            var envelope = new IpcEnvelope
-            {
-                Type = IpcMessageTypes.LegalAcceptanceSubmit,
-                CorrelationId = correlationId,
-                Payload = JsonSerializer.SerializeToElement(
-                    new LegalAcceptanceSubmitPayload(acceptances))
-            };
-            await WriteEnvelopeAsync(envelope, ct);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
-            await using var reg = timeoutCts.Token.Register(
-                () => tcs.TrySetCanceled(timeoutCts.Token));
-
-            IpcEnvelope reply;
-            try
-            {
-                reply = await tcs.Task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.LogWarning("LegalAcceptanceSubmit timed out waiting for result");
-                return null;
-            }
-
-            return reply.Payload?.Deserialize<LegalAcceptanceResultPayload>();
         }
         finally
         {
@@ -894,42 +391,54 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 
         var captureId = Guid.NewGuid();
         var chunkCount = (int)Math.Ceiling(jpegBytes.Length / (double)Constants.EvidenceChunkSizeBytes);
-        var ackTask = WaitForEvidenceAckAsync(captureId, ct);
+        using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var ackTask = WaitForEvidenceAckAsync(captureId, ackCts.Token);
 
-        await WriteEnvelopeAsync(new IpcEnvelope
+        try
         {
-            Type = IpcMessageTypes.PeriodicScreenshotStart,
-            CorrelationId = captureId.ToString("N"),
-            Payload = JsonSerializer.SerializeToElement(
-                new PeriodicScreenshotStartPayload(captureId, capturedAt, jpegBytes.Length, chunkCount))
-        }, ct).ConfigureAwait(false);
-
-        var index = 0;
-        var offset = 0;
-        while (offset < jpegBytes.Length)
-        {
-            var length = Math.Min(Constants.EvidenceChunkSizeBytes, jpegBytes.Length - offset);
-            var slice = jpegBytes.Slice(offset, length);
-            await WriteEnvelopeAsync(new IpcEnvelope
+            if (!await WriteEnvelopeAsync(new IpcEnvelope
             {
-                Type = IpcMessageTypes.PeriodicScreenshotChunk,
+                Type = IpcMessageTypes.PeriodicScreenshotStart,
                 CorrelationId = captureId.ToString("N"),
                 Payload = JsonSerializer.SerializeToElement(
-                    new PeriodicScreenshotChunkPayload(captureId, index, Convert.ToBase64String(slice.Span)))
-            }, ct).ConfigureAwait(false);
-            offset += length;
-            index++;
+                    new PeriodicScreenshotStartPayload(captureId, capturedAt, jpegBytes.Length, chunkCount))
+            }, ct).ConfigureAwait(false))
+                return false;
+
+            var index = 0;
+            var offset = 0;
+            while (offset < jpegBytes.Length)
+            {
+                var length = Math.Min(Constants.EvidenceChunkSizeBytes, jpegBytes.Length - offset);
+                var slice = jpegBytes.Slice(offset, length);
+                if (!await WriteEnvelopeAsync(new IpcEnvelope
+                {
+                    Type = IpcMessageTypes.PeriodicScreenshotChunk,
+                    CorrelationId = captureId.ToString("N"),
+                    Payload = JsonSerializer.SerializeToElement(
+                        new PeriodicScreenshotChunkPayload(captureId, index, Convert.ToBase64String(slice.Span)))
+                }, ct).ConfigureAwait(false))
+                    return false;
+                offset += length;
+                index++;
+            }
+
+            if (!await WriteEnvelopeAsync(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.PeriodicScreenshotComplete,
+                CorrelationId = captureId.ToString("N"),
+                Payload = JsonSerializer.SerializeToElement(new PeriodicScreenshotCompletePayload(captureId))
+            }, ct).ConfigureAwait(false))
+                return false;
+
+            var ack = await ackTask.ConfigureAwait(false);
+            return ack?.Accepted == true;
         }
-
-        await WriteEnvelopeAsync(new IpcEnvelope
+        finally
         {
-            Type = IpcMessageTypes.PeriodicScreenshotComplete,
-            CorrelationId = captureId.ToString("N"),
-            Payload = JsonSerializer.SerializeToElement(new PeriodicScreenshotCompletePayload(captureId))
-        }, ct).ConfigureAwait(false);
-
-        var ack = await ackTask.ConfigureAwait(false);
-        return ack?.Accepted == true;
+            // A failed or cancelled send means no ack is coming: stop waiting for it.
+            await ackCts.CancelAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task<EvidenceTransferAckPayload?> WaitForEvidenceAckAsync(Guid attemptId, CancellationToken ct)
@@ -948,7 +457,9 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             }
             catch (OperationCanceledException)
             {
-                _logger.LogWarning("Evidence transfer ack timed out for attempt {AttemptId}", attemptId);
+                // Cancelled by the sender (a send failed) is not a timeout — don't log it as one.
+                if (!ct.IsCancellationRequested)
+                    _logger.LogWarning("Evidence transfer ack timed out for attempt {AttemptId}", attemptId);
                 return null;
             }
         }
@@ -958,14 +469,26 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         }
     }
 
-    private async Task WriteEnvelopeAsync(IpcEnvelope envelope, CancellationToken ct)
+    /// <summary>
+    /// Writes one envelope. Returns false without throwing when there is no connection or the pipe
+    /// broke mid-write, so callers can fail fast instead of waiting for a reply that can't come.
+    /// </summary>
+    private async Task<bool> WriteEnvelopeAsync(IpcEnvelope envelope, CancellationToken ct)
     {
         await _writeLock.WaitAsync(ct);
         try
         {
-            if (_writer is null)
-                return;
-            await _writer.WriteLineAsync(JsonSerializer.Serialize(envelope).AsMemory(), ct);
+            var writer = _writer;
+            if (writer is null)
+                return false;
+            await writer.WriteLineAsync(JsonSerializer.Serialize(envelope).AsMemory(), ct);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException)
+        {
+            // The read loop sees the same drop, resets the connection and reconnects.
+            _logger.LogWarning("IPC write of {Type} failed: {Msg}", envelope.Type, ex.Message);
+            return false;
         }
         finally
         {
@@ -1090,6 +613,9 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
             foreach (var kv in _pendingEvidenceAcks)
                 kv.Value.TrySetResult(null);
             _pendingEvidenceAcks.Clear();
+            // Reset before signalling: OnDisconnected handlers (collector stop/drain) may write, and
+            // those writes must fail fast rather than hit the dead pipe.
+            await ResetConnectionAsync();
             OnDisconnected?.Invoke();
         }
     }
@@ -1099,11 +625,28 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         if (_cts is not null)
         {
             await _cts.CancelAsync();
-            _cts.Dispose();
+
+            // Let the connect loop see the cancellation and exit before the connection is torn down.
+            var loopExited = true;
+            if (_connectLoop is not null)
+            {
+                try
+                {
+                    await _connectLoop.WaitAsync(TimeSpan.FromSeconds(2));
+                }
+                catch (OperationCanceledException) { }
+                catch (TimeoutException)
+                {
+                    loopExited = false;
+                    _logger.LogWarning("IPC connect loop did not stop within 2s of dispose");
+                }
+            }
+            if (loopExited)
+                _cts.Dispose();
         }
-        _writer?.Dispose();
-        _pipe?.Dispose();
-        _writeLock.Dispose();
+        await ResetConnectionAsync();
+        // _writeLock is deliberately not disposed: a request still finishing during shutdown would
+        // otherwise get ObjectDisposedException from WaitAsync/Release.
     }
 }
 
@@ -1116,12 +659,12 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 /// <c>jpegBytes</c>) sends only start + complete, no chunk envelopes.
 /// </summary>
 /// <remarks>
-/// The actual envelope write (<paramref name="send"/>) and ack wait (<paramref name="waitForAck"/>)
-/// are supplied by the caller (<see cref="NamedPipeClient"/>) so this class is unit-testable
-/// without a live Named Pipe — see <c>EvidenceTransferClientTests</c>.
+/// The actual envelope write (<paramref name="send"/>, false when not connected) and ack wait
+/// (<paramref name="waitForAck"/>) are supplied by the caller (<see cref="NamedPipeClient"/>) so this
+/// class is unit-testable without a live Named Pipe — see <c>EvidenceTransferClientTests</c>.
 /// </remarks>
 public sealed class EvidenceTransferClient(
-    Func<IpcEnvelope, CancellationToken, Task> send,
+    Func<IpcEnvelope, CancellationToken, Task<bool>> send,
     Func<Guid, CancellationToken, Task<EvidenceTransferAckPayload?>> waitForAck)
 {
     public async Task<bool> SubmitAsync(
@@ -1134,40 +677,56 @@ public sealed class EvidenceTransferClient(
             ? 0
             : (int)Math.Ceiling(jpegBytes.Length / (double)Constants.EvidenceChunkSizeBytes);
 
-        await send(new IpcEnvelope
-        {
-            Type = IpcMessageTypes.EvidenceTransferStart,
-            CorrelationId = correlationId,
-            Payload = JsonSerializer.SerializeToElement(
-                new EvidenceTransferStartPayload(attempt, jpegBytes.Length, chunkCount))
-        }, ct).ConfigureAwait(false);
+        // Register for the ack before the first send: a fast Service can ack before the Complete
+        // write returns, and an ack nobody is waiting for yet is dropped by the read loop.
+        using var ackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var ackTask = waitForAck(attempt.AttemptId, ackCts.Token);
 
-        var index = 0;
-        var offset = 0;
-        while (offset < jpegBytes.Length)
+        try
         {
-            var length = Math.Min(Constants.EvidenceChunkSizeBytes, jpegBytes.Length - offset);
-            var slice = jpegBytes.Slice(offset, length);
-            await send(new IpcEnvelope
+            if (!await send(new IpcEnvelope
             {
-                Type = IpcMessageTypes.EvidenceTransferChunk,
+                Type = IpcMessageTypes.EvidenceTransferStart,
                 CorrelationId = correlationId,
                 Payload = JsonSerializer.SerializeToElement(
-                    new EvidenceTransferChunkPayload(attempt.AttemptId, index, Convert.ToBase64String(slice.Span)))
-            }, ct).ConfigureAwait(false);
-            offset += length;
-            index++;
+                    new EvidenceTransferStartPayload(attempt, jpegBytes.Length, chunkCount))
+            }, ct).ConfigureAwait(false))
+                return false;
+
+            var index = 0;
+            var offset = 0;
+            while (offset < jpegBytes.Length)
+            {
+                var length = Math.Min(Constants.EvidenceChunkSizeBytes, jpegBytes.Length - offset);
+                var slice = jpegBytes.Slice(offset, length);
+                if (!await send(new IpcEnvelope
+                {
+                    Type = IpcMessageTypes.EvidenceTransferChunk,
+                    CorrelationId = correlationId,
+                    Payload = JsonSerializer.SerializeToElement(
+                        new EvidenceTransferChunkPayload(attempt.AttemptId, index, Convert.ToBase64String(slice.Span)))
+                }, ct).ConfigureAwait(false))
+                    return false;
+                offset += length;
+                index++;
+            }
+
+            if (!await send(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.EvidenceTransferComplete,
+                CorrelationId = correlationId,
+                Payload = JsonSerializer.SerializeToElement(
+                    new EvidenceTransferCompletePayload(attempt.AttemptId))
+            }, ct).ConfigureAwait(false))
+                return false;
+
+            var ack = await ackTask.ConfigureAwait(false);
+            return ack?.Accepted ?? false;
         }
-
-        await send(new IpcEnvelope
+        finally
         {
-            Type = IpcMessageTypes.EvidenceTransferComplete,
-            CorrelationId = correlationId,
-            Payload = JsonSerializer.SerializeToElement(
-                new EvidenceTransferCompletePayload(attempt.AttemptId))
-        }, ct).ConfigureAwait(false);
-
-        var ack = await waitForAck(attempt.AttemptId, ct).ConfigureAwait(false);
-        return ack?.Accepted ?? false;
+            // A failed or cancelled send means no ack is coming: stop waiting for it.
+            await ackCts.CancelAsync().ConfigureAwait(false);
+        }
     }
 }

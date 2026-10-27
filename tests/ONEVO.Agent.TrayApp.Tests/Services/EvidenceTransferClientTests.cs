@@ -28,7 +28,7 @@ public sealed class EvidenceTransferClientTests
     {
         var sent = new List<IpcEnvelope>();
         var client = new EvidenceTransferClient(
-            send: (env, _) => { sent.Add(env); return Task.CompletedTask; },
+            send: (env, _) => { sent.Add(env); return Task.FromResult(true); },
             waitForAck: (id, _) => Task.FromResult<EvidenceTransferAckPayload?>(new EvidenceTransferAckPayload(id, true, null)));
 
         var bytes = new byte[65_537];
@@ -77,7 +77,7 @@ public sealed class EvidenceTransferClientTests
     {
         var sent = new List<IpcEnvelope>();
         var client = new EvidenceTransferClient(
-            send: (env, _) => { sent.Add(env); return Task.CompletedTask; },
+            send: (env, _) => { sent.Add(env); return Task.FromResult(true); },
             waitForAck: (id, _) => Task.FromResult<EvidenceTransferAckPayload?>(new EvidenceTransferAckPayload(id, true, null)));
 
         var accepted = await client.SubmitAsync(
@@ -104,7 +104,7 @@ public sealed class EvidenceTransferClientTests
     {
         var sent = new List<IpcEnvelope>();
         var client = new EvidenceTransferClient(
-            send: (env, _) => { sent.Add(env); return Task.CompletedTask; },
+            send: (env, _) => { sent.Add(env); return Task.FromResult(true); },
             waitForAck: (id, _) => Task.FromResult<EvidenceTransferAckPayload?>(new EvidenceTransferAckPayload(id, true, null)));
 
         var bytes = new byte[Constants.EvidenceChunkSizeBytes * 2];
@@ -119,7 +119,7 @@ public sealed class EvidenceTransferClientTests
     public async Task RejectedAck_ReturnsFalse()
     {
         var client = new EvidenceTransferClient(
-            send: (_, _) => Task.CompletedTask,
+            send: (_, _) => Task.FromResult(true),
             waitForAck: (id, _) => Task.FromResult<EvidenceTransferAckPayload?>(
                 new EvidenceTransferAckPayload(id, false, "policy_disabled")));
 
@@ -133,12 +133,65 @@ public sealed class EvidenceTransferClientTests
     public async Task NoAckReceived_ReturnsFalse()
     {
         var client = new EvidenceTransferClient(
-            send: (_, _) => Task.CompletedTask,
+            send: (_, _) => Task.FromResult(true),
             waitForAck: (_, _) => Task.FromResult<EvidenceTransferAckPayload?>(null));
 
         var accepted = await client.SubmitAsync(
             MakeAttempt(Guid.NewGuid(), InactivityCaptureOutcomes.Declined), ReadOnlyMemory<byte>.Empty, default);
 
         Assert.False(accepted);
+    }
+
+    [Fact]
+    public async Task AckArrivingBeforeCompleteSendReturns_IsNotMissed()
+    {
+        var waiting = new System.Collections.Concurrent.ConcurrentDictionary<Guid, TaskCompletionSource<EvidenceTransferAckPayload?>>();
+        var client = new EvidenceTransferClient(
+            send: (env, _) =>
+            {
+                // A fast Service acks before the Complete write returns. Like the real read loop,
+                // an ack that nobody is waiting for yet is dropped.
+                if (env.Type == IpcMessageTypes.EvidenceTransferComplete)
+                {
+                    var id = env.Payload!.Value.Deserialize<EvidenceTransferCompletePayload>()!.AttemptId;
+                    if (waiting.TryGetValue(id, out var tcs))
+                        tcs.TrySetResult(new EvidenceTransferAckPayload(id, true, null));
+                }
+                return Task.FromResult(true);
+            },
+            waitForAck: async (id, ct) =>
+            {
+                var tcs = new TaskCompletionSource<EvidenceTransferAckPayload?>(TaskCreationOptions.RunContinuationsAsynchronously);
+                waiting[id] = tcs;
+                try { return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(1), ct); }
+                catch (Exception ex) when (ex is TimeoutException or OperationCanceledException) { return null; }
+            });
+
+        var accepted = await client.SubmitAsync(
+            MakeAttempt(Guid.NewGuid(), InactivityCaptureOutcomes.Declined), ReadOnlyMemory<byte>.Empty, default);
+
+        Assert.True(accepted);
+    }
+
+    [Fact]
+    public async Task NotConnected_StopsAtFirstFailedSend_WithoutWaitingForAck()
+    {
+        var sendCount = 0;
+        var client = new EvidenceTransferClient(
+            send: (_, _) => { sendCount++; return Task.FromResult(false); },
+            waitForAck: async (_, ct) =>
+            {
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct); }
+                catch (OperationCanceledException) { }
+                return null;
+            });
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var accepted = await client.SubmitAsync(
+            MakeAttempt(Guid.NewGuid(), InactivityCaptureOutcomes.Captured), new byte[70_000], default);
+
+        Assert.False(accepted);
+        Assert.Equal(1, sendCount);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(1), $"took {sw.Elapsed}");
     }
 }
