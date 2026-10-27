@@ -21,6 +21,13 @@ public static class IpcMessageTypes
     /// <summary>Service → Tray: a wellness notification (break reminder / long idle) to show as a toast.</summary>
     public const string NotificationPush = "NotificationPush";
 
+    /// <summary>Service → Tray: a generic (catalog-driven) notification delivery to show as a toast.</summary>
+    public const string GenericNotificationPush = "GenericNotificationPush";
+
+    /// <summary>Tray → Service: the tray accepted (showed, or had already shown) a generic delivery; the service
+    /// acknowledges it to the backend only after this.</summary>
+    public const string GenericNotificationAccepted = "GenericNotificationAccepted";
+
     /// <summary>Tray → Service: employee-entered activation code from web portal.</summary>
     public const string ActivationCodeSubmit = "ActivationCodeSubmit";
 
@@ -260,6 +267,22 @@ public sealed record NotificationPushPayload
     public required string Title { get; init; }
     public required string Message { get; init; }
 }
+
+/// <summary>One generic notification delivery. Content is final (rendered server-side); the tray never builds
+/// links from it - <see cref="ActionKey"/> is a registered action, not a URL.</summary>
+public sealed record GenericNotificationPushPayload
+{
+    public required Guid DeliveryId { get; init; }
+    public required string EventKey { get; init; }
+    public required string Title { get; init; }
+    public required string Message { get; init; }
+    public required string ActionKey { get; init; }
+    public string? RelatedEntityType { get; init; }
+    public Guid? RelatedEntityId { get; init; }
+    public DateTimeOffset? ExpiresAt { get; init; }
+}
+
+public sealed record GenericNotificationAcceptedPayload(Guid DeliveryId);
 
 public sealed record ActivationCodeSubmitPayload(string Code);
 

@@ -536,6 +536,58 @@ public sealed class OnevoApiClient
         }
     }
 
+    /// <summary>Generic notification deliveries waiting for this device user. Empty on any failure, so a backend
+    /// without the endpoint never disturbs legacy alert delivery.</summary>
+    public async Task<List<PendingTrayDeliveryPayload>> GetPendingTrayDeliveriesAsync(string accessToken, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        using var request = new HttpRequestMessage(HttpMethod.Get, AgentApiRoutes.PendingTrayDeliveries);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            var response = await client.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode) return [];
+
+            var body = await response.Content.ReadFromJsonAsync<PendingTrayDeliveriesResponse>(cancellationToken: ct);
+            return body?.Deliveries ?? [];
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.PendingTrayDeliveries);
+            return [];
+        }
+    }
+
+    /// <summary>Records that the tray accepted a generic delivery. Returns false when the backend did not confirm
+    /// (the delivery stays pending and is offered again on the next poll).</summary>
+    public async Task<bool> AckTrayDeliveryAsync(string accessToken, Guid deliveryId, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("OnevoApi");
+        var route = string.Format(AgentApiRoutes.AckTrayDelivery, deliveryId);
+        using var request = new HttpRequestMessage(HttpMethod.Post, route);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        try
+        {
+            var response = await client.SendAsync(request, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
+            return false;
+        }
+    }
+
     /// <summary>Creates a new enrollment attempt. Auth: Bearer Device JWT.</summary>
     public async Task<EnrollmentAttemptResult> CreateEnrollmentAttemptAsync(string accessToken, CancellationToken ct)
     {
@@ -1112,6 +1164,9 @@ public sealed class OnevoApiClient
     private sealed record PendingNotificationsResponse(
         [property: JsonPropertyName("notifications")] List<PendingNotificationPayload> Notifications);
 
+    private sealed record PendingTrayDeliveriesResponse(
+        [property: JsonPropertyName("deliveries")] List<PendingTrayDeliveryPayload> Deliveries);
+
     private static FacePhotoValidateApiResult ReadFacePreview(JsonElement root)
     {
         return new FacePhotoValidateApiResult(
@@ -1194,6 +1249,17 @@ public sealed record PendingNotificationPayload(
     [property: JsonPropertyName("type")] string Type,
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("message")] string Message);
+
+/// <summary>Wire-format mirror of the backend TrayDeliveryDto (camelCase).</summary>
+public sealed record PendingTrayDeliveryPayload(
+    [property: JsonPropertyName("deliveryId")] Guid DeliveryId,
+    [property: JsonPropertyName("eventKey")] string EventKey,
+    [property: JsonPropertyName("title")] string Title,
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("actionKey")] string ActionKey,
+    [property: JsonPropertyName("relatedEntityType")] string? RelatedEntityType,
+    [property: JsonPropertyName("relatedEntityId")] Guid? RelatedEntityId,
+    [property: JsonPropertyName("expiresAt")] DateTimeOffset? ExpiresAt);
 
 /// <summary>Wire-format mirror of the backend's PendingLegalDocumentDto.</summary>
 public sealed record PendingLegalDocument(

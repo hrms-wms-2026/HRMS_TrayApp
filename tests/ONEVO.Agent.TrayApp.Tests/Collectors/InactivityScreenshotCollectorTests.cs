@@ -505,6 +505,7 @@ internal sealed class RecordingPipeClient : INamedPipeClient
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
     public event Action<NotificationPushPayload>? OnNotificationReceived;
+    public event Action<GenericNotificationPushPayload>? OnGenericNotificationReceived;
     public event Action<DevicePairingResultPayload>? OnDevicePairingResult;
 
     public StatusResponsePayload? LastKnownStatus => null;

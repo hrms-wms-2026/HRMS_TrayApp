@@ -25,6 +25,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public event Action<StatusResponsePayload>? OnStatusReceived;
     public event Action<AgentPolicy>? OnPolicyReceived;
     public event Action<NotificationPushPayload>? OnNotificationReceived;
+    public event Action<GenericNotificationPushPayload>? OnGenericNotificationReceived;
     public event Action<DevicePairingResultPayload>? OnDevicePairingResult;
 
     public StatusResponsePayload? LastKnownStatus { get; private set; }
@@ -1049,6 +1050,13 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                         var notificationPayload = envelope.Payload?.Deserialize<NotificationPushPayload>();
                         if (notificationPayload is not null)
                             OnNotificationReceived?.Invoke(notificationPayload);
+                        break;
+                    }
+                    case IpcMessageTypes.GenericNotificationPush:
+                    {
+                        var genericPayload = envelope.Payload?.Deserialize<GenericNotificationPushPayload>();
+                        if (genericPayload is not null)
+                            OnGenericNotificationReceived?.Invoke(genericPayload);
                         break;
                     }
                     case IpcMessageTypes.DevicePairingResult:

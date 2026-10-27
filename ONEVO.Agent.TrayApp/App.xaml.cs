@@ -30,10 +30,13 @@ public partial class App : Microsoft.Maui.Controls.Application
         IPreferencesStore preferences,
         UpdateNotifier updateNotifier,
         ILogger<App> logger,
-        ServiceConnectionStatus connectionStatus)
+        ServiceConnectionStatus connectionStatus,
+        GenericNotificationPresenter genericNotifications)
     {
         // Resolved here so it subscribes to the pipe before StartAsync and sees the first connect.
         _ = connectionStatus;
+        // Same reason: it must be listening before the service forwards the first generic notification.
+        _ = genericNotifications;
         InitializeComponent();
         _trayIcon     = trayIcon;
         _pipeClient   = pipeClient;

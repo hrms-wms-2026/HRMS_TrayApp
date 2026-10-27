@@ -283,6 +283,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                 await HandleLogoutRequestAsync(envelope, reply);
                 break;
 
+            case IpcMessageTypes.GenericNotificationAccepted:
+                await HandleGenericNotificationAcceptedAsync(envelope);
+                break;
+
             case IpcMessageTypes.UpdateCheckRequest:
                 await HandleUpdateCheckRequestAsync(envelope, reply);
                 break;
@@ -1454,6 +1458,33 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             Payload = JsonSerializer.SerializeToElement(
                 new LocationChangeRespondResultPayload(result.Success, result.ErrorCode, ToSummary(result.Request)))
         });
+    }
+
+    /// <summary>
+    /// The tray process accepted a generic notification toast: only now acknowledge the delivery to the backend
+    /// (client_accepted). If the ack fails the delivery stays pending and is re-offered on the next poll; the
+    /// tray recognises it by id and does not show it twice. Fire-and-forget from the tray side - no reply.
+    /// </summary>
+    internal async Task HandleGenericNotificationAcceptedAsync(IpcEnvelope envelope)
+    {
+        GenericNotificationAcceptedPayload? payload;
+        try
+        {
+            payload = envelope.Payload?.Deserialize<GenericNotificationAcceptedPayload>();
+        }
+        catch (JsonException)
+        {
+            payload = null;
+        }
+        if (payload is null || payload.DeliveryId == Guid.Empty)
+            return;
+
+        var jwt = _credentials.ReadDeviceJwt();
+        if (string.IsNullOrWhiteSpace(jwt))
+            return;
+
+        if (!await _apiClient.AckTrayDeliveryAsync(jwt, payload.DeliveryId, CancellationToken.None))
+            _logger.LogDebug("Tray delivery {DeliveryId} ack not confirmed; it will be re-offered", payload.DeliveryId);
     }
 
     internal async Task HandleWorkLocationConfirmAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)

@@ -24,6 +24,10 @@ public static class AgentApiRoutes
     public const string TrayBreakEnd         = "/api/v1/monitoring/tray/break/end";
     public const string PendingTrayNotifications = "/api/v1/monitoring/tray/notifications/pending";
     public const string AckTrayNotification = "/api/v1/monitoring/tray/notifications/{0}/ack";
+    /// <summary>Generic notification deliveries (backend notification orchestrator). Calling these is how the
+    /// client declares that it supports generic notifications.</summary>
+    public const string PendingTrayDeliveries = "/api/v1/monitoring/tray/notifications/deliveries/pending";
+    public const string AckTrayDelivery = "/api/v1/monitoring/tray/notifications/deliveries/{0}/ack";
 
     public const string ActivationExchange = "/api/v1/monitoring/activation/exchange";
     public const string ActivationRefresh  = "/api/v1/monitoring/activation/refresh";

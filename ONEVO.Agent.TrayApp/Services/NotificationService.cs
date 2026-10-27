@@ -8,7 +8,7 @@ using Microsoft.Windows.AppNotifications.Builder;
 /// Allow/Skip inactivity prompt — see <see cref="WindowsInactivityPromptService"/> for that flow.
 /// These notifications carry no arguments and are never awaited for a decision.
 /// </summary>
-public sealed class NotificationService
+public sealed class NotificationService : IGenericNotificationToast
 {
     private readonly ILogger<NotificationService> _logger;
 
@@ -27,6 +27,30 @@ public sealed class NotificationService
     {
         _logger.LogWarning("Notification: {Title} — {Message}", title, message);
         Show(title, message);
+    }
+
+    /// <summary>A generic notification toast carrying click arguments (see GenericNotificationActivation).</summary>
+    public bool Show(ONEVO.Agent.Shared.IPC.GenericNotificationPushPayload payload, string activationArguments)
+    {
+        try
+        {
+            var notification = new AppNotificationBuilder()
+                .AddArgument("kind", "generic")
+                .AddArgument("delivery", payload.DeliveryId.ToString())
+                .AddArgument("action", payload.ActionKey)
+                .AddText(payload.Title)
+                .AddText(payload.Message)
+                .BuildNotification();
+
+            AppNotificationManager.Default.Show(notification);
+            _logger.LogInformation("Generic notification shown: {EventKey} {DeliveryId}", payload.EventKey, payload.DeliveryId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to show generic notification {DeliveryId}", payload.DeliveryId);
+            return false;
+        }
     }
 
     private void Show(string title, string message)
