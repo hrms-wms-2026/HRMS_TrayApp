@@ -2,6 +2,7 @@ namespace ONEVO.Agent.TrayApp.Tests.Services;
 
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using ONEVO.Agent.Shared.Diagnostics;
 using ONEVO.Agent.TrayApp.Services.Diagnostics;
 
 public sealed class TrayFileLoggerProviderTests : IDisposable
@@ -150,6 +151,23 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
         {
             File.Delete(_dir);
         }
+    }
+
+    [Fact]
+    public async Task NamedPipeClientRequest_LogsUnderItsCorrelationId()
+    {
+        var provider = new TrayFileLoggerProvider(_dir);
+        using (var factory = Factory(provider))
+        {
+            // Never connected: the request is logged as not sent, inside its correlation scope.
+            await using var client = new ONEVO.Agent.TrayApp.Services.NamedPipeClient(
+                factory.CreateLogger<ONEVO.Agent.TrayApp.Services.NamedPipeClient>(), $"onevo-test-{Guid.NewGuid():N}");
+            Assert.Null(await client.SendLogoutAsync(CancellationToken.None));
+        }
+
+        var line = Assert.Single(ReadLines(provider), l => l.GetProperty("msg").GetString()!.StartsWith("Logout not sent"));
+        var cid = line.GetProperty("scope").GetProperty(AgentCorrelation.ScopeKey).GetString();
+        Assert.True(AgentCorrelation.IsValid(cid));
     }
 
     [Fact]

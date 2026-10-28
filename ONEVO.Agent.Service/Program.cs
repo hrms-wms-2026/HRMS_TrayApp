@@ -65,6 +65,7 @@ var host = Host.CreateDefaultBuilder(args)
             // Overall timeout handled by resilience pipeline attempt timeout + retries
             client.Timeout = Timeout.InfiniteTimeSpan;
         })
+        .AddHttpMessageHandler(() => new ONEVO.Agent.Service.Api.CorrelationIdHandler())
         .AddResilienceHandler("onevo-api-pipeline", (builder, context) =>
         {
             var httpTimeout = context.ServiceProvider
