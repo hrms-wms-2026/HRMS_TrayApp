@@ -98,6 +98,20 @@ dotnet publish .\ONEVO.Agent.TrayApp\ONEVO.Agent.TrayApp.csproj `
   -f net10.0-windows10.0.19041.0
 ```
 
+### Resource footprint check (before a release)
+
+Idle CPU and memory budgets live in `footprint-budgets.json`. The check builds nothing itself:
+build Service and TrayApp in Release first, stop any running agent, then:
+
+```powershell
+.\scripts\check-footprint.ps1
+```
+
+It starts both with monitoring forced off (no collectors, nothing written to the activity buffer),
+samples them for 5 minutes and exits 1 if anything is over budget. A tray window opens while it
+runs. For the Tray, watch **private bytes**: its working set drops sharply whenever the window is
+not in front.
+
 ---
 
 ## Employee UI flow (what you should see)

@@ -1,0 +1,9 @@
+{
+  "_comment": "Idle resource budgets for scripts/check-footprint.ps1 (T10). Measured 2026-10-28 on develop 4fabeec, Release, connected + unenrolled, two runs: Service 71-73 MB working set / 21-23 MB private; Tray 188-198 MB private, working set 24-286 MB (Windows trims it when the window is not in front, so private bytes is the stable figure); CPU under 0.1%. Budgets add headroom over the worst run. Active-monitoring budgets are set after T10 phase B. Raise only with a measured reason in the PR.",
+  "scenario": "idle",
+  "totalCpuAvgPercent": 2.0,
+  "processes": {
+    "Service": { "workingSetMB": 80, "privateMB": 30 },
+    "Tray": { "workingSetMB": 320, "privateMB": 230 }
+  }
+}
