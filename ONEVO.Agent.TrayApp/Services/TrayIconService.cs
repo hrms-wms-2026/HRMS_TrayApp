@@ -76,11 +76,11 @@ public sealed class TrayIconService : IDisposable
             ContextMenuStrip = BuildContextMenu()
         };
 
-        _notifyIcon.DoubleClick += (_, _) => OnTrayDoubleClick();
+        _notifyIcon.DoubleClick += (_, _) => ShowMainWindow();
         _notifyIcon.MouseClick += (_, e) =>
         {
             if (e.Button == MouseButtons.Left)
-                OnTrayDoubleClick();
+                ShowMainWindow();
         };
         _initialized = true;
         _logger.LogInformation("Tray icon initialized");
@@ -122,7 +122,7 @@ public sealed class TrayIconService : IDisposable
     private ContextMenuStrip BuildContextMenu()
     {
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Open ONEVO", null, (_, _) => OnTrayDoubleClick());
+        menu.Items.Add("Open ONEVO", null, (_, _) => ShowMainWindow());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) =>
         {
@@ -141,7 +141,7 @@ public sealed class TrayIconService : IDisposable
         return menu;
     }
 
-    private static void OnTrayDoubleClick()
+    internal static void ShowMainWindow()
     {
 #if WINDOWS
         try

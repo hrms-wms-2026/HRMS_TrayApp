@@ -626,9 +626,12 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_cts is not null)
+        // The container disposes this instance twice: once as NamedPipeClient and once via the
+        // INamedPipeClient factory registration that returns the same object.
+        var cts = Interlocked.Exchange(ref _cts, null);
+        if (cts is not null)
         {
-            await _cts.CancelAsync();
+            await cts.CancelAsync();
 
             // Let the connect loop see the cancellation and exit before the connection is torn down.
             var loopExited = true;
@@ -646,7 +649,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                 }
             }
             if (loopExited)
-                _cts.Dispose();
+                cts.Dispose();
         }
         await ResetConnectionAsync();
         // _writeLock is deliberately not disposed: a request still finishing during shutdown would
