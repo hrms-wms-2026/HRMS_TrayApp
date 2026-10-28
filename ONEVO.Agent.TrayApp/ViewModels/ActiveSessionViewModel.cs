@@ -52,6 +52,18 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowBreakLocked))]
     private bool _canStartBreak = true;
+    /// <summary>
+    /// False while the pipe to the Agent Service is down. The screen then must not present the
+    /// cached session as live or let a break/clock-out command be queued (AUD-005).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RequestBreakCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ConfirmStartBreakCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RequestEndBreakCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EndBreakCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RequestClockOutCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ClockOutCommand))]
+    private bool _isServiceAvailable = true;
     [ObservableProperty] private bool   _isBreakConfirmVisible;
     [ObservableProperty] private bool   _isEndBreakConfirmVisible;
     [ObservableProperty] private bool   _isClockOutConfirmVisible;
@@ -97,6 +109,13 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     {
         Title = "Active Session";
         Connection = connection ?? new ServiceConnectionStatus();
+        // Only a wired connection status (the app-wide singleton) knows the real pipe state; a view
+        // model built without one keeps treating the Service as reachable.
+        if (connection is not null)
+        {
+            IsServiceAvailable = connection.IsConnected;
+            connection.PropertyChanged += OnConnectionChanged;
+        }
         _pipe = pipe;
         _dayMetrics = dayMetrics;
         _lifecycleCoordinator = lifecycleCoordinator;
@@ -307,8 +326,42 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         return value.Value.ToUniversalTime();
     }
 
+    private void OnConnectionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ServiceConnectionStatus.IsConnected))
+            IsServiceAvailable = Connection.IsConnected;
+    }
+
+    partial void OnIsServiceAvailableChanged(bool value)
+    {
+        if (!value)
+        {
+            // Anything the employee was about to confirm would be sent to a Service that can't
+            // answer; drop it rather than let it fire on reconnect against a state they never saw.
+            IsBreakConfirmVisible = false;
+            IsEndBreakConfirmVisible = false;
+            IsClockOutConfirmVisible = false;
+        }
+
+        ApplyModeChrome();
+    }
+
     private void ApplyModeChrome()
     {
+        if (!IsServiceAvailable)
+        {
+            // The last snapshot (start time, totals) stays on screen for reference, but the status
+            // must not claim the session is live or that monitoring is running.
+            HeaderTitle       = "Reconnecting to OneXso";
+            HeaderLead        = "Service";
+            HeaderAccent      = "Reconnecting";
+            HeaderSubtitle    = "The OneXso Agent Service isn't responding.";
+            StatusText        = "Offline";
+            HintMessage       = "Trying to reconnect. Break and clock-out are paused until the connection is back.";
+            SyncMessage       = null;
+            return;
+        }
+
         if (IsOnBreak)
         {
             HeaderTitle       = "You are now On Break";
@@ -440,10 +493,10 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private static string Format(TimeSpan t) =>
         $"{(int)t.TotalHours:00}:{t.Minutes:00}:{t.Seconds:00}";
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsServiceAvailable))]
     private void RequestBreak()
     {
-        if (IsOnBreak || IsBusyAction || !CanStartBreak) return;
+        if (!IsServiceAvailable || IsOnBreak || IsBusyAction || !CanStartBreak) return;
         IsBreakConfirmVisible = true;
         ErrorMessage = null;
     }
@@ -454,10 +507,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         IsBreakConfirmVisible = false;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsServiceAvailable))]
     private async Task ConfirmStartBreakAsync(CancellationToken ct)
     {
         IsBreakConfirmVisible = false;
+        if (!IsServiceAvailable) return;
         var result = await RunLifecycleWithPreStopAsync(LifecycleAction.StartBreak, ct);
         if (IsStaleSessionError(result))
         {
@@ -466,10 +520,10 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsServiceAvailable))]
     private void RequestEndBreak()
     {
-        if (!IsOnBreak || IsBusyAction) return;
+        if (!IsServiceAvailable || !IsOnBreak || IsBusyAction) return;
         IsEndBreakConfirmVisible = true;
         ErrorMessage = null;
     }
@@ -480,10 +534,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         IsEndBreakConfirmVisible = false;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsServiceAvailable))]
     private async Task EndBreakAsync(CancellationToken ct)
     {
         IsEndBreakConfirmVisible = false;
+        if (!IsServiceAvailable) return;
         // EndBreak resumes monitoring rather than pausing it, so it does not go through the
         // pre-stop drain — collectors are already stopped for the break's duration. On success
         // the lifecycle result's session snapshot clears IsOnBreak, dropping the view straight
@@ -496,10 +551,10 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsServiceAvailable))]
     private void RequestClockOut()
     {
-        if (IsOnBreak || IsBusyAction) return;
+        if (!IsServiceAvailable || IsOnBreak || IsBusyAction) return;
         IsClockOutConfirmVisible = true;
         ErrorMessage = null;
     }
@@ -510,10 +565,11 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         IsClockOutConfirmVisible = false;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(IsServiceAvailable))]
     private async Task ClockOutAsync(CancellationToken ct)
     {
         IsClockOutConfirmVisible = false;
+        if (!IsServiceAvailable) return;
         if (_pipe.LastKnownPolicy?.PhotoRequiredEnabled == true)
         {
             try { await Shell.Current.GoToAsync("//photo?context=clockout"); }
@@ -816,6 +872,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             _activityCheckHub.Shown -= OnActivityCheckShown;
             _activityCheckHub.Closed -= OnActivityCheckClosed;
         }
+
+        Connection.PropertyChanged -= OnConnectionChanged;
 
         if (_subscribed)
         {
