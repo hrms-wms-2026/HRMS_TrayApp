@@ -1,6 +1,7 @@
 namespace ONEVO.Agent.TrayApp.Views;
 
 using ONEVO.Agent.TrayApp.Controls;
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class WorkLocationPage : ContentPage, IQueryAttributable
@@ -24,7 +25,10 @@ public partial class WorkLocationPage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await PageAnimations.EntranceAsync(LeftPane, RightPane);
-        await _vm.DetectLocationCommand.ExecuteAsync(null);
+        await UiTasks.RunSafelyAsync(async () =>
+        {
+            await PageAnimations.EntranceAsync(LeftPane, RightPane);
+            await _vm.DetectLocationCommand.ExecuteAsync(null);
+        }, $"{nameof(WorkLocationPage)}.{nameof(OnAppearing)}");
     }
 }

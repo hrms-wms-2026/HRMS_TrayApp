@@ -545,9 +545,23 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
                 return InactivityFlushOutcome.Quarantined;
             }
 
+            // Any other 4xx (413 too large, 415, 422, 410...) refuses this record itself and will refuse
+            // it again — retrying would block the FIFO queue behind it exactly like the 404 case above
+            // (AUD-031). 408 is the one 4xx that means "try again".
+            var status = (int)response.StatusCode;
+            if (status is >= 400 and < 500 && response.StatusCode != HttpStatusCode.RequestTimeout)
+            {
+                _logger.LogWarning(
+                    "Inactivity attempt refused status={Status} — quarantining eventId={EventId}",
+                    status, buffered.Record.EventId);
+                _buffer.QuarantineRow(buffered.RowId, QuarantineReasons.Rejected(status, null));
+                DeleteSpoolForEvent(buffered.Record.EventId);
+                return InactivityFlushOutcome.Quarantined;
+            }
+
             _logger.LogWarning(
                 "Unexpected inactivity upload status={Status} eventId={EventId}",
-                (int)response.StatusCode, buffered.Record.EventId);
+                status, buffered.Record.EventId);
             return InactivityFlushOutcome.RetryableFailure;
         }
     }

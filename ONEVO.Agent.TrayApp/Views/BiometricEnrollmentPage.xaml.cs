@@ -1,5 +1,6 @@
 namespace ONEVO.Agent.TrayApp.Views;
 
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class BiometricEnrollmentPage : ContentPage
@@ -16,6 +17,7 @@ public partial class BiometricEnrollmentPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await _vm.StartSessionCommand.ExecuteAsync(null);
+        await UiTasks.RunSafelyAsync(
+            () => _vm.StartSessionCommand.ExecuteAsync(null), $"{nameof(BiometricEnrollmentPage)}.{nameof(OnAppearing)}");
     }
 }

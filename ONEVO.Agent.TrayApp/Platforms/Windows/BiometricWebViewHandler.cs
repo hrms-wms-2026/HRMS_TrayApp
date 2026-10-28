@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Maui.Handlers;
 using Microsoft.Web.WebView2.Core;
 using ONEVO.Agent.TrayApp.Controls;
+using ONEVO.Agent.TrayApp.Services;
 using WebView2 = global::Microsoft.UI.Xaml.Controls.WebView2;
 
 /// <summary>
@@ -41,15 +42,18 @@ public sealed class BiometricWebViewHandler : ViewHandler<BiometricWebView, WebV
 
         handler._pendingConfig = view.SessionConfig;
 
-        if (!handler._initialized)
+        await UiTasks.RunSafelyAsync(async () =>
         {
-            await handler.InitializeAsync();
-            handler._initialized = true;
-        }
-        else
-        {
-            await handler.PushSessionConfigAsync(view.SessionConfig);
-        }
+            if (!handler._initialized)
+            {
+                await handler.InitializeAsync();
+                handler._initialized = true;
+            }
+            else
+            {
+                await handler.PushSessionConfigAsync(view.SessionConfig);
+            }
+        }, $"{nameof(BiometricWebViewHandler)}.{nameof(MapSessionConfig)}");
     }
 
     private async Task InitializeAsync()

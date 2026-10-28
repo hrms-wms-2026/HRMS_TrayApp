@@ -657,6 +657,78 @@ public class ActivitySyncServiceTests
         Assert.Equal(2, factory.Requests.Count);
     }
 
+    // AUD-031: the 404 fix above covered one status only. Any other refusal of the content itself
+    // (413 too large, 415, 422, ...) still returned RetryableFailure, so that one row was retried
+    // forever and every row behind it in the FIFO queue stayed pending.
+    [Theory]
+    [InlineData(HttpStatusCode.RequestEntityTooLarge)]
+    [InlineData(HttpStatusCode.UnsupportedMediaType)]
+    [InlineData(HttpStatusCode.UnprocessableEntity)]
+    [InlineData(HttpStatusCode.Gone)]
+    public void FlushAsync_InactivityAttemptRefusedByServer_QuarantinesItAndSendsTheRowsBehindIt(HttpStatusCode status)
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(Guid.NewGuid(), InactivityCaptureOutcomes.Declined),
+            "test",
+            null,
+            0,
+            DateTimeOffset.UtcNow.AddHours(72)));
+        buffer.TryEnqueue(MakeRecord(
+            CollectionRecordTypes.WorkSession,
+            CollectionSchemaVersions.WorkSessionV1,
+            new WorkSessionPayload
+            {
+                SessionId = Guid.NewGuid(),
+                ClockInAt = DateTimeOffset.UtcNow.AddHours(-8),
+                ClockOutAt = DateTimeOffset.UtcNow,
+                AccumulatedBreak = TimeSpan.FromMinutes(30),
+                AccumulatedWork = TimeSpan.FromHours(7),
+                BreakSessionCount = 1,
+                ScheduleDisplay = "09:00 AM – 06:00 PM"
+            }));
+
+        var factory = new CapturingHttpClientFactory(request =>
+            request.RequestUri!.AbsolutePath.EndsWith(AgentApiRoutes.InactivityAttemptSubmit, StringComparison.Ordinal)
+                ? new HttpResponseMessage(status)
+                : new HttpResponseMessage(HttpStatusCode.OK));
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        var health = buffer.GetHealth();
+        Assert.Equal(0, health.Pending);
+        Assert.Equal(1, health.Quarantined);
+        Assert.Equal(2, factory.Requests.Count); // the work session behind it was sent
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.RequestTimeout)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public void FlushAsync_InactivityAttemptTransientFailure_StaysPending(HttpStatusCode status)
+    {
+        var buffer = ActivityRecordBuffer.CreateInMemory();
+        Assert.True(buffer.TryEnqueueInactivityAttempt(
+            MakeAttempt(Guid.NewGuid(), InactivityCaptureOutcomes.Declined),
+            "test",
+            null,
+            0,
+            DateTimeOffset.UtcNow.AddHours(72)));
+        var factory = new CapturingHttpClientFactory(_ => new HttpResponseMessage(status));
+
+        WithJwt(credentials =>
+        {
+            var svc = Build(buffer, factory, credentials: credentials);
+            svc.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
+        });
+
+        Assert.Equal(1, buffer.GetHealth().Pending);
+        Assert.Equal(0, buffer.GetHealth().Quarantined);
+    }
+
     [Fact]
     public async Task FlushAsync_BatchWithStaleSnapshot_QuarantinesStaleAndSendsFreshOnes()
     {

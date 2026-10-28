@@ -1,6 +1,7 @@
 namespace ONEVO.Agent.TrayApp.Views;
 
 using ONEVO.Agent.TrayApp.Controls;
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class ConnectWorkspacePage : ContentPage
@@ -15,9 +16,12 @@ public partial class ConnectWorkspacePage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        await PageAnimations.EntranceAsync(LeftPane, RightPane);
+        await UiTasks.RunSafelyAsync(async () =>
+        {
+            await PageAnimations.EntranceAsync(LeftPane, RightPane);
 
-        if (BindingContext is ConnectWorkspaceViewModel vm)
-            await vm.CheckForUpdateCommand.ExecuteAsync(null);
+            if (BindingContext is ConnectWorkspaceViewModel vm)
+                await vm.CheckForUpdateCommand.ExecuteAsync(null);
+        }, $"{nameof(ConnectWorkspacePage)}.{nameof(OnAppearing)}");
     }
 }

@@ -26,8 +26,11 @@ public static class Constants
     /// <summary>Size (bytes) of each evidence-transfer chunk sent over IPC.</summary>
     public const int EvidenceChunkSizeBytes = 32_768;
 
-    /// <summary>Max allowed size (bytes) of a single inactivity screenshot.</summary>
-    public const int MaxScreenshotBytes = 10_485_760;
+    /// <summary>
+    /// Max allowed size (bytes) of a single screenshot: 9.5 MiB, leaving room for the multipart
+    /// fields under the backend's 10 MiB request limit on the screenshot/inactivity uploads.
+    /// </summary>
+    public const int MaxScreenshotBytes = 9_961_472;
 
     /// <summary>
     /// Max raw JPEG size (bytes) for a clock-in face photo. Unlike inactivity screenshots, this
