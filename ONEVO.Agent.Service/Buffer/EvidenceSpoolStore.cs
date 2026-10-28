@@ -1,7 +1,5 @@
 namespace ONEVO.Agent.Service.Buffer;
 
-using System.Security.AccessControl;
-using System.Security.Principal;
 using ONEVO.Agent.Service.Security;
 
 /// <summary>
@@ -104,53 +102,8 @@ public sealed class EvidenceSpoolStore
 
     private static void TryApplyRestrictedAcl(string path)
     {
-        try
-        {
-            var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            if (!path.StartsWith(programData, StringComparison.OrdinalIgnoreCase))
-                return;
-
-            var isDir = Directory.Exists(path);
-            FileSystemSecurity security = isDir
-                ? new DirectoryInfo(path).GetAccessControl()
-                : new FileInfo(path).GetAccessControl();
-
-            var inheritance = isDir ? InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit : InheritanceFlags.None;
-
-            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-            security.AddAccessRule(new FileSystemAccessRule(
-                new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
-                FileSystemRights.FullControl,
-                inheritance,
-                PropagationFlags.None,
-                AccessControlType.Allow));
-            security.AddAccessRule(new FileSystemAccessRule(
-                new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
-                FileSystemRights.FullControl,
-                inheritance,
-                PropagationFlags.None,
-                AccessControlType.Allow));
-
-            var currentUser = WindowsIdentity.GetCurrent().User;
-            if (currentUser is not null
-                && currentUser.Value != new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null).Value)
-            {
-                security.AddAccessRule(new FileSystemAccessRule(
-                    currentUser,
-                    FileSystemRights.FullControl,
-                    inheritance,
-                    PropagationFlags.None,
-                    AccessControlType.Allow));
-            }
-
-            if (isDir)
-                new DirectoryInfo(path).SetAccessControl((DirectorySecurity)security);
-            else
-                new FileInfo(path).SetAccessControl((FileSecurity)security);
-        }
-        catch
-        {
-            // ACL hardening is best-effort; spool still works without it.
-        }
+        var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        if (path.StartsWith(programData, StringComparison.OrdinalIgnoreCase))
+            AgentDataAcl.TryRestrict(path);
     }
 }
