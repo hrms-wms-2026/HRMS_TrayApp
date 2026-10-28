@@ -17,7 +17,7 @@ public static class MauiProgram
 
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
-        builder.Logging.AddTrayFileLogging(new TrayFileLoggerProvider(TrayFileLoggerProvider.DefaultDirectory));
+        builder.Logging.AddTrayFileLogging(TrayLogging.CreateFileProvider());
         builder.ConfigureMauiHandlers(h =>
         {
             h.AddHandler<Controls.CameraPreview, Platforms.Windows.CameraPreviewHandler>();
