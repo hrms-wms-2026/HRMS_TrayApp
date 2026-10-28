@@ -33,11 +33,13 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
     private readonly IEnumerable<IAgentCollector> _collectors;
     private readonly INamedPipeClient _pipeClient;
     private readonly NotificationService _notificationService;
+    private readonly IInteractiveSessionState? _sessionState;
     private readonly object _gate = new();
     private readonly SemaphoreSlim _reconcileLock = new(1, 1);
 
     private AgentPolicy? _policy;
     private MonitoringState _state = MonitoringState.Unenrolled;
+    private bool _sessionLocked;
     private bool _collectorsRunning;
     private string? _appliedPolicyVersion;
     private CancellationTokenSource? _runCts;
@@ -57,7 +59,8 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
         ILogger<CollectorCoordinator> logger,
         IEnumerable<IAgentCollector> collectors,
         INamedPipeClient pipeClient,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        IInteractiveSessionState? sessionState = null)
     {
         _logger = logger;
         _collectors = collectors;
@@ -68,6 +71,28 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
         _pipeClient.OnPolicyReceived += OnPolicyReceived;
         _pipeClient.OnNotificationReceived += OnWellnessNotificationReceived;
         _pipeClient.OnDisconnected += OnDisconnected;
+
+        _sessionState = sessionState;
+        if (_sessionState is not null)
+        {
+            _sessionLocked = _sessionState.IsLocked;
+            _sessionState.LockChanged += OnSessionLockChanged;
+        }
+    }
+
+    /// <summary>
+    /// Screen lock, sign-off or switching to another user stops every collector; unlocking restarts
+    /// them if the Service still reports Active (AUD-014).
+    /// </summary>
+    private void OnSessionLockChanged(bool locked)
+    {
+        lock (_gate)
+        {
+            _sessionLocked = locked;
+        }
+        BootLog(locked ? "Session locked — stop collectors" : "Session unlocked — reconcile collectors");
+        _logger.LogInformation("Windows session {Change}", locked ? "locked" : "unlocked");
+        _ = ReconcileAsync();
     }
 
     private static void BootLog(string message) => TrayBootLog.Write("Coordinator", message);
@@ -119,10 +144,12 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
         {
             MonitoringState state;
             AgentPolicy? policy;
+            bool sessionLocked;
             lock (_gate)
             {
                 state = _state;
                 policy = _policy;
+                sessionLocked = _sessionLocked;
             }
 
             // Phase-1: if Active but policy not yet received, use local default
@@ -131,10 +158,11 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
                 ?? (state == MonitoringState.Active ? CreateLocalDefaultPolicy() : null);
 
             var shouldRun = state == MonitoringState.Active
+                && !sessionLocked
                 && effective is not null
                 && effective.ActivitySignalEnabled;
 
-            BootLog($"Reconcile state={state} hasPolicy={policy is not null} shouldRun={shouldRun}");
+            BootLog($"Reconcile state={state} locked={sessionLocked} hasPolicy={policy is not null} shouldRun={shouldRun}");
 
             if (shouldRun)
             {
@@ -277,6 +305,8 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
         _pipeClient.OnPolicyReceived -= OnPolicyReceived;
         _pipeClient.OnNotificationReceived -= OnWellnessNotificationReceived;
         _pipeClient.OnDisconnected -= OnDisconnected;
+        if (_sessionState is not null)
+            _sessionState.LockChanged -= OnSessionLockChanged;
         await StopAllAsync();
         _reconcileLock.Dispose();
     }
