@@ -37,6 +37,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     private readonly PeriodicScreenshotHandler? _periodicScreenshots;
     private readonly IActivityBufferFlush? _activitySync;
     private readonly DeviceTokenRefresher? _tokenRefresher;
+    private readonly PortalLinks? _portalLinks;
 
     /// <summary>Overall time limit of one lifecycle command; tests shorten it.</summary>
     internal TimeSpan LifecycleBudget { get; init; } = Constants.LifecycleCommandBudget;
@@ -61,8 +62,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         PeriodicScreenshotHandler? periodicScreenshots = null,
         IActivityBufferFlush? activitySync = null,
         FaceSetupPhotoStaging? faceSetupStaging = null,
-        DeviceTokenRefresher? tokenRefresher = null)
+        DeviceTokenRefresher? tokenRefresher = null,
+        PortalLinks? portalLinks = null)
     {
+        _portalLinks = portalLinks;
         _faceSetupStaging = faceSetupStaging ?? new FaceSetupPhotoStaging();
         _tokenRefresher = tokenRefresher;
         _logger = logger;
@@ -992,7 +995,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         return new BufferStatusPayload(health.Level.ToString(), health.Pending, health.Quarantined, health.LowPriorityLimit);
     }
 
-    private IpcEnvelope BuildStatusEnvelope(string? correlationId) =>
+    /// <summary>Internal so AgentWorkerStatusPortalLinkTests can read the payload directly.</summary>
+    internal IpcEnvelope BuildStatusEnvelope(string? correlationId) =>
         new()
         {
             Type = IpcMessageTypes.StatusResponse,
@@ -1002,7 +1006,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
                     _stateMachine.CurrentState,
                     DateTimeOffset.UtcNow,
                     _presenceSession.Snapshot(DateTimeOffset.UtcNow),
-                    BuildBufferStatus()))
+                    BuildBufferStatus(),
+                    _portalLinks?.BaseUrlFor(_deviceIdentityStore.Load()?.TenantSlug)))
         };
 
     /// <summary>

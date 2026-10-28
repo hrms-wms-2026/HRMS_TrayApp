@@ -206,11 +206,16 @@ public sealed record SessionPauseInterval(string Kind, DateTimeOffset StartedAt,
     public const int MaxPerSession = 48;
 }
 
+/// <param name="PortalBaseUrl">
+/// The enrolled tenant's portal origin (e.g. https://contoso.onexso.com) for the Tray's browser
+/// links (AUD-030). Null before enrollment, for an unusable slug, or from older Service builds.
+/// </param>
 public sealed record StatusResponsePayload(
     MonitoringState State,
     DateTimeOffset Timestamp,
     SessionSnapshot? Session = null,
-    BufferStatusPayload? Buffer = null);
+    BufferStatusPayload? Buffer = null,
+    string? PortalBaseUrl = null);
 
 /// <summary>
 /// Offline queue state (AGT-02). <see cref="Level"/>: Ok, Warning, Full (new low-priority capture is
