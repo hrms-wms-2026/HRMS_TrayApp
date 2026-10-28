@@ -4,9 +4,21 @@ using Microsoft.Windows.AppNotifications;
 
 public partial class App : MauiWinUIApplication
 {
+    // Held for the process lifetime; Windows releases the mutex when the process exits.
+    private static ONEVO.Agent.TrayApp.Services.SingleInstanceGuard? _singleInstance;
+
     public App()
     {
         RollBootLogIfLarge();
+
+        _singleInstance = ONEVO.Agent.TrayApp.Services.SingleInstanceGuard.TryAcquire();
+        if (_singleInstance is null)
+        {
+            BootLog("Another tray instance is already running — asked it to show its window, exiting");
+            Environment.Exit(0);
+        }
+        _singleInstance.OnActivationRequested(ONEVO.Agent.TrayApp.Services.TrayIconService.ShowMainWindow);
+
         this.InitializeComponent();
 
         // ProcessExit fires on normal shutdown regardless of which path triggered it (tray "Exit",

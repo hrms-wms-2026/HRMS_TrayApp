@@ -58,6 +58,19 @@ public sealed class NamedPipeClientConnectionTests
     }
 
     [Fact]
+    public async Task DisposeAsync_Twice_DoesNotThrow()
+    {
+        // DI disposes the singleton once as NamedPipeClient and again as INamedPipeClient.
+        var client = new NamedPipeClient(NullLogger<NamedPipeClient>.Instance, NewPipeName());
+        await client.StartAsync(CancellationToken.None);
+        await client.DisposeAsync();
+
+        var ex = await Record.ExceptionAsync(() => client.DisposeAsync().AsTask());
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public async Task Request_AfterDispose_DoesNotThrow()
     {
         var client = new NamedPipeClient(NullLogger<NamedPipeClient>.Instance, NewPipeName());

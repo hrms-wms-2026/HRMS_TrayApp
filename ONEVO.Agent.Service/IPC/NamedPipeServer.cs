@@ -185,10 +185,13 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
 
     public async ValueTask DisposeAsync()
     {
-        if (_cts is not null)
+        // The container disposes this instance twice: once as NamedPipeServer and once via the
+        // IIpcBroadcaster factory registration that returns the same object.
+        var cts = Interlocked.Exchange(ref _cts, null);
+        if (cts is not null)
         {
-            await _cts.CancelAsync();
-            _cts.Dispose();
+            await cts.CancelAsync();
+            cts.Dispose();
         }
     }
 

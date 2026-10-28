@@ -105,6 +105,20 @@ public class NamedPipeServerBroadcastTests
     }
 
     [Fact]
+    public async Task DisposeAsync_Twice_DoesNotThrow()
+    {
+        // DI disposes the singleton once as NamedPipeServer and again as IIpcBroadcaster; the
+        // second call used to crash host shutdown with ObjectDisposedException.
+        var server = new NamedPipeServer(NullLogger<NamedPipeServer>.Instance, new NamedPipeAuthenticator(), TrustAllClients.Instance);
+        await server.StartAsync(CancellationToken.None);
+        await server.DisposeAsync();
+
+        var ex = await Record.ExceptionAsync(() => server.DisposeAsync().AsTask());
+
+        Assert.Null(ex);
+    }
+
+    [Fact]
     public async Task BroadcastAsync_AfterClientDisconnects_DoesNotThrow_AndOtherConnectionsStillReceive()
     {
         var server = new NamedPipeServer(NullLogger<NamedPipeServer>.Instance, new NamedPipeAuthenticator(), TrustAllClients.Instance);

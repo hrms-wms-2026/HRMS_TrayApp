@@ -426,10 +426,10 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         if (over && !_breakExceededNotified)
         {
             _breakExceededNotified = true;
-            BreakAllowanceAlert.Shown = true;
-            _notifications?.ShowWarning(
-                "Break time exceeded",
-                $"Your break is longer than the {allowance} minute allowance. You can't start another break today.");
+            if (BreakAllowanceAlert.TryClaim())
+                _notifications?.ShowWarning(
+                    "Break time exceeded",
+                    $"Your break is longer than the {allowance} minute allowance. You can't start another break today.");
         }
         else if (!over && !_breakLocked)
         {
