@@ -1,7 +1,4 @@
-using System.Net;
-using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
-using Polly;
 using ONEVO.Agent.Service;
 using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Biometrics;
@@ -72,46 +69,7 @@ var host = Host.CreateDefaultBuilder(args)
         {
             var httpTimeout = context.ServiceProvider
                 .GetRequiredService<IOptions<AgentOptions>>().Value.HttpTimeoutSeconds;
-            var attemptTimeout = TimeSpan.FromSeconds(Math.Clamp(httpTimeout, 5, 120));
-
-            builder.AddRetry(new HttpRetryStrategyOptions
-            {
-                MaxRetryAttempts = 4,
-                BackoffType = DelayBackoffType.Exponential,
-                Delay = TimeSpan.FromSeconds(1),
-                MaxDelay = TimeSpan.FromSeconds(30),
-                UseJitter = true,
-                ShouldHandle = args =>
-                {
-                    if (args.Outcome.Exception is HttpRequestException or TaskCanceledException)
-                        return PredicateResult.True();
-                    var code = args.Outcome.Result?.StatusCode;
-                    if (code is HttpStatusCode.TooManyRequests)
-                        return PredicateResult.True();
-                    if (code is >= HttpStatusCode.InternalServerError)
-                        return PredicateResult.True();
-                    return PredicateResult.False();
-                },
-                // Honor Retry-After on 429 when present; else exponential default.
-                DelayGenerator = args =>
-                {
-                    if (args.Outcome.Result?.StatusCode == HttpStatusCode.TooManyRequests
-                        && args.Outcome.Result.Headers.RetryAfter?.Delta is { } ra
-                        && ra > TimeSpan.Zero)
-                        return new ValueTask<TimeSpan?>(ra);
-                    return new ValueTask<TimeSpan?>((TimeSpan?)null);
-                }
-            });
-
-            builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
-            {
-                SamplingDuration = TimeSpan.FromMinutes(2),
-                MinimumThroughput = 5,
-                FailureRatio = 0.5,
-                BreakDuration = TimeSpan.FromMinutes(1)
-            });
-
-            builder.AddTimeout(attemptTimeout);
+            OnevoApiResilience.Configure(builder, OnevoApiResilience.AttemptTimeout(httpTimeout));
         });
 
         services.AddSingleton<ONEVO.Agent.Service.Enrollment.PortalOriginValidator>(sp =>
