@@ -21,6 +21,7 @@ Windows system-tray desktop agent for employee **clock-in / clock-out / break** 
    ```
 3. **Windows 10/11** (target `net10.0-windows10.0.19041.0`)
 4. Open the **repo root** in VS Code: `C:\HR\tray_app_maui`
+5. **Keep the checkout path short:** at most **103 characters**, ideally around 20 (e.g. `C:\src\HRMS_TrayApp`). A deeper root makes the TrayApp build fail with `MSB3030`. See [Build fails with `MSB3030` … `MsixContent`](#build-fails-with-msb3030--msixcontent-long-checkout-path).
 
 ---
 
@@ -153,6 +154,42 @@ Service config (API base URL):
 | Port / API issues | Backend is separate repo (`HRMS-Backend-v1`); tray UI still runs offline for mock onboarding |
 | Second instance | Stop old process: `Stop-Process -Name ONEVO.Agent.TrayApp -Force` |
 | VS Code F5 does nothing | Select correct profile in Run and Debug; open **folder root** not a single file |
+| `MSB3030` … `MsixContent\…dll` … "was not found" | Checkout path is too long, see below |
+
+### Build fails with `MSB3030` … `MsixContent` (long checkout path)
+
+If a TrayApp build fails with:
+
+```text
+error MSB3030: Could not copy the file "...\ONEVO.Agent.TrayApp\obj\Release\net10.0-windows10.0.19041.0\win-x64\MsixContent\WindowsAppSdk.AppxDeploymentExtensions.Desktop-EventLog-Instrumentation.dll" because it was not found.
+```
+
+**Cause:** the repo is checked out too deep. The Windows App SDK build step that fills
+`obj\...\MsixContent\` is limited to Windows' 259-character path limit (`MAX_PATH`). Its longest
+file is 156 characters below the repo root, so with a root longer than **103 characters** that
+file is silently never written, and the next copy step reports it as "not found". The source
+code is fine. The same commit builds from a shorter folder.
+
+Measured on Windows 11 with long paths off (`LongPathsEnabled = 0`, the Windows default):
+a 103-character root builds and a 104-character root fails (AUD-021, 2026-10-28).
+
+**Fix:** clone or move the repo to a short path such as `C:\src\HRMS_TrayApp`, then build again.
+Check your current root's length with:
+
+```powershell
+(Get-Location).Path.Length   # run in the repo root; must be 103 or less
+```
+
+Notes:
+
+- Watch out for deep default locations, for example temp or agent scratch folders under
+  `%LOCALAPPDATA%\Temp\...`, and nested worktree folders.
+- `git worktree remove` can also fail there with "Filename too long". Delete the folder with a
+  `\\?\` path instead, e.g. `[IO.Directory]::Delete("\\?\" + $path, $true)`.
+- CI is not affected: GitHub's Windows runners check out to `D:\a\HRMS_TrayApp\HRMS_TrayApp`
+  (30 characters).
+- Turning on Windows long-path support (`LongPathsEnabled = 1`, an admin/machine setting) is
+  **not verified** to fix this, so prefer the short path.
 
 ### Stop processes
 
