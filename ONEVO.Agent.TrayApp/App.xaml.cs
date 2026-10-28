@@ -83,6 +83,9 @@ public partial class App : Microsoft.Maui.Controls.Application
 
         _pipeClient.OnStatusReceived += status =>
         {
+            // Browser links go to the enrolled tenant's own portal (AUD-030).
+            WorkspaceLinks.UseTenantPortal(status.PortalBaseUrl);
+
             if (status.State == MonitoringState.Stopped
                 && status.Session?.ClockOutAt is { } clockOutAt
                 && status.Session.ClockInAt is not null)
