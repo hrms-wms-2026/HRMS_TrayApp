@@ -1,12 +1,25 @@
 namespace ONEVO.Agent.Service.Configuration;
 
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-public sealed class OptionsValidation : IValidateOptions<AgentOptions>
+public sealed class OptionsValidation(IHostEnvironment environment) : IValidateOptions<AgentOptions>
 {
     public ValidateOptionsResult Validate(string? name, AgentOptions options)
     {
         var errors = new List<string>();
+
+        // Development-only bypasses: if one leaks into a UAT/production config the Service must
+        // refuse to start rather than silently skip monitoring gates or IPC path checks (AUD-013).
+        if (!environment.IsDevelopment())
+        {
+            if (options.ForceMonitoringActive)
+                errors.Add(DevOnly(nameof(AgentOptions.ForceMonitoringActive)));
+            if (options.AllowLocalLifecycleWithoutFullGates)
+                errors.Add(DevOnly(nameof(AgentOptions.AllowLocalLifecycleWithoutFullGates)));
+            if (options.AllowIpcClientFromAnyPath)
+                errors.Add(DevOnly(nameof(AgentOptions.AllowIpcClientFromAnyPath)));
+        }
 
         if (options.HeartbeatIntervalSeconds < 10)
             errors.Add("HeartbeatIntervalSeconds must be >= 10");
@@ -46,4 +59,7 @@ public sealed class OptionsValidation : IValidateOptions<AgentOptions>
             ? ValidateOptionsResult.Fail(errors)
             : ValidateOptionsResult.Success;
     }
+
+    private string DevOnly(string flag) =>
+        $"{flag} is a development-only flag and must be false outside Development (environment: {environment.EnvironmentName})";
 }
