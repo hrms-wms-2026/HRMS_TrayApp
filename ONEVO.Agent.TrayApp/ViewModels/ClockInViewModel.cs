@@ -256,7 +256,12 @@ public sealed partial class ClockInViewModel : BaseViewModel, IDisposable
 
             if (!result.Success)
             {
-                ErrorMessage = result.ErrorCode ?? "Sign-out failed.";
+                ErrorMessage = result.ErrorCode switch
+                {
+                    "CLOCKED_IN" => "You're still clocked in. Clock out before signing out.",
+                    null => "Sign-out failed.",
+                    var code => code
+                };
                 return;
             }
 

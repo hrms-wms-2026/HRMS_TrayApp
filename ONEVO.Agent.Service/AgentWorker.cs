@@ -1805,13 +1805,21 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         });
     }
 
-    private async Task HandleLogoutRequestAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    internal async Task HandleLogoutRequestAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
     {
-        var current = _stateMachine.CurrentState;
-
-        // Never jump straight from Active/Paused to Unenrolled — stop collection first.
-        if (current is MonitoringState.Active or MonitoringState.Paused)
-            _stateMachine.TryTransition(MonitoringState.Stopped, out _);
+        // Signing out while clocked in only ended the local session: the backend stayed clocked in
+        // and no work-session record was written (AUD-011). The employee clocks out first.
+        if (_stateMachine.CurrentState is MonitoringState.Active or MonitoringState.Paused)
+        {
+            _logger.LogInformation("Logout refused: still clocked in");
+            await reply(new IpcEnvelope
+            {
+                Type = IpcMessageTypes.LogoutResult,
+                CorrelationId = envelope.CorrelationId,
+                Payload = JsonSerializer.SerializeToElement(new LogoutResultPayload(false, "CLOCKED_IN"))
+            });
+            return;
+        }
 
         var accessToken = _credentials.ReadDeviceJwt();
         if (!string.IsNullOrWhiteSpace(accessToken))

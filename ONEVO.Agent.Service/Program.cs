@@ -42,11 +42,13 @@ var host = Host.CreateDefaultBuilder(args)
             var opts = sp.GetRequiredService<IOptions<AgentOptions>>().Value;
             var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("ActivityRecordBuffer");
             var path = ActivityRecordBuffer.GetDefaultDatabasePath();
+            var credentials = sp.GetRequiredService<CredentialStore>();
             logger.LogInformation(
                 "SQLite activity store: {Path} (max pending {Max} + {Reserved} reserved, max {Mb} MB)",
                 path, opts.QueueMaxRecords, opts.QueueReservedRecords, opts.QueueCapacityMb);
             return new ActivityRecordBuffer(
-                path, opts.QueueMaxRecords, opts.QueueCapacityMb * 1024L * 1024, opts.QueueReservedRecords, logger);
+                path, opts.QueueMaxRecords, opts.QueueCapacityMb * 1024L * 1024, opts.QueueReservedRecords, logger,
+                ownerKeyProvider: () => credentials.ReadDeviceJwt() is { } jwt ? JwtClaimsReader.ReadOwnerKey(jwt) : null);
         });
         services.AddSingleton<CredentialStore>();
         services.AddSingleton<DeviceIdentityStore>();
