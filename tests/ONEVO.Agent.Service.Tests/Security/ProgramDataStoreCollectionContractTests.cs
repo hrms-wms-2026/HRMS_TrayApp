@@ -1,5 +1,7 @@
 namespace ONEVO.Agent.Service.Tests.Security;
 
+using ONEVO.Agent.Service.Buffer;
+using ONEVO.Agent.Service.Security;
 using Xunit;
 
 /// <summary>
@@ -8,6 +10,7 @@ using Xunit;
 /// in CredentialStoreFileCollection so xUnit does not run it in parallel with other
 /// ProgramData writers. Tests that inject a temp directory are isolated and exempt.
 /// </summary>
+[Collection(CredentialStoreFileCollection.Name)]
 public sealed class ProgramDataStoreCollectionContractTests
 {
     [Fact]
@@ -70,6 +73,33 @@ public sealed class ProgramDataStoreCollectionContractTests
             "These test files construct a CredentialStore/DeviceIdentityStore bound to the real "
             + "%ProgramData%\\ONEVO\\Agent\\ files; use TestStores instead:\n"
             + string.Join(Environment.NewLine, offenders));
+    }
+
+    /// <summary>
+    /// AUD-017 follow-up: the source scan above missed target-typed <c>CredentialStore x = new();</c>,
+    /// so two test classes still wrote and deleted the real credential files. The test assembly now
+    /// redirects the agent data root for every store, however it is constructed.
+    /// </summary>
+    [Fact]
+    public void DefaultStorePaths_InTests_NeverResolveToRealProgramData()
+    {
+        var realRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ONEVO", "Agent");
+
+        Assert.NotEqual(realRoot, AgentDataPaths.Root, StringComparer.OrdinalIgnoreCase);
+        Assert.StartsWith(Path.GetTempPath(), AgentDataPaths.Root, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith(AgentDataPaths.Root, EvidenceSpoolStore.GetDefaultDirectory(), StringComparison.OrdinalIgnoreCase);
+
+        var store = new CredentialStore(); // deliberately parameterless
+        store.StoreDeviceJwt("guard");
+        try
+        {
+            Assert.True(File.Exists(Path.Combine(AgentDataPaths.Root, "credential.dat")));
+        }
+        finally
+        {
+            store.ClearDeviceJwt();
+        }
     }
 
     private static string FindTestsRoot()
