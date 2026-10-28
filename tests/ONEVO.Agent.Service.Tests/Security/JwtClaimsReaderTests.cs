@@ -29,6 +29,30 @@ public class JwtClaimsReaderTests
         Assert.Null(tenantId);
     }
 
+    // AUD-004: queued rows are bound to the employee (tenant + user), not the device registration
+    // (sub), which changes when the same employee re-enrolls.
+    [Fact]
+    public void ReadOwnerKey_TrayToken_CombinesTenantAndUser()
+    {
+        var jwt = FakeJwt.ForEmployee(tenantId: "tenant-1", userId: "user-1");
+
+        Assert.Equal("tenant-1:user-1", JwtClaimsReader.ReadOwnerKey(jwt));
+    }
+
+    [Theory]
+    [InlineData("""{"tenant_id":"tenant-1"}""")]
+    [InlineData("""{"user_id":"user-1"}""")]
+    public void ReadOwnerKey_MissingClaim_ReturnsNull(string payloadJson)
+    {
+        var jwt = FakeJwt.Build(JsonDocument.Parse(payloadJson).RootElement);
+
+        Assert.Null(JwtClaimsReader.ReadOwnerKey(jwt));
+    }
+
+    [Fact]
+    public void ReadOwnerKey_NotAJwt_ReturnsNull() =>
+        Assert.Null(JwtClaimsReader.ReadOwnerKey("test-jwt"));
+
     [Fact]
     public void ReadExpiry_ValidToken_ReturnsExpAsUtcInstant()
     {

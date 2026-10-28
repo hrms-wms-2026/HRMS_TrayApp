@@ -19,6 +19,7 @@ public sealed class ActivityRecordBuffer : IDisposable
     private readonly long _maxDatabaseBytes;
     private readonly string _databasePath;
     private readonly ILogger _logger;
+    private readonly Func<string?>? _ownerKeyProvider;
     private bool _storageFailed;
     private BufferHealthLevel _lastLoggedLevel = BufferHealthLevel.Ok;
     private bool _disposed;
@@ -57,17 +58,23 @@ public sealed class ActivityRecordBuffer : IDisposable
     /// (work session, inactivity attempt, face photo) so a full snapshot backlog never blocks them.
     /// Defaults to 10% of <paramref name="maxRecords"/> (at least 1).
     /// </param>
+    /// <param name="ownerKeyProvider">
+    /// Returns the employee ("tenant_id:user_id") whose device token is currently stored. Stamped on
+    /// every queued row so it is only ever uploaded under that employee's token (AUD-004).
+    /// </param>
     public ActivityRecordBuffer(
         string databasePath,
         int maxRecords = 5_000,
         long maxDatabaseBytes = DefaultMaxDatabaseBytes,
         int? reservedRecords = null,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        Func<string?>? ownerKeyProvider = null)
     {
         _maxRecords = Math.Max(1, maxRecords);
         _reservedRecords = Math.Max(1, reservedRecords ?? _maxRecords / 10);
         _maxDatabaseBytes = Math.Max(1, maxDatabaseBytes);
         _logger = logger ?? NullLogger.Instance;
+        _ownerKeyProvider = ownerKeyProvider;
         _databasePath = databasePath;
 
         var isUri = databasePath.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
@@ -117,10 +124,12 @@ public sealed class ActivityRecordBuffer : IDisposable
         && _databasePath != ":memory:";
 
     /// <summary>Isolated in-memory DB (unique per call).</summary>
-    public static ActivityRecordBuffer CreateInMemory(int maxRecords = 5_000, int? reservedRecords = null)
+    public static ActivityRecordBuffer CreateInMemory(
+        int maxRecords = 5_000, int? reservedRecords = null, Func<string?>? ownerKeyProvider = null)
     {
         var name = $"file:onevo_mem_{Guid.NewGuid():N}?mode=memory&cache=shared";
-        return new ActivityRecordBuffer(name, maxRecords, DefaultMaxDatabaseBytes, reservedRecords);
+        return new ActivityRecordBuffer(
+            name, maxRecords, DefaultMaxDatabaseBytes, reservedRecords, ownerKeyProvider: ownerKeyProvider);
     }
 
     public static string GetDefaultDatabasePath() =>
@@ -172,7 +181,17 @@ public sealed class ActivityRecordBuffer : IDisposable
         // AGT-01: quarantine keeps the original payload; why/when live in their own columns.
         EnsureColumnUnlocked("collection_records", "quarantine_reason", "TEXT NULL");
         EnsureColumnUnlocked("collection_records", "quarantined_at", "TEXT NULL");
+        // AUD-004: which employee's token was stored when the row was queued (null = unknown/legacy).
+        EnsureColumnUnlocked("collection_records", "owner_key", "TEXT NULL");
         QuarantineLegacyScreenshotRecordsUnlocked();
+    }
+
+    private object CurrentOwnerKeyParameter()
+    {
+        string? owner = null;
+        try { owner = _ownerKeyProvider?.Invoke(); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Could not read the current owner for a queued row"); }
+        return (object?)owner ?? DBNull.Value;
     }
 
     private void EnsureColumnUnlocked(string table, string column, string declaration)
@@ -271,9 +290,9 @@ public sealed class ActivityRecordBuffer : IDisposable
                 insert.CommandText =
                     """
                     INSERT INTO collection_records
-                        (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status)
+                        (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status, owner_key)
                     VALUES
-                        ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending');
+                        ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending', $owner);
                     """;
                 insert.Parameters.AddWithValue("$eventId", eventId);
                 insert.Parameters.AddWithValue("$type", CollectionRecordTypes.InactivityCaptureAttempt);
@@ -282,6 +301,7 @@ public sealed class ActivityRecordBuffer : IDisposable
                 insert.Parameters.AddWithValue("$device", deviceId);
                 insert.Parameters.AddWithValue("$payload", payloadJson);
                 insert.Parameters.AddWithValue("$created", now);
+                insert.Parameters.AddWithValue("$owner", CurrentOwnerKeyParameter());
                 insert.ExecuteNonQuery();
             }
 
@@ -361,9 +381,9 @@ public sealed class ActivityRecordBuffer : IDisposable
                 insert.CommandText =
                     """
                     INSERT INTO collection_records
-                        (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status)
+                        (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status, owner_key)
                     VALUES
-                        ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending');
+                        ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending', $owner);
                     """;
                 insert.Parameters.AddWithValue("$eventId", eventId);
                 insert.Parameters.AddWithValue("$type", CollectionRecordTypes.Screenshot);
@@ -372,6 +392,7 @@ public sealed class ActivityRecordBuffer : IDisposable
                 insert.Parameters.AddWithValue("$device", deviceId);
                 insert.Parameters.AddWithValue("$payload", payloadJson);
                 insert.Parameters.AddWithValue("$created", now);
+                insert.Parameters.AddWithValue("$owner", CurrentOwnerKeyParameter());
                 insert.ExecuteNonQuery();
             }
 
@@ -418,7 +439,7 @@ public sealed class ActivityRecordBuffer : IDisposable
             using var select = _conn.CreateCommand();
             select.CommandText =
                 """
-                SELECT id, event_id, record_type, schema_version, capture_ts, device_id, payload_json
+                SELECT id, event_id, record_type, schema_version, capture_ts, device_id, payload_json, owner_key
                 FROM collection_records
                 WHERE status = 'pending'
                 ORDER BY id ASC
@@ -454,7 +475,8 @@ public sealed class ActivityRecordBuffer : IDisposable
                         CaptureTimestamp = DateTimeOffset.Parse(reader.GetString(4)),
                         DeviceId = reader.GetString(5),
                         Payload = doc.RootElement.Clone()
-                    }));
+                    },
+                    reader.IsDBNull(7) ? null : reader.GetString(7)));
             }
 
             foreach (var rowId in corrupt)
@@ -658,9 +680,9 @@ public sealed class ActivityRecordBuffer : IDisposable
             cmd.CommandText =
                 """
                 INSERT OR IGNORE INTO collection_records
-                    (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status)
+                    (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status, owner_key)
                 VALUES
-                    ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending');
+                    ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending', $owner);
                 """;
             cmd.Parameters.AddWithValue("$eventId", record.EventId);
             cmd.Parameters.AddWithValue("$type", record.RecordType);
@@ -669,6 +691,7 @@ public sealed class ActivityRecordBuffer : IDisposable
             cmd.Parameters.AddWithValue("$device", record.DeviceId);
             cmd.Parameters.AddWithValue("$payload", record.Payload.GetRawText());
             cmd.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
+            cmd.Parameters.AddWithValue("$owner", CurrentOwnerKeyParameter());
             try
             {
                 var ok = cmd.ExecuteNonQuery() > 0;
@@ -864,9 +887,9 @@ public sealed class ActivityRecordBuffer : IDisposable
                 cmd.CommandText =
                     """
                     INSERT INTO collection_records
-                        (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status)
+                        (event_id, record_type, schema_version, capture_ts, device_id, payload_json, created_at, status, owner_key)
                     VALUES
-                        ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending')
+                        ($eventId, $type, $schema, $capture, $device, $payload, $created, 'pending', $owner)
                     ON CONFLICT(event_id) DO UPDATE SET status = 'pending';
                     """;
                 cmd.Parameters.AddWithValue("$eventId", r.EventId);
@@ -876,6 +899,7 @@ public sealed class ActivityRecordBuffer : IDisposable
                 cmd.Parameters.AddWithValue("$device", r.DeviceId);
                 cmd.Parameters.AddWithValue("$payload", r.Payload.GetRawText());
                 cmd.Parameters.AddWithValue("$created", DateTimeOffset.UtcNow.ToString("O"));
+                cmd.Parameters.AddWithValue("$owner", CurrentOwnerKeyParameter());
                 cmd.ExecuteNonQuery();
             }
         }

@@ -176,6 +176,27 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
             return FlushResult.Idle;
         }
 
+        // Rows queued by another employee (left behind by a logout or lock, then a re-enrollment on
+        // this PC) must never be uploaded under the current employee's token: the backend attributes
+        // tenant and employee from the token alone. Kept locally with a reason, never sent (AUD-004).
+        // Rows without a recorded owner predate this check and keep their previous behaviour.
+        var currentOwner = JwtClaimsReader.ReadOwnerKey(jwt);
+        if (currentOwner is not null)
+        {
+            var foreign = peeked
+                .Where(item => item.OwnerKey is not null && !string.Equals(item.OwnerKey, currentOwner, StringComparison.Ordinal))
+                .ToList();
+            if (foreign.Count > 0)
+            {
+                _logger.LogWarning("Quarantining {Count} buffered record(s) queued by a different employee", foreign.Count);
+                foreach (var item in foreign)
+                    _buffer.QuarantineRow(item.RowId, QuarantineReasons.OwnerMismatch);
+                var foreignRowIds = foreign.Select(item => item.RowId).ToHashSet();
+                peeked = peeked.Where(item => !foreignRowIds.Contains(item.RowId)).ToList();
+                if (peeked.Count == 0) return FlushResult.Progress;
+            }
+        }
+
         if (_policyCache is not null)
         {
             // No valid server policy (Service just started, or offline past its 1 h validity): rows

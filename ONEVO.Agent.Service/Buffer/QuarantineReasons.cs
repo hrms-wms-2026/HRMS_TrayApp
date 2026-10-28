@@ -11,6 +11,9 @@ public static class QuarantineReasons
     public const string StaleOver24h = "stale_over_24h";
     public const string PolicyDisabled = "policy_disabled";
 
+    /// <summary>Queued under another employee's device token (logout/lock, then re-enrollment) — AUD-004.</summary>
+    public const string OwnerMismatch = "owner_mismatch";
+
     /// <summary>Client clock ahead of the server; becomes sendable again, so it is requeued automatically.</summary>
     public const string FutureTime = "rejected:future_time";
 

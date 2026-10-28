@@ -11,6 +11,22 @@ public sealed class ClockInViewModelTests
     private static ClockInViewModel Make(FakeNamedPipeClient? pipe = null, IPreferencesStore? preferences = null) =>
         new(pipe ?? new FakeNamedPipeClient(), preferences ?? new FakePreferencesStore());
 
+    // AUD-011: the Service refuses sign-out while clocked in (e.g. a web clock-in while this
+    // screen was still showing). Explain it instead of showing the raw error code, and keep the session.
+    [Fact]
+    public async Task SignOut_RefusedWhileClockedIn_ExplainsAndKeepsTheSession()
+    {
+        var pipe = new FakeNamedPipeClient { NextLogoutResult = new LogoutResultPayload(false, "CLOCKED_IN") };
+        var preferences = new FakePreferencesStore();
+        preferences.Set(SessionPreferenceKeys.EmployeeDisplayName, "Alice");
+        var vm = Make(pipe, preferences);
+
+        await vm.SignOutCommand.ExecuteAsync(null);
+
+        Assert.Equal("You're still clocked in. Clock out before signing out.", vm.ErrorMessage);
+        Assert.Equal("Alice", preferences.Get(SessionPreferenceKeys.EmployeeDisplayName, ""));
+    }
+
     [Fact]
     public void LiveTimer_DefaultsToZeroUntilClockIn()
     {

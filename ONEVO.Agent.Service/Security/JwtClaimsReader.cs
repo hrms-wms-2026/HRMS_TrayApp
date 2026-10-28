@@ -31,6 +31,32 @@ public static class JwtClaimsReader
     }
 
     /// <summary>
+    /// "tenant_id:user_id" — the employee a tray token belongs to, or null when either claim is
+    /// missing. Unlike <c>sub</c> (the device registration) it stays the same when the same
+    /// employee re-enrolls, so it can bind queued rows to their owner (AUD-004).
+    /// </summary>
+    public static string? ReadOwnerKey(string jwt)
+    {
+        try
+        {
+            var parts = jwt.Split('.');
+            if (parts.Length < 2) return null;
+
+            using var doc = JsonDocument.Parse(Encoding.UTF8.GetString(Base64UrlDecode(parts[1])));
+            var root = doc.RootElement;
+            var tenantId = root.TryGetProperty("tenant_id", out var tenant) ? tenant.GetString() : null;
+            var userId = root.TryGetProperty("user_id", out var user) ? user.GetString() : null;
+            return string.IsNullOrWhiteSpace(tenantId) || string.IsNullOrWhiteSpace(userId)
+                ? null
+                : $"{tenantId}:{userId}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// The token's <c>exp</c> claim as an absolute UTC instant, or null when it cannot be read.
     /// Callers compare it against wall-clock time, which stays correct across sleep/wake.
     /// </summary>
