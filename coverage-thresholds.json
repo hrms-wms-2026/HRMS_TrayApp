@@ -1,0 +1,6 @@
+{
+  "_comment": "Coverage floors per assembly, measured by its own test project (AUD-025). A ratchet: set just under the develop baseline of 2026-10-28 (Shared 28.0/-, Service 73.8/65.4, TrayApp 46.4/25.8). Raise when coverage goes up; never lower without a reason in the PR.",
+  "ONEVO.Agent.Shared": { "testProject": "ONEVO.Agent.Shared.Tests", "line": 26, "branch": 0 },
+  "ONEVO.Agent.Service": { "testProject": "ONEVO.Agent.Service.Tests", "line": 72, "branch": 63 },
+  "ONEVO.Agent.TrayApp": { "testProject": "ONEVO.Agent.TrayApp.Tests", "line": 45, "branch": 24 }
+}
