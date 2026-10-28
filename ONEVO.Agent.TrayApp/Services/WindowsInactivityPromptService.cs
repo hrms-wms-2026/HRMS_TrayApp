@@ -20,10 +20,6 @@ using Microsoft.Windows.AppNotifications.Builder;
 /// </remarks>
 public sealed class WindowsInactivityPromptService : IInactivityPromptService
 {
-    private static readonly string BootLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "tray-boot.log");
-
     private const string NotificationTitle = "Activity check";
 
     /// <summary>
@@ -192,16 +188,5 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
         }
     }
 
-    private static void BootLog(string message)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
-            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [InactivityPrompt] {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // ignore
-        }
-    }
+    private static void BootLog(string message) => TrayBootLog.Write("InactivityPrompt", message);
 }

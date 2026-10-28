@@ -11,10 +11,6 @@ using ONEVO.Agent.TrayApp.Services;
 /// </summary>
 public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyncDisposable
 {
-    private static readonly string BootLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "tray-boot.log");
-
     /// <summary>
     /// Used when Service sends Active before PolicyPush arrives (or policy message is missed).
     /// Activity is on; other collectors stay off until real policy arrives — this MUST keep
@@ -74,18 +70,7 @@ public sealed class CollectorCoordinator : ICollectorLifecycleCoordinator, IAsyn
         _pipeClient.OnDisconnected += OnDisconnected;
     }
 
-    private static void BootLog(string message)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
-            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [Coordinator] {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // ignore
-        }
-    }
+    private static void BootLog(string message) => TrayBootLog.Write("Coordinator", message);
 
     private void OnStateReceived(MonitoringState state)
     {

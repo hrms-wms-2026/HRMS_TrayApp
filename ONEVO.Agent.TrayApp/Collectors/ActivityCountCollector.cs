@@ -15,10 +15,6 @@ using ONEVO.Agent.TrayApp.Services;
 /// </summary>
 public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 {
-    private static readonly string BootLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "tray-boot.log");
-
     public string Name => "ActivityCount";
 
     /// <summary>Raised after each snapshot is handed to the Service (for UI status).</summary>
@@ -359,7 +355,6 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             Payload = JsonSerializer.SerializeToElement(payload)
         };
 
-        BootLog($"snapshot #{seq} kb={payload.KeyboardEventsCount} mouse={payload.MouseEventsCount}");
         _logger.LogInformation(
             "{Name}: snapshot #{Seq} kb={Kb} mouse={Mouse} eventId={EventId}",
             Name, seq, payload.KeyboardEventsCount, payload.MouseEventsCount, record.EventId);
@@ -397,18 +392,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         }
     }
 
-    private static void BootLog(string message)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
-            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [Activity] {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // ignore
-        }
-    }
+    private static void BootLog(string message) => TrayBootLog.Write("Activity", message);
 
     public async ValueTask DisposeAsync()
     {

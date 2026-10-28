@@ -10,10 +10,6 @@ public static class UiTasks
 {
     private static readonly Action<string, Exception> DefaultReport = WriteBootLog;
 
-    private static readonly string BootLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "tray-boot.log");
-
     /// <summary>Where failures go; tests replace it.</summary>
     internal static Action<string, Exception> Report { get; set; } = DefaultReport;
 
@@ -36,9 +32,6 @@ public static class UiTasks
 
     internal static void ResetForTests() => Report = DefaultReport;
 
-    private static void WriteBootLog(string context, Exception ex)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
-        File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [UiTasks] {context} failed: {ex}{Environment.NewLine}");
-    }
+    private static void WriteBootLog(string context, Exception ex) =>
+        TrayBootLog.Write("UiTasks", $"{context} failed: {ex}", LogLevel.Error);
 }

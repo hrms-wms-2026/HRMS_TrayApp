@@ -1,6 +1,7 @@
 namespace ONEVO.Agent.TrayApp.WinUI;
 
 using Microsoft.Windows.AppNotifications;
+using ONEVO.Agent.TrayApp.Services.Diagnostics;
 
 public partial class App : MauiWinUIApplication
 {
@@ -9,7 +10,7 @@ public partial class App : MauiWinUIApplication
 
     public App()
     {
-        RollBootLogIfLarge();
+        TrayBootLog.RollFallbackIfLarge();
 
         _singleInstance = ONEVO.Agent.TrayApp.Services.SingleInstanceGuard.TryAcquire();
         if (_singleInstance is null)
@@ -44,6 +45,8 @@ public partial class App : MauiWinUIApplication
         {
             BootLog("CreateMauiApp enter");
             var app = MauiProgram.CreateMauiApp();
+            // Logging exists from here on: every later trace line goes to tray.log, not tray-boot.log.
+            TrayBootLog.Attach(app.Services.GetRequiredService<ILoggerFactory>());
             BootLog("CreateMauiApp exit ok");
 
             // Most MAUI-on-Windows crashes surface on the XAML dispatcher, not AppDomain, so
@@ -98,39 +101,5 @@ public partial class App : MauiWinUIApplication
         }
     }
 
-    private static string BootLogPath => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "tray-boot.log");
-
-    /// <summary>
-    /// Every component appends to tray-boot.log and nothing ever trimmed it (it reached several MB
-    /// on a dev box). Roll it to .old once per launch when it passes 2 MB so it stays bounded.
-    /// </summary>
-    private static void RollBootLogIfLarge()
-    {
-        try
-        {
-            var log = new System.IO.FileInfo(BootLogPath);
-            if (log.Exists && log.Length > 2 * 1024 * 1024)
-                log.MoveTo(BootLogPath + ".old", overwrite: true);
-        }
-        catch
-        {
-            // Locked or missing — keep appending to the current file.
-        }
-    }
-
-    private static void BootLog(string message)
-    {
-        try
-        {
-            var path = BootLogPath;
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-            System.IO.File.AppendAllText(path, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // ignore — this IS the fallback diagnostic path, nothing further to fall back to
-        }
-    }
+    private static void BootLog(string message) => TrayBootLog.Write("Startup", message);
 }
