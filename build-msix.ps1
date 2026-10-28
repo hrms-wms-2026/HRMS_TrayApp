@@ -1,13 +1,17 @@
 # build-msix.ps1 — builds a signed MSIX for sideload testing.
 #
+# The signing-cert password has no default (AUD-024). Supply it with -CertPassword, or set
+# ONEVO_DEV_CERT_PASSWORD, or type it at the prompt. A dev-cert.pfx created before this change
+# still uses the password it was exported with.
+#
 # TARGET MACHINE SETUP (run once, as admin, before installing the .msix):
-#   $pw = ConvertTo-SecureString "Dev@1234" -Force -AsPlainText
+#   $pw = Read-Host "Cert password" -AsSecureString
 #   Import-PfxCertificate -FilePath dev-cert.pfx -CertStoreLocation Cert:\LocalMachine\TrustedPeople -Password $pw
 #
 # Then double-click the generated .msix to install.
 
 param(
-    [string]$CertPassword = "Dev@1234",
+    [string]$CertPassword,
     [string]$OutDir       = "$PSScriptRoot\publish\msix",
     [string]$Version      = "1.0.0",      # x.y.z
     [string]$CertFile     = "$PSScriptRoot\dev-cert.pfx"
@@ -15,7 +19,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 $certFile = $CertFile
-$pw = ConvertTo-SecureString $CertPassword -Force -AsPlainText
+if (-not $CertPassword) { $CertPassword = $env:ONEVO_DEV_CERT_PASSWORD }
+if ($CertPassword) {
+    $pw = ConvertTo-SecureString $CertPassword -Force -AsPlainText
+}
+elseif ([Environment]::UserInteractive -and -not $env:CI) {
+    $pw = Read-Host "Signing certificate password" -AsSecureString
+}
+if (-not $pw -or $pw.Length -eq 0) {
+    throw "No signing certificate password. Pass -CertPassword or set ONEVO_DEV_CERT_PASSWORD."
+}
 
 # ── 1. Ensure cert exists ─────────────────────────────────────────────────────
 if (-not (Test-Path $certFile)) {
@@ -75,6 +88,6 @@ Write-Host ""
 Write-Host "To install on another machine:"
 Write-Host "  1. Copy dev-cert.pfx + the .msix to the target"
 Write-Host "  2. On target (admin PowerShell):"
-Write-Host "       `$pw = ConvertTo-SecureString 'Dev@1234' -Force -AsPlainText"
+Write-Host "       `$pw = Read-Host 'Cert password' -AsSecureString"
 Write-Host "       Import-PfxCertificate -FilePath dev-cert.pfx -CertStoreLocation Cert:\LocalMachine\TrustedPeople -Password `$pw"
 Write-Host "  3. Double-click the .msix"
