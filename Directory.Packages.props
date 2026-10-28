@@ -4,25 +4,27 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Service -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
-    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.0.0" />
     <!-- 10.0.13+: SignalR.Common <= 10.0.12 is affected by CVE-2026-70159 (GHSA-334f-vvp4-7g6p). -->
-    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
-    <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="9.0.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Win32.SystemEvents" Version="10.0.14" />
     <!-- TrayApp -->
-    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.20" />
-    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.7.250909003" />
-    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4129.50" />
-    <PackageVersion Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.120" />
+    <!-- WindowsAppSDK / WebView2 are the minimums MAUI 10.0.120 requires (NU1605 otherwise).
+         Unpackaged dev builds need Windows App Runtime 1.8 installed on the machine. -->
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.260529003" />
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageVersion Include="System.Drawing.Common" Version="10.0.14" />
     <PackageVersion Include="QuestPDF" Version="2025.7.0" />
     <!-- Tests -->
-    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
