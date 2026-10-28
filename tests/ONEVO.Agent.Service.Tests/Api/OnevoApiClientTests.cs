@@ -500,6 +500,66 @@ public class OnevoApiClientTests
         Assert.Equal("Task 'Fix login bug' is still running. Push it before clocking out for the day.", result.Message);
     }
 
+    // AUD-009: a retried POST whose first attempt already committed comes back 409 "already in that
+    // state". That is an outcome to reconcile, not a failure to show the employee.
+    [Theory]
+    [InlineData("already_clocked_in")]
+    [InlineData("break_already_active")]
+    [InlineData("no_active_break")]
+    [InlineData("break_already_ended")]
+    [InlineData("not_clocked_in")]
+    public async Task ClockActionAsync_ConflictAlreadyInState_ReturnsAlreadyInState(string backendCode)
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { detail = backendCode })
+        });
+        var client = Build(handler);
+
+        var result = await client.ClockInAsync("device-jwt", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(ClockActionErrorCodes.AlreadyInState, result.ErrorCode);
+    }
+
+    [Theory]
+    [InlineData("break_allowance_used", "You've used today's break allowance.")]
+    [InlineData("open_break_must_be_ended_before_clock_out", "End your break before clocking out.")]
+    [InlineData("off_day", "Today isn't a working day for you.")]
+    public async Task ClockActionAsync_ConflictMachineCode_ReturnsReadableMessage(string backendCode, string message)
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = JsonContent.Create(new { detail = backendCode })
+        });
+        var client = Build(handler);
+
+        var result = await client.StartBreakAsync("device-jwt", CancellationToken.None);
+
+        Assert.Equal("CONFLICT", result.ErrorCode);
+        Assert.Equal(message, result.Message);
+    }
+
+    // AUD-009: validation failures used to collapse to SERVICE_UNAVAILABLE ("try again later").
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.UnprocessableEntity)]
+    public async Task ClockActionAsync_ClientError_ReturnsRejectedWithBackendDetail(HttpStatusCode status)
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(status)
+        {
+            Content = JsonContent.Create(new { detail = "Legal entity is inactive." })
+        });
+        var client = Build(handler);
+
+        var result = await client.ClockInAsync("device-jwt", CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("REJECTED", result.ErrorCode);
+        Assert.Equal("Legal entity is inactive.", result.Message);
+    }
+
     [Fact]
     public async Task ClockOutAsync_ConflictWithUnparsableBody_ReturnsConflictErrorCodeWithNullMessage()
     {
