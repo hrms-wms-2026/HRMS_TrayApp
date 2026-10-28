@@ -153,7 +153,7 @@ public sealed class OnevoApiClient
 
         try
         {
-            var response = await client.SendAsync(request, ct);
+            using var response = await client.SendAsync(request, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -275,6 +275,8 @@ public sealed class OnevoApiClient
             return new PolicyResult(false, "SERVICE_UNAVAILABLE", null);
         }
 
+        using var _ = response;
+
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new PolicyResult(false, "UNAUTHORIZED", null);
 
@@ -347,6 +349,8 @@ public sealed class OnevoApiClient
             return new AttendanceStatusResult(false, "SERVICE_UNAVAILABLE", false, null);
         }
 
+        using var _ = response;
+
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new AttendanceStatusResult(false, "UNAUTHORIZED", false, null);
 
@@ -394,6 +398,8 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.TrayDailyTasks);
             return new DailyTasksResult(false, "SERVICE_UNAVAILABLE", null);
         }
+
+        using var _ = response;
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new DailyTasksResult(false, "UNAUTHORIZED", null);
@@ -452,6 +458,8 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
             return new ClockActionResult(false, "SERVICE_UNAVAILABLE", null);
         }
+
+        using var _ = response;
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new ClockActionResult(false, "UNAUTHORIZED", null);
@@ -536,7 +544,7 @@ public sealed class OnevoApiClient
 
         try
         {
-            var response = await client.SendAsync(request, ct);
+            using var response = await client.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode) return [];
 
             var body = await response.Content.ReadFromJsonAsync<PendingNotificationsResponse>(cancellationToken: ct);
@@ -559,7 +567,7 @@ public sealed class OnevoApiClient
 
         try
         {
-            await client.SendAsync(request, ct);
+            using var response = await client.SendAsync(request, ct);
         }
         catch (Exception ex)
         {
@@ -577,7 +585,7 @@ public sealed class OnevoApiClient
 
         try
         {
-            var response = await client.SendAsync(request, ct);
+            using var response = await client.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode) return [];
 
             var body = await response.Content.ReadFromJsonAsync<PendingTrayDeliveriesResponse>(cancellationToken: ct);
@@ -605,7 +613,7 @@ public sealed class OnevoApiClient
 
         try
         {
-            var response = await client.SendAsync(request, ct);
+            using var response = await client.SendAsync(request, ct);
             return response.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -636,6 +644,8 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.BiometricEnrollmentAttemptCreate);
             return new EnrollmentAttemptResult(false, "SERVICE_UNAVAILABLE", null);
         }
+
+        using var _ = response;
 
         if (!response.IsSuccessStatusCode)
         {
@@ -680,6 +690,8 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
             return new CompleteEnrollmentResult(false, "SERVICE_UNAVAILABLE", null);
         }
+
+        using var _ = response;
 
         if (!response.IsSuccessStatusCode)
         {
@@ -942,6 +954,8 @@ public sealed class OnevoApiClient
             return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
         }
 
+        using var _ = response;
+
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new LocationChangeRequestResult(false, "UNAUTHORIZED", null);
 
@@ -993,6 +1007,8 @@ public sealed class OnevoApiClient
             return new WorkLocationConfirmResult(false, "SERVICE_UNAVAILABLE");
         }
 
+        using var _ = response;
+
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new WorkLocationConfirmResult(false, "UNAUTHORIZED");
 
@@ -1027,6 +1043,8 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
             return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
         }
+
+        using var _ = response;
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new LocationChangeRequestResult(false, "UNAUTHORIZED", null);
@@ -1071,6 +1089,8 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", AgentApiRoutes.LocationChangeRequestPending);
             return new LocationChangeRequestResult(false, "SERVICE_UNAVAILABLE", null);
         }
+
+        using var _ = response;
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new LocationChangeRequestResult(false, "UNAUTHORIZED", null);
@@ -1131,6 +1151,8 @@ public sealed class OnevoApiClient
             _logger.LogWarning(ex, "OnevoApi call to {Route} failed", route);
             return new TrayAuthResult(false, "SERVICE_UNAVAILABLE", null);
         }
+
+        using var _ = response;
 
         if (response.StatusCode is HttpStatusCode.Unauthorized)
             return new TrayAuthResult(false, "UNAUTHORIZED", null);
