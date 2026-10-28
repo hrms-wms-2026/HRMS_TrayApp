@@ -4,6 +4,7 @@ using ONEVO.Agent.Service.Api;
 using ONEVO.Agent.Service.Biometrics;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
+using ONEVO.Agent.Service.Diagnostics;
 using ONEVO.Agent.Service.IPC;
 using ONEVO.Agent.Service.Lifecycle;
 using ONEVO.Agent.Service.Policy;
@@ -16,6 +17,8 @@ if (QuarantineCommands.IsCommand(args))
 
 var host = Host.CreateDefaultBuilder(args)
     .UseWindowsService(options => options.ServiceName = "ONEVO Agent Service")
+    // Level filters come from the "Logging" section, like the other providers.
+    .ConfigureLogging(logging => logging.AddProvider(ServiceLogging.CreateFileProvider()))
     .ConfigureServices((context, services) =>
     {
         services.AddOptions<AgentOptions>()

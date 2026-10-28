@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using ONEVO.Agent.Shared.Diagnostics;
 using ONEVO.Agent.TrayApp.Services.Diagnostics;
 
-public sealed class TrayFileLoggerProviderTests : IDisposable
+public sealed class TrayFileLoggingTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "onevo-tray-log-tests", Guid.NewGuid().ToString("N"));
 
@@ -14,10 +14,10 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
         try { Directory.Delete(_dir, recursive: true); } catch { }
     }
 
-    private static ILoggerFactory Factory(TrayFileLoggerProvider provider) =>
+    private static ILoggerFactory Factory(JsonFileLoggerProvider provider) =>
         LoggerFactory.Create(b => b.AddTrayFileLogging(provider));
 
-    private List<JsonElement> ReadLines(TrayFileLoggerProvider provider) =>
+    private List<JsonElement> ReadLines(JsonFileLoggerProvider provider) =>
         File.ReadAllLines(provider.FilePath)
             .Select(l => JsonDocument.Parse(l).RootElement.Clone())
             .ToList();
@@ -25,7 +25,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public void Log_WritesStructuredJsonLine()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using (var factory = Factory(provider))
             factory.CreateLogger("ONEVO.Agent.TrayApp.Test").LogInformation("Collector started: {Name}", "AppUsage");
 
@@ -41,7 +41,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public void Filters_DropDebugAndFrameworkInformation_KeepFrameworkWarnings()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using (var factory = Factory(provider))
         {
             factory.CreateLogger("ONEVO.Agent.TrayApp.Test").LogDebug("debug");
@@ -58,7 +58,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public void Log_IncludesExceptionText()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using (var factory = Factory(provider))
             factory.CreateLogger("T").LogError(new InvalidOperationException("boom"), "failed");
 
@@ -69,7 +69,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public void LogCrash_WritesCriticalWithSource()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using (var factory = Factory(provider))
             factory.CreateLogger(TrayLogging.CrashCategory).LogCrash("XamlDispatcher", new Exception("fatal"), isTerminating: true);
 
@@ -82,7 +82,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public void Scopes_AppearOnLine()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using (var factory = Factory(provider))
         {
             var logger = factory.CreateLogger("T");
@@ -101,7 +101,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public void Roll_AtSizeLimit_KeepsRetainedFilesAndDropsOldest()
     {
-        var provider = new TrayFileLoggerProvider(_dir, maxFileBytes: 300, retainedFiles: 3);
+        var provider = new JsonFileLoggerProvider(_dir, TrayLogging.FileName, maxFileBytes: 300, retainedFiles: 3);
         using (var factory = Factory(provider))
         {
             var logger = factory.CreateLogger("T");
@@ -121,7 +121,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public async Task ConcurrentWriters_ProduceWholeLines()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using (var factory = Factory(provider))
         {
             var logger = factory.CreateLogger("T");
@@ -143,7 +143,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
         File.WriteAllText(_dir, "not a directory");
         try
         {
-            var provider = new TrayFileLoggerProvider(_dir);
+            var provider = TrayLogging.CreateFileProvider(_dir);
             using var factory = Factory(provider);
             factory.CreateLogger("T").LogError(new Exception("x"), "still fine");
         }
@@ -156,7 +156,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public async Task NamedPipeClientRequest_LogsUnderItsCorrelationId()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using (var factory = Factory(provider))
         {
             // Never connected: the request is logged as not sent, inside its correlation scope.
@@ -173,7 +173,7 @@ public sealed class TrayFileLoggerProviderTests : IDisposable
     [Fact]
     public void ReaderHoldingFileOpen_DoesNotBlockWrites()
     {
-        var provider = new TrayFileLoggerProvider(_dir);
+        var provider = TrayLogging.CreateFileProvider(_dir);
         using var factory = Factory(provider);
         var logger = factory.CreateLogger("T");
         logger.LogInformation("first");
