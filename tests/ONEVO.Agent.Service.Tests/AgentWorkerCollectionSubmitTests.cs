@@ -170,8 +170,11 @@ public class AgentWorkerCollectionSubmitTests
         Assert.Equal(1, ack.AcceptedCount);
     }
 
+    // AUD-033 decision: routine collection records keep the ingest-interval batching. An immediate
+    // upload per submit (as originally written, but never wired in DI) would also have run the HTTP
+    // flush inside the pipe read loop. Only finished screenshots ask for an early upload.
     [Fact]
-    public async Task AppUsage_Accepted_FlushesLocalBufferImmediately()
+    public async Task AppUsage_Accepted_KeepsBatchingAndDoesNotFlush()
     {
         var buffer = ActivityRecordBuffer.CreateInMemory();
         var policyCache = new PolicyCache();
@@ -186,7 +189,8 @@ public class AgentWorkerCollectionSubmitTests
         var ack = await SubmitAsync(worker, record);
 
         Assert.Equal(1, ack.AcceptedCount);
-        Assert.Equal(1, flush.Calls);
+        Assert.Equal(0, flush.Calls);
+        Assert.Equal(0, flush.Requests);
     }
 
     [Fact]
@@ -211,12 +215,15 @@ public class AgentWorkerCollectionSubmitTests
     private sealed class RecordingFlush : IActivityBufferFlush
     {
         public int Calls { get; private set; }
+        public int Requests { get; private set; }
 
         public Task FlushAsync(CancellationToken ct)
         {
             Calls++;
             return Task.CompletedTask;
         }
+
+        public void RequestFlush() => Requests++;
     }
 
     [Fact]

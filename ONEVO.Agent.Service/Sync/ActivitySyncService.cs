@@ -33,6 +33,7 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
     private readonly AgentOptions _options;
     private readonly PolicyCache? _policyCache;
     private readonly SemaphoreSlim _flushGate = new(1, 1);
+    private readonly SemaphoreSlim _flushRequested = new(0, 1);
 
     // AGT-01: one tick drains several batches while the backend keeps accepting, but never unbounded.
     internal const int BatchSize = 100;
@@ -70,6 +71,12 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
         var interval = TimeSpan.FromSeconds(Math.Max(30, _options.IngestIntervalSeconds));
         using var timer = new PeriodicTimer(interval);
 
+        // The loop wakes on the ingest tick or on RequestFlush (AUD-033). Both waits survive the
+        // other one completing: PeriodicTimer allows only one outstanding wait, and a dropped
+        // semaphore wait would swallow the next request.
+        Task<bool>? tick = null;
+        Task? requested = null;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -88,7 +95,12 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
 
             try
             {
-                await timer.WaitForNextTickAsync(stoppingToken);
+                tick ??= timer.WaitForNextTickAsync(stoppingToken).AsTask();
+                requested ??= _flushRequested.WaitAsync(stoppingToken);
+                var woke = await Task.WhenAny(tick, requested);
+                await woke; // surfaces cancellation on shutdown
+                if (woke == tick) tick = null;
+                else requested = null;
             }
             catch (OperationCanceledException)
             {
@@ -104,6 +116,20 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
             await FlushAsync(stopCts.Token);
         }
         catch { /* ignore */ }
+    }
+
+    public void RequestFlush()
+    {
+        // At most one pending request: requests made before the loop wakes coalesce into one flush.
+        try
+        {
+            if (_flushRequested.CurrentCount == 0)
+                _flushRequested.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            // Raced with another request — one is already pending.
+        }
     }
 
     public async Task FlushAsync(CancellationToken ct)
