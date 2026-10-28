@@ -212,7 +212,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         SendRequestAsync<LifecycleResultPayload>(
             IpcMessageTypes.LifecycleCommand,
             JsonSerializer.SerializeToElement(new LifecycleCommandPayload(action, breakReason)),
-            TimeSpan.FromSeconds(10), $"Lifecycle {action}", ct);
+            Constants.LifecycleReplyTimeout, $"Lifecycle {action}", ct);
 
     public Task<BiometricEnrollmentSessionReadyPayload?> StartBiometricEnrollmentAsync(CancellationToken ct) =>
         SendRequestAsync<BiometricEnrollmentSessionReadyPayload>(

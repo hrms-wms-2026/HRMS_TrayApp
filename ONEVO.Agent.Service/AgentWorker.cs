@@ -37,6 +37,9 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     private readonly PeriodicScreenshotHandler? _periodicScreenshots;
     private readonly IActivityBufferFlush? _activitySync;
     private readonly DeviceTokenRefresher? _tokenRefresher;
+
+    /// <summary>Overall time limit of one lifecycle command; tests shorten it.</summary>
+    internal TimeSpan LifecycleBudget { get; init; } = Constants.LifecycleCommandBudget;
     private CancellationTokenSource? _pairingCts;
 
     public AgentWorker(
@@ -520,15 +523,28 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return;
         }
 
+        // The tray waits Constants.LifecycleReplyTimeout for this reply. Bound the backend work (retries
+        // included) so the employee gets a definite answer instead of the tray guessing "failed" while
+        // the action could still commit, and so the pipe isn't blocked for minutes (AUD-008).
+        using var budget = new CancellationTokenSource(LifecycleBudget);
         var now = DateTimeOffset.UtcNow;
         var (success, errorCode, message, state) = payload.Action switch
         {
-            LifecycleAction.ClockIn    => await ExecuteClockInAsync(now, CancellationToken.None),
-            LifecycleAction.StartBreak => await ExecuteStartBreakAsync(now, CancellationToken.None),
-            LifecycleAction.EndBreak   => await ExecuteEndBreakAsync(now, CancellationToken.None),
-            LifecycleAction.ClockOut   => await ExecuteClockOutAsync(now, CancellationToken.None),
+            LifecycleAction.ClockIn    => await ExecuteClockInAsync(now, budget.Token),
+            LifecycleAction.StartBreak => await ExecuteStartBreakAsync(now, budget.Token),
+            LifecycleAction.EndBreak   => await ExecuteEndBreakAsync(now, budget.Token),
+            LifecycleAction.ClockOut   => await ExecuteClockOutAsync(now, budget.Token),
             _ => (false, "UNKNOWN_ACTION", "Unknown lifecycle action.", _stateMachine.CurrentState)
         };
+
+        if (!success && budget.IsCancellationRequested)
+        {
+            // The request may still have reached the backend; the attendance poller (or the next
+            // press, via ALREADY_IN_STATE) reconciles, so say "check" rather than "failed".
+            errorCode = "TIMED_OUT";
+            message = "The server didn't answer in time. Your status will refresh shortly — check it before trying again.";
+            state = _stateMachine.CurrentState;
+        }
 
         _logger.LogInformation(
             "Lifecycle {Action} Success={Success} Error={Error} State={State}",
