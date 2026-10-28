@@ -3,6 +3,7 @@ namespace ONEVO.Agent.TrayApp;
 using Microsoft.Extensions.Logging;
 using ONEVO.Agent.TrayApp.Collectors;
 using ONEVO.Agent.TrayApp.Services;
+using ONEVO.Agent.TrayApp.Services.Diagnostics;
 using ONEVO.Agent.TrayApp.ViewModels;
 using ONEVO.Agent.TrayApp.Views;
 
@@ -16,6 +17,7 @@ public static class MauiProgram
 
         var builder = MauiApp.CreateBuilder();
         builder.UseMauiApp<App>();
+        builder.Logging.AddTrayFileLogging(new TrayFileLoggerProvider(TrayFileLoggerProvider.DefaultDirectory));
         builder.ConfigureMauiHandlers(h =>
         {
             h.AddHandler<Controls.CameraPreview, Platforms.Windows.CameraPreviewHandler>();

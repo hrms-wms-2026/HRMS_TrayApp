@@ -3,6 +3,7 @@ namespace ONEVO.Agent.TrayApp;
 using ONEVO.Agent.TrayApp.Collectors;
 using ONEVO.Agent.TrayApp.Controls;
 using ONEVO.Agent.TrayApp.Services;
+using ONEVO.Agent.TrayApp.Services.Diagnostics;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
@@ -48,10 +49,14 @@ public partial class App : Microsoft.Maui.Controls.Application
         BootLog("App ctor completed");
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
             BootLog($"UnhandledException: {e.ExceptionObject}");
+            _logger.LogCrash("AppDomain", e.ExceptionObject as Exception, e.IsTerminating);
+        };
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
             BootLog($"UnobservedTaskException: {e.Exception}");
+            _logger.LogCrash("UnobservedTask", e.Exception, isTerminating: false);
             e.SetObserved();
         };
     }
