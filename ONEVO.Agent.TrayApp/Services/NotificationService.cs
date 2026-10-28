@@ -19,13 +19,14 @@ public sealed class NotificationService : IGenericNotificationToast
 
     public void ShowInfo(string title, string message)
     {
-        _logger.LogInformation("Notification: {Title} — {Message}", title, message);
+        // Title/message text can carry names or other personal details; never write it to tray.log.
+        _logger.LogInformation("Info notification shown");
         Show(title, message);
     }
 
     public void ShowWarning(string title, string message)
     {
-        _logger.LogWarning("Notification: {Title} — {Message}", title, message);
+        _logger.LogWarning("Warning notification shown");
         Show(title, message);
     }
 
@@ -66,7 +67,7 @@ public sealed class NotificationService : IGenericNotificationToast
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to show Windows notification: {Title}", title);
+            _logger.LogWarning(ex, "Failed to show Windows notification");
         }
     }
 }

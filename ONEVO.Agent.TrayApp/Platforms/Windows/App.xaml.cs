@@ -46,6 +46,17 @@ public partial class App : MauiWinUIApplication
             var app = MauiProgram.CreateMauiApp();
             BootLog("CreateMauiApp exit ok");
 
+            // Most MAUI-on-Windows crashes surface on the XAML dispatcher, not AppDomain, so
+            // record them in tray.log too. Handled stays false: the crash behaviour is unchanged.
+            var crashLogger = app.Services.GetRequiredService<ILoggerFactory>()
+                .CreateLogger(ONEVO.Agent.TrayApp.Services.Diagnostics.TrayLogging.CrashCategory);
+            this.UnhandledException += (_, e) =>
+            {
+                BootLog($"XAML UnhandledException: {e.Exception}");
+                ONEVO.Agent.TrayApp.Services.Diagnostics.TrayLogging.LogCrash(
+                    crashLogger, "XamlDispatcher", e.Exception, isTerminating: !e.Handled);
+            };
+
             // Register() must run AFTER MauiProgram.CreateMauiApp() above, not before: that call
             // eagerly constructs IInactivityPromptService, whose constructor subscribes to
             // AppNotificationManager.NotificationInvoked. Windows App SDK requires every
