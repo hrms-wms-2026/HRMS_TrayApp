@@ -1,6 +1,7 @@
 namespace ONEVO.Agent.TrayApp.Views;
 
 using ONEVO.Agent.TrayApp.Controls;
+using ONEVO.Agent.TrayApp.Services;
 using ONEVO.Agent.TrayApp.ViewModels;
 
 public partial class PrepareWorkspacePage : ContentPage
@@ -18,7 +19,7 @@ public partial class PrepareWorkspacePage : ContentPage
         if (BindingContext is PrepareWorkspaceViewModel vm)
         {
             vm.RefreshLocationStatus();
-            await vm.LoadAsync();
+            await UiTasks.RunSafelyAsync(() => vm.LoadAsync(), $"{nameof(PrepareWorkspacePage)}.{nameof(OnAppearing)}");
         }
     }
 }

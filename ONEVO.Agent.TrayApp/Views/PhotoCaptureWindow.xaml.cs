@@ -52,24 +52,23 @@ public partial class PhotoCaptureWindow : ContentPage, IQueryAttributable
         TrayWindowVisibility.Changed -= OnWindowVisibilityChanged; // static event: never double-root
         TrayWindowVisibility.Changed += OnWindowVisibilityChanged;
         if (TrayWindowVisibility.IsVisible)
-            await _vm.StartPreviewAsync();
+            await UiTasks.RunSafelyAsync(_vm.StartPreviewAsync, $"{nameof(PhotoCaptureWindow)}.{nameof(OnAppearing)}");
     }
 
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
         TrayWindowVisibility.Changed -= OnWindowVisibilityChanged;
-        await _vm.StopPreviewAsync();
+        await UiTasks.RunSafelyAsync(_vm.StopPreviewAsync, $"{nameof(PhotoCaptureWindow)}.{nameof(OnDisappearing)}");
     }
 
     // Close-to-tray skips OnDisappearing — without this the webcam (and its light) stays on and
     // keeps encoding preview frames for as long as the app sits hidden on this page.
     private async void OnWindowVisibilityChanged(bool visible)
     {
-        if (visible)
-            await _vm.StartPreviewAsync();
-        else
-            await _vm.StopPreviewAsync();
+        await UiTasks.RunSafelyAsync(
+            visible ? _vm.StartPreviewAsync : _vm.StopPreviewAsync,
+            $"{nameof(PhotoCaptureWindow)}.{nameof(OnWindowVisibilityChanged)}");
     }
 
     private void StartScanAnimation()
