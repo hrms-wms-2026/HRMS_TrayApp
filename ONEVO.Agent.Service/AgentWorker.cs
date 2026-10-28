@@ -13,6 +13,7 @@ using ONEVO.Agent.Service.Policy;
 using ONEVO.Agent.Service.Sync;
 using ONEVO.Agent.Service.Security;
 using ONEVO.Agent.Shared;
+using ONEVO.Agent.Shared.Diagnostics;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
 
@@ -265,6 +266,13 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
     private async Task HandleMessageAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
     {
+        // The Tray's cid becomes this flow's id: it tags every Service log line and is sent to the
+        // backend as X-Correlation-Id (AUD-018).
+        using var correlation = AgentCorrelation.Begin(envelope.CorrelationId);
+        using var logScope = AgentCorrelation.Current is { } cid
+            ? _logger.BeginScope(AgentCorrelation.Scope(cid))
+            : null;
+
         _presenceSession.ObserveInbound(DateTimeOffset.UtcNow);
 
         switch (envelope.Type)
