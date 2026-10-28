@@ -35,10 +35,6 @@ using ONEVO.Agent.TrayApp.Services;
 /// </remarks>
 public sealed class InactivityScreenshotCollector : IAgentCollector
 {
-    private static readonly string BootLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "tray-boot.log");
-
     private readonly ILogger<InactivityScreenshotCollector> _logger;
     private readonly IIdleTimeProvider _idleTimeProvider;
     private readonly IInactivityPromptService _promptService;
@@ -476,16 +472,5 @@ public sealed class InactivityScreenshotCollector : IAgentCollector
 
     private static bool IsExpired(AgentPolicy policy, DateTimeOffset now) => policy.ValidUntil <= now;
 
-    private static void BootLog(string message)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
-            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} [InactivityScreenshot] {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // ignore
-        }
-    }
+    private static void BootLog(string message) => TrayBootLog.Write("InactivityScreenshot", message);
 }

@@ -9,10 +9,6 @@ using ONEVO.Agent.Shared.Models;
 
 public partial class App : Microsoft.Maui.Controls.Application
 {
-    private static readonly string BootLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "tray-boot.log");
-
     private readonly TrayIconService _trayIcon;
     private readonly NamedPipeClient _pipeClient;
     private readonly CollectorCoordinator _collectors;
@@ -61,18 +57,7 @@ public partial class App : Microsoft.Maui.Controls.Application
         };
     }
 
-    private static void BootLog(string message)
-    {
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(BootLogPath)!);
-            File.AppendAllText(BootLogPath, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // ignore
-        }
-    }
+    private static void BootLog(string message) => TrayBootLog.Write("App", message);
 
     protected override Window CreateWindow(IActivationState? activationState)
     {

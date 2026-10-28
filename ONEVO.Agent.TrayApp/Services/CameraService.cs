@@ -251,21 +251,7 @@ public sealed class CameraService : ICameraService
         return (uint)(rounded / 2 * 2);
     }
 
-    private static void BootLog(string message)
-    {
-        try
-        {
-            var path = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ONEVO", "Agent", "tray-boot.log");
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.AppendAllText(path, $"{DateTimeOffset.Now:O} [Camera] {message}{Environment.NewLine}");
-        }
-        catch
-        {
-            // Preview must not fail because the log file is locked.
-        }
-    }
+    private static void BootLog(string message) => TrayBootLog.Write("Camera", message);
 
     public async Task<byte[]?> CapturePhotoAsync(CancellationToken ct = default)
     {
