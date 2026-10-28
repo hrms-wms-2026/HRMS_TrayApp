@@ -5,10 +5,6 @@ using ONEVO.Agent.Shared.Models;
 
 public sealed class DeviceIdentityStore
 {
-    private static readonly string DefaultIdentityDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ONEVO", "Agent");
-
     private readonly string _identityPath;
 
     /// <summary>Production callers use the parameterless constructor (real ProgramData path).
@@ -16,7 +12,7 @@ public sealed class DeviceIdentityStore
     /// so parallel test runs don't share and race on the same real file.</summary>
     public DeviceIdentityStore(string? identityDirectoryOverride = null)
     {
-        _identityPath = Path.Combine(identityDirectoryOverride ?? DefaultIdentityDirectory, "identity.json");
+        _identityPath = Path.Combine(identityDirectoryOverride ?? AgentDataPaths.Root, "identity.json");
     }
 
     public void Save(DeviceIdentity identity)

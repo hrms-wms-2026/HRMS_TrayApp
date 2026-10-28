@@ -2,6 +2,7 @@ namespace ONEVO.Agent.Service.Buffer;
 
 using System.Security.AccessControl;
 using System.Security.Principal;
+using ONEVO.Agent.Service.Security;
 
 /// <summary>
 /// Stores DPAPI-protected evidence files under %ProgramData%\ONEVO\Agent\EvidenceSpool.
@@ -22,10 +23,7 @@ public sealed class EvidenceSpoolStore
         TryApplyRestrictedAcl(_directory);
     }
 
-    public static string GetDefaultDirectory() =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "ONEVO", "Agent", "EvidenceSpool");
+    public static string GetDefaultDirectory() => Path.Combine(AgentDataPaths.Root, "EvidenceSpool");
 
     public string DirectoryPath => _directory;
 

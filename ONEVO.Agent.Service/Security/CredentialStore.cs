@@ -6,10 +6,6 @@ using Microsoft.Win32;
 
 public sealed class CredentialStore
 {
-    private static readonly string DefaultCredentialDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ONEVO", "Agent");
-
     private readonly string _credentialPath;
     private readonly string _refreshTokenPath;
 
@@ -18,7 +14,7 @@ public sealed class CredentialStore
     /// test run never overwrites or deletes a real enrolled agent's credentials (AUD-017).</summary>
     public CredentialStore(string? credentialDirectoryOverride = null)
     {
-        var directory = credentialDirectoryOverride ?? DefaultCredentialDirectory;
+        var directory = credentialDirectoryOverride ?? AgentDataPaths.Root;
         _credentialPath = Path.Combine(directory, "credential.dat");
         _refreshTokenPath = Path.Combine(directory, "refresh.dat");
     }
