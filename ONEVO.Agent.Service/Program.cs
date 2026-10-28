@@ -93,6 +93,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddHostedService(sp => sp.GetRequiredService<AgentWorker>());
         services.AddSingleton<ActivitySyncService>();
         services.AddHostedService(sp => sp.GetRequiredService<ActivitySyncService>());
+        // AgentWorker's optional flush hook: without this registration it was always null (AUD-033).
+        services.AddSingleton<IActivityBufferFlush>(sp => sp.GetRequiredService<ActivitySyncService>());
         services.AddHostedService<HeartbeatService>();
         services.AddHostedService<TokenRefreshService>();
         // Registered right after TokenRefreshService per the Task 3 plan ("after token

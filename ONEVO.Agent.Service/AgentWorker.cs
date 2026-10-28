@@ -410,17 +410,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             Payload = JsonSerializer.SerializeToElement(ack)
         });
 
-        if (!ack.Accepted || _activitySync is null)
-            return;
-
-        try
-        {
-            await _activitySync.FlushAsync(CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Immediate screenshot upload failed CaptureId={CaptureId}", ack.AttemptId);
-        }
+        // A finished screenshot uploads right away instead of waiting for the ingest interval. Only
+        // requested here, not awaited: this runs on the pipe read loop (AUD-033).
+        if (ack.Accepted)
+            _activitySync?.RequestFlush();
     }
 
     private void HandleEvidenceTransferStart(IpcEnvelope envelope)
@@ -1143,17 +1136,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             }
         }
 
-        if (accepted > 0 && _activitySync is not null)
-        {
-            try
-            {
-                await _activitySync.FlushAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Immediate collection upload failed");
-            }
-        }
+        // Accepted collection records keep the ingest-interval batching (AUD-033); only finished
+        // screenshots ask the sync loop for an early upload.
     }
 
     private async Task HandleActivationCodeSubmitAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
