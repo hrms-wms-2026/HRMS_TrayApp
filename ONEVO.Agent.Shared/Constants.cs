@@ -17,6 +17,19 @@ public static class Constants
     /// </summary>
     public const int ReconnectSteadyStateDelayMs = 15_000;
 
+    /// <summary>
+    /// Total time the Service gives one clock-in / clock-out / break command, retries included, before
+    /// it answers TIMED_OUT. Long enough for one slow attempt plus a retry (AUD-008).
+    /// </summary>
+    public static readonly TimeSpan LifecycleCommandBudget = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// How long the tray waits for a lifecycle reply. Longer than <see cref="LifecycleCommandBudget"/>,
+    /// so the tray always receives the Service's definite answer instead of guessing "failed" while
+    /// the action could still commit (AUD-008).
+    /// </summary>
+    public static readonly TimeSpan LifecycleReplyTimeout = TimeSpan.FromSeconds(30);
+
     /// <summary>Default activity capture interval (seconds). Max backend interval is 300.</summary>
     public const int DefaultActivitySnapshotIntervalSeconds = 60;
 
