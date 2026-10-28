@@ -234,6 +234,10 @@ public static class ClockActionErrorCodes
 {
     /// <summary>Today's attendance is already closed; the tray shows the finished-day screen.</summary>
     public const string AlreadyClockedOut = "ALREADY_CLOCKED_OUT";
+
+    /// <summary>The backend is already in the state the action asked for (e.g. a retried request
+    /// whose first attempt committed). The Service reconciles from attendance status.</summary>
+    public const string AlreadyInState = "ALREADY_IN_STATE";
 }
 
 public sealed record CollectionRecordSubmitPayload

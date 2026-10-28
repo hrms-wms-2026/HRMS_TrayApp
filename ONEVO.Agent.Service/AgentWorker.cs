@@ -36,6 +36,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
     private readonly PendingLegalChallengeStore _pendingLegalChallenge;
     private readonly PeriodicScreenshotHandler? _periodicScreenshots;
     private readonly IActivityBufferFlush? _activitySync;
+    private readonly DeviceTokenRefresher? _tokenRefresher;
     private CancellationTokenSource? _pairingCts;
 
     public AgentWorker(
@@ -56,9 +57,11 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         PendingLegalChallengeStore pendingLegalChallenge,
         PeriodicScreenshotHandler? periodicScreenshots = null,
         IActivityBufferFlush? activitySync = null,
-        FaceSetupPhotoStaging? faceSetupStaging = null)
+        FaceSetupPhotoStaging? faceSetupStaging = null,
+        DeviceTokenRefresher? tokenRefresher = null)
     {
         _faceSetupStaging = faceSetupStaging ?? new FaceSetupPhotoStaging();
+        _tokenRefresher = tokenRefresher;
         _logger = logger;
         _pipeServer = pipeServer;
         _stateMachine = stateMachine;
@@ -557,7 +560,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         if (string.IsNullOrWhiteSpace(jwt))
             return (false, "UNENROLLED", "Device is not enrolled.", current);
 
-        var backendResult = await _apiClient.ClockInAsync(jwt, ct);
+        (var backendResult, jwt) = await SendClockActionAsync(_apiClient.ClockInAsync, jwt, ct);
         if (backendResult.ErrorCode == ClockActionErrorCodes.AlreadyClockedOut)
         {
             // Today is already finished. Load it so the tray's finished-day screen has real totals.
@@ -565,6 +568,13 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             if (status is { Success: true, DayClockedInAtUtc: { } dayIn, DayClockedOutAtUtc: { } dayOut })
                 ApplyCompletedDay(dayIn, dayOut, status.CompletedBreakMinutes);
             return (false, backendResult.ErrorCode, backendResult.Message, current);
+        }
+
+        if (backendResult.ErrorCode == ClockActionErrorCodes.AlreadyInState)
+        {
+            return await ReconcileFromBackendAsync(jwt, state => state is MonitoringState.Active or MonitoringState.Paused, ct)
+                ? (true, null, "You're already clocked in.", _stateMachine.CurrentState)
+                : (false, backendResult.ErrorCode, "You're already clocked in.", current);
         }
 
         if (!backendResult.Success)
@@ -619,7 +629,14 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         if (string.IsNullOrWhiteSpace(jwt))
             return (false, "UNENROLLED", "Device is not enrolled.", current);
 
-        var backendResult = await _apiClient.StartBreakAsync(jwt, ct);
+        (var backendResult, jwt) = await SendClockActionAsync(_apiClient.StartBreakAsync, jwt, ct);
+        if (backendResult.ErrorCode == ClockActionErrorCodes.AlreadyInState)
+        {
+            return await ReconcileFromBackendAsync(jwt, state => state is MonitoringState.Paused, ct)
+                ? (true, null, "Your break has already started.", MonitoringState.Paused)
+                : (false, backendResult.ErrorCode, "Your break could not be started.", _stateMachine.CurrentState);
+        }
+
         if (!backendResult.Success)
             return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
 
@@ -654,7 +671,16 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return (false, "UNENROLLED", "Device is not enrolled.", current);
         }
 
-        var backendResult = await _apiClient.EndBreakAsync(jwt, ct);
+        (var backendResult, jwt) = await SendClockActionAsync(_apiClient.EndBreakAsync, jwt, ct);
+        if (backendResult.ErrorCode == ClockActionErrorCodes.AlreadyInState)
+        {
+            if (await ReconcileFromBackendAsync(jwt, state => state is MonitoringState.Active, ct))
+                return (true, null, "Your break has already ended.", MonitoringState.Active);
+
+            _lifecycleGate.SetNotOnBreak(_stateMachine.CurrentState != MonitoringState.Paused);
+            return (false, backendResult.ErrorCode, "Your break could not be ended.", _stateMachine.CurrentState);
+        }
+
         if (!backendResult.Success)
         {
             _lifecycleGate.SetNotOnBreak(false);
@@ -690,7 +716,14 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         if (string.IsNullOrWhiteSpace(jwt))
             return (false, "UNENROLLED", "Device is not enrolled.", current);
 
-        var backendResult = await _apiClient.ClockOutAsync(jwt, ct);
+        (var backendResult, jwt) = await SendClockActionAsync(_apiClient.ClockOutAsync, jwt, ct);
+        if (backendResult.ErrorCode is ClockActionErrorCodes.AlreadyInState or ClockActionErrorCodes.AlreadyClockedOut)
+        {
+            return await ReconcileFromBackendAsync(jwt, state => state is MonitoringState.Stopped, ct)
+                ? (true, null, "You're already clocked out.", MonitoringState.Stopped)
+                : (false, backendResult.ErrorCode, backendResult.Message, _stateMachine.CurrentState);
+        }
+
         if (!backendResult.Success)
             return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
 
@@ -698,6 +731,42 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return (false, "INVALID_STATE", "Cannot clock out.", current);
 
         return (true, null, "Clocked out. Workday completed.", MonitoringState.Stopped);
+    }
+
+    /// <summary>
+    /// Sends a clock action. On 401 the device token is refreshed once and the action retried, as the
+    /// attendance poller does — an action right after the token expired must not fail (AUD-012).
+    /// Returns the token that was used last.
+    /// </summary>
+    private async Task<(ClockActionResult Result, string Jwt)> SendClockActionAsync(
+        Func<string, CancellationToken, Task<ClockActionResult>> send, string jwt, CancellationToken ct)
+    {
+        var result = await send(jwt, ct);
+        if (result.ErrorCode == "UNAUTHORIZED"
+            && _tokenRefresher is not null
+            && await _tokenRefresher.RefreshAsync(jwt, ct) == TokenRefreshOutcome.Succeeded
+            && _credentials.ReadDeviceJwt() is { Length: > 0 } refreshed)
+        {
+            jwt = refreshed;
+            result = await send(jwt, ct);
+        }
+
+        return (result, jwt);
+    }
+
+    /// <summary>
+    /// The backend already holds the outcome the action asked for, e.g. a retried request whose first
+    /// attempt committed (AUD-009). Adopts the backend's attendance state the same way the poller does
+    /// and reports whether local state now satisfies <paramref name="reached"/>.
+    /// </summary>
+    private async Task<bool> ReconcileFromBackendAsync(string jwt, Func<MonitoringState, bool> reached, CancellationToken ct)
+    {
+        var status = await _apiClient.GetAttendanceStatusAsync(jwt, ct);
+        if (!status.Success)
+            return false;
+
+        AttendanceReconciliation.Apply(this, status, DateTimeOffset.UtcNow);
+        return reached(_stateMachine.CurrentState);
     }
 
     public bool ApplyPresenceStopped(DateTimeOffset now)

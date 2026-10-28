@@ -99,24 +99,6 @@ public sealed class AttendanceStatusSyncService : BackgroundService
             return;
         }
 
-        var now = DateTimeOffset.UtcNow;
-        if (result.IsClockedIn)
-        {
-            _reconciler.ApplyPresenceActive(result.ClockedInAtUtc ?? now, result.CompletedBreakMinutes);
-
-            if (result.IsOnBreak)
-                _reconciler.ApplyPresenceBreakStarted(result.BreakStartedAtUtc ?? now);
-            else
-                _reconciler.ApplyPresenceBreakEnded(now);
-        }
-        else
-        {
-            _reconciler.ApplyPresenceStopped(now);
-
-            if (result.DayClockedInAtUtc is { } dayIn && result.DayClockedOutAtUtc is { } dayOut)
-                _reconciler.ApplyCompletedDay(dayIn, dayOut, result.CompletedBreakMinutes);
-        }
-
-        _reconciler.ApplyBreakAllowance(result.CanStartBreak, result.BreakAllowanceMinutes, result.CompletedBreakMinutes);
+        AttendanceReconciliation.Apply(_reconciler, result, DateTimeOffset.UtcNow);
     }
 }

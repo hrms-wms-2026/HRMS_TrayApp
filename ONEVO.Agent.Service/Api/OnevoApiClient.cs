@@ -465,9 +465,23 @@ public sealed class OnevoApiClient
             // The backend's machine code for "today's attendance is already closed". Give it a
             // stable error code so the tray can route to the finished-day screen instead of
             // showing a raw backend string.
-            return string.Equals(detail, "already_clocked_out", StringComparison.OrdinalIgnoreCase)
-                ? new ClockActionResult(false, ClockActionErrorCodes.AlreadyClockedOut, "You've already clocked out for today.")
-                : new ClockActionResult(false, "CONFLICT", detail);
+            if (string.Equals(detail, "already_clocked_out", StringComparison.OrdinalIgnoreCase))
+                return new ClockActionResult(false, ClockActionErrorCodes.AlreadyClockedOut, "You've already clocked out for today.");
+
+            // Already in the requested state — typically a retried POST whose first attempt
+            // committed. The caller reconciles from attendance status instead of failing (AUD-009).
+            if (detail is not null && AlreadyInStateCodes.Contains(detail))
+                return new ClockActionResult(false, ClockActionErrorCodes.AlreadyInState, detail);
+
+            return new ClockActionResult(false, "CONFLICT", ReadableAttendanceMessage(detail));
+        }
+
+        // Validation / not-found: the backend's own reason, not "service unavailable" (AUD-009).
+        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.NotFound or HttpStatusCode.UnprocessableEntity)
+        {
+            var detail = await TryReadProblemDetailAsync(response, ct);
+            _logger.LogWarning("OnevoApi call to {Route} was rejected with {Status}", route, (int)response.StatusCode);
+            return new ClockActionResult(false, "REJECTED", ReadableAttendanceMessage(detail) ?? "The request was rejected.");
         }
 
         if (!response.IsSuccessStatusCode)
@@ -478,6 +492,23 @@ public sealed class OnevoApiClient
 
         return new ClockActionResult(true, null, null);
     }
+
+    private static readonly HashSet<string> AlreadyInStateCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "already_clocked_in", "break_already_active", "no_active_break", "break_already_ended", "not_clocked_in"
+    };
+
+    /// <summary>Backend attendance machine codes the employee would otherwise see verbatim. Any other
+    /// detail (often already a sentence) passes through unchanged.</summary>
+    private static string? ReadableAttendanceMessage(string? detail) => detail?.ToLowerInvariant() switch
+    {
+        "break_allowance_used" => "You've used today's break allowance.",
+        "open_break_must_be_ended_before_clock_out" => "End your break before clocking out.",
+        "off_day" => "Today isn't a working day for you.",
+        "schedule_not_configured" or "clock_in_policy_not_configured" or "break_allowance_not_configured"
+            => "Your attendance settings aren't set up yet. Please contact HR.",
+        _ => detail
+    };
 
     /// <summary>Best-effort read of the ProblemDetails "detail" field the backend sends on 409
     /// Conflict responses (e.g. clock-out blocked by an open break or an active task session).
