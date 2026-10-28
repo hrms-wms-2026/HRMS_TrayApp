@@ -313,7 +313,9 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
         string type, JsonElement? payload, TimeSpan timeout, string label, CancellationToken ct)
         where TReply : class
     {
-        var correlationId = Guid.NewGuid().ToString("N");
+        var correlationId = AgentCorrelation.NewId();
+        // Same id the Service logs and sends to the backend, so one action reads across all three logs.
+        using var logScope = _logger.BeginScope(AgentCorrelation.Scope(correlationId));
         // RunContinuationsAsynchronously keeps the caller's continuation off the pipe read loop.
         var tcs = new TaskCompletionSource<IpcEnvelope>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[correlationId] = tcs;

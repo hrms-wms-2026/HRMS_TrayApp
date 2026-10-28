@@ -1,20 +1,20 @@
-namespace ONEVO.Agent.TrayApp.Services.Diagnostics;
+namespace ONEVO.Agent.Shared.Diagnostics;
 
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 /// <summary>
-/// Writes the Tray's <see cref="ILogger"/> output to a size-capped, rolling JSON-lines file
-/// (one object per line: ts, level, category, msg, props, scope, ex). Before this the Tray
-/// registered no logging provider, so every log call was discarded (AUD-018).
+/// Writes <see cref="ILogger"/> output to a size-capped, rolling JSON-lines file (one object per
+/// line: ts, level, category, msg, props, scope, ex). Used by the Tray (tray.log) and the Service
+/// (service.log) so both read the same way and carry the same CorrelationId scope (AUD-018).
 /// Each write opens, appends and closes the file under one lock, so a line is on disk before a
-/// crash takes the process down and a second tray instance never hits a locked file. Logging
-/// must never break the app: every IO failure is swallowed.
+/// crash takes the process down and a second process never hits a locked file. Logging must
+/// never break the app: every IO failure is swallowed.
 /// </summary>
-public sealed class TrayFileLoggerProvider : ILoggerProvider, ISupportExternalScope
+public sealed class JsonFileLoggerProvider : ILoggerProvider, ISupportExternalScope
 {
     public const long DefaultMaxFileBytes = 5 * 1024 * 1024;
     public const int DefaultRetainedFiles = 3;
-    public const string FileName = "tray.log";
 
     // A log file is never rendered as HTML, so keep '+', quotes and non-ASCII readable.
     private static readonly JsonWriterOptions JsonOptions = new()
@@ -28,28 +28,25 @@ public sealed class TrayFileLoggerProvider : ILoggerProvider, ISupportExternalSc
     private readonly Func<DateTimeOffset> _clock;
     private IExternalScopeProvider _scopes = new LoggerExternalScopeProvider();
 
-    public TrayFileLoggerProvider(
+    public JsonFileLoggerProvider(
         string directory,
+        string fileName,
         long maxFileBytes = DefaultMaxFileBytes,
         int retainedFiles = DefaultRetainedFiles,
         Func<DateTimeOffset>? clock = null)
     {
         LogDirectory = directory;
-        FilePath = Path.Combine(directory, FileName);
+        FilePath = Path.Combine(directory, fileName);
         _maxFileBytes = Math.Max(1, maxFileBytes);
         _retainedFiles = Math.Max(1, retainedFiles);
         _clock = clock ?? (() => DateTimeOffset.Now);
     }
 
-    public static string DefaultDirectory => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ONEVO", "Agent", "logs");
-
     public string LogDirectory { get; }
 
     public string FilePath { get; }
 
-    public ILogger CreateLogger(string categoryName) => new TrayFileLogger(this, categoryName);
+    public ILogger CreateLogger(string categoryName) => new JsonFileLogger(this, categoryName);
 
     public void SetScopeProvider(IExternalScopeProvider scopeProvider) => _scopes = scopeProvider;
 
@@ -172,7 +169,7 @@ public sealed class TrayFileLoggerProvider : ILoggerProvider, ISupportExternalSc
         if (!current.Exists || current.Length + incomingBytes <= _maxFileBytes)
             return;
 
-        // tray.log -> tray.log.1 -> ... -> tray.log.(retained-1); the oldest falls off.
+        // x.log -> x.log.1 -> ... -> x.log.(retained-1); the oldest falls off.
         var archives = _retainedFiles - 1;
         if (archives == 0)
         {
@@ -189,12 +186,12 @@ public sealed class TrayFileLoggerProvider : ILoggerProvider, ISupportExternalSc
         current.MoveTo($"{FilePath}.1");
     }
 
-    private sealed class TrayFileLogger : ILogger
+    private sealed class JsonFileLogger : ILogger
     {
-        private readonly TrayFileLoggerProvider _provider;
+        private readonly JsonFileLoggerProvider _provider;
         private readonly string _category;
 
-        public TrayFileLogger(TrayFileLoggerProvider provider, string category)
+        public JsonFileLogger(JsonFileLoggerProvider provider, string category)
         {
             _provider = provider;
             _category = category;
@@ -203,7 +200,7 @@ public sealed class TrayFileLoggerProvider : ILoggerProvider, ISupportExternalSc
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull =>
             _provider._scopes.Push(state);
 
-        // Level filtering is configured on the logging builder (see TrayLogging).
+        // Level filtering is configured on the logging builder (see TrayLogging / the Service host).
         public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None;
 
         public void Log<TState>(
