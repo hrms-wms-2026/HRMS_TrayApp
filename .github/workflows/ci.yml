@@ -38,11 +38,25 @@ jobs:
       - name: Build TrayApp
         run: dotnet build ONEVO.Agent.TrayApp/ONEVO.Agent.TrayApp.csproj --configuration Release
 
+      # Each project writes its cobertura report under coverage/<TestProject> for the gate below.
       - name: Test - Shared
-        run: dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj --configuration Release
+        run: dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory coverage/ONEVO.Agent.Shared.Tests
 
       - name: Test - Service
-        run: dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj --configuration Release
+        run: dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory coverage/ONEVO.Agent.Service.Tests
 
       - name: Test - TrayApp
-        run: dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --configuration Release
+        run: dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory coverage/ONEVO.Agent.TrayApp.Tests
+
+      # Floors are in coverage-thresholds.json (AUD-025).
+      - name: Coverage gate
+        shell: pwsh
+        run: ./scripts/check-coverage.ps1 -ResultsRoot coverage
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/**/coverage.cobertura.xml
+          if-no-files-found: warn
