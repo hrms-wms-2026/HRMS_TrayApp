@@ -153,6 +153,9 @@ public sealed class ActivitySyncService : BackgroundService, IActivityBufferFlus
                 if (result == FlushResult.Idle)
                     break;
             }
+
+            // Delivered rows past the de-duplication window go, so the file stays small (UAT-13).
+            _buffer.PurgeDelivered(DateTimeOffset.UtcNow);
         }
         finally
         {
