@@ -1,0 +1,17 @@
+# Build outputs
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+TestResults/
+*.trx
+coverage*.xml
+
+# IDE / user files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
