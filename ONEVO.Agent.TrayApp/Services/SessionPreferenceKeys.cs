@@ -17,6 +17,8 @@ public static class SessionPreferenceKeys
     public const string DeviceName = "onevo.device_name";
     public const string LiveLatitude = "onevo.live_latitude";
     public const string LiveLongitude = "onevo.live_longitude";
+    /// <summary>Local date (yyyy-MM-dd) the Live* fix was captured; it is never used on another day.</summary>
+    public const string LiveLocationCapturedOn = "onevo.live_location_captured_on";
     public const string WorkLocationCode = "onevo.work_location_code";
     public const string WorkLocationDisplay = "onevo.work_location_display";
     public const string WorkLocationReference = "onevo.work_location_reference";
@@ -40,6 +42,7 @@ public static class SessionPreferenceKeys
         DeviceName,
         LiveLatitude,
         LiveLongitude,
+        LiveLocationCapturedOn,
         WorkLocationCode,
         WorkLocationDisplay,
         WorkLocationReference,

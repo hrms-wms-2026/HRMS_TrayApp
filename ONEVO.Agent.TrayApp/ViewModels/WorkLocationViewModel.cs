@@ -1,6 +1,5 @@
 namespace ONEVO.Agent.TrayApp.ViewModels;
 
-using System.Globalization;
 using ONEVO.Agent.Shared.Models;
 using ONEVO.Agent.TrayApp.Services;
 
@@ -211,8 +210,7 @@ public sealed partial class WorkLocationViewModel : BaseViewModel, IDisposable
                 DateTimeOffset.UtcNow);
 
             _store.Save(reference);
-            _preferences.Set(SessionPreferenceKeys.LiveLatitude, fix.Latitude.ToString("G17", CultureInfo.InvariantCulture));
-            _preferences.Set(SessionPreferenceKeys.LiveLongitude, fix.Longitude.ToString("G17", CultureInfo.InvariantCulture));
+            LiveLocationPreference.Save(_preferences, fix.Latitude, fix.Longitude);
         }
         // Location tracking is off for this account: no GPS fix was captured, so there is nothing
         // to save as a WorkLocationReference or Live* coordinates — the code/display keys above are

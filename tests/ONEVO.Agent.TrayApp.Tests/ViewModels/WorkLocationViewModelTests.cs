@@ -186,6 +186,8 @@ public sealed class WorkLocationViewModelTests
         Assert.Equal("Office", preferences.Get(SessionPreferenceKeys.WorkLocationDisplay, ""));
         Assert.Equal(fix.Latitude.ToString("G17"), preferences.Get(SessionPreferenceKeys.LiveLatitude, ""));
         Assert.Equal(fix.Longitude.ToString("G17"), preferences.Get(SessionPreferenceKeys.LiveLongitude, ""));
+        Assert.Equal(WorkLocationFlow.TodayKey(), preferences.Get(SessionPreferenceKeys.LiveLocationCapturedOn, ""));
+        Assert.Equal((fix.Latitude, fix.Longitude), LiveLocationPreference.TryGetToday(preferences));
         Assert.True(WorkLocationFlow.IsConfirmedToday(preferences));
     }
 
