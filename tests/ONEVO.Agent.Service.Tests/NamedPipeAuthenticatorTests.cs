@@ -25,7 +25,7 @@ public class NamedPipeAuthenticatorTests
         await pair.Client.WriteAsync(Encoding.UTF8.GetBytes(both));
         await pair.Client.FlushAsync();
 
-        Assert.True(await auth);
+        Assert.True(await auth.WaitAsync(TimeSpan.FromSeconds(10)));
         var next = await serverReader.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(IpcLineCodec.TryParse(next, out var envelope));
         Assert.Equal(IpcMessageTypes.StatusRequest, envelope!.Type);
@@ -46,10 +46,13 @@ public class NamedPipeAuthenticatorTests
         var w1 = new StreamWriter(pair.Client, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
         await w1.WriteLineAsync(JsonSerializer.Serialize(NonceResponse(nonce)));
         var w2 = new StreamWriter(pair.Client, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
-        await w2.WriteLineAsync(JsonSerializer.Serialize(new IpcEnvelope { Type = IpcMessageTypes.StatusRequest }));
+        // Not awaited yet: Windows pipes with zero-size buffers complete a write only once
+        // the server has read it, which happens after the handshake below.
+        var secondWrite = w2.WriteLineAsync(JsonSerializer.Serialize(new IpcEnvelope { Type = IpcMessageTypes.StatusRequest }));
 
-        Assert.True(await auth);
+        Assert.True(await auth.WaitAsync(TimeSpan.FromSeconds(10)));
         var next = await serverReader.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await secondWrite.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(IpcLineCodec.TryParse(next, out var envelope));
         Assert.Equal(IpcMessageTypes.StatusRequest, envelope!.Type);
     }
@@ -65,7 +68,7 @@ public class NamedPipeAuthenticatorTests
         await clientReader.ReadLineAsync();
         await IpcLineCodec.CreateWriter(pair.Client).WriteLineAsync(IpcLineCodec.Serialize(NonceResponse("forged")));
 
-        Assert.False(await auth);
+        Assert.False(await auth.WaitAsync(TimeSpan.FromSeconds(10)));
     }
 
     [Fact]

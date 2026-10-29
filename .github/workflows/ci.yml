@@ -23,6 +23,7 @@ jobs:
   core:
     name: Shared + Service build and tests (Windows)
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -51,9 +52,9 @@ jobs:
 
       - name: Test
         run: |
-          dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj -c Release --no-build --logger "trx;LogFileName=shared.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults
-          dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj -c Release --no-build --logger "trx;LogFileName=service.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults
-          dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj -c Release --no-build --logger "trx;LogFileName=trayapp-logic.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults
+          dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj -c Release --no-build --logger "trx;LogFileName=shared.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults --blame-hang-timeout 3m
+          dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj -c Release --no-build --logger "trx;LogFileName=service.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults --blame-hang-timeout 3m
+          dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj -c Release --no-build --logger "trx;LogFileName=trayapp-logic.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults --blame-hang-timeout 3m
 
       - name: Publish service
         run: dotnet publish ONEVO.Agent.Service/ONEVO.Agent.Service.csproj -c Release -r win-x64 --self-contained false -p:Version=${{ env.CI_VERSION }} -o artifacts/service
@@ -72,6 +73,7 @@ jobs:
   tray:
     name: TrayApp build (Windows, MAUI)
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
