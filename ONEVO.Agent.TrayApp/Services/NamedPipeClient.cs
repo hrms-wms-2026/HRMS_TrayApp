@@ -38,11 +38,16 @@ public sealed class NamedPipeClient : IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Runs for the lifetime of the tray. The service can start after the tray (boot, delayed
+    /// start) or restart (upgrade, crash), so the client never gives up (ISS-013).
+    /// </summary>
     private async Task ConnectWithRetryAsync(CancellationToken ct)
     {
-        for (int attempt = 0; attempt < Constants.ReconnectMaxAttempts; attempt++)
+        var failures = 0;
+        while (!ct.IsCancellationRequested)
         {
-            if (ct.IsCancellationRequested) return;
+            var connected = false;
             try
             {
                 _pipe = new NamedPipeClientStream(
@@ -55,31 +60,41 @@ public sealed class NamedPipeClient : IAsyncDisposable
                 await AuthenticateAsync(reader, writer, ct);
 
                 _writer = writer;
+                connected = true;
+                failures = 0;
                 _logger.LogInformation("Connected to ONEVO Agent Service");
 
                 await RequestStatusAsync(ct);
-                await ReadLoopAsync(_pipe, reader, ct);
+                await ReadLoopAsync(_pipe, reader, ct); // raises OnDisconnected when it ends
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
                 return;
             }
-            catch (OperationCanceledException) { return; }
             catch (Exception ex)
             {
-                _logger.LogWarning("Connect attempt {Attempt}/{Max} failed: {Msg}",
-                    attempt + 1, Constants.ReconnectMaxAttempts, ex.Message);
-                _pipe?.Dispose();
-                _pipe = null;
-                _writer = null;
-
-                if (attempt < Constants.ReconnectMaxAttempts - 1)
+                failures++;
+                _logger.LogWarning("Connect attempt {Attempt} failed: {Msg}", failures, ex.Message);
+                if (failures == Constants.ReconnectMaxAttempts)
                 {
-                    var delayMs = Constants.ReconnectBaseDelayMs * (1 << attempt);
-                    delayMs += Random.Shared.Next(0, 500);
-                    await Task.Delay(delayMs, ct);
+                    _logger.LogError("Service unreachable after {Max} attempts; still retrying", failures);
+                    OnDisconnected?.Invoke();
                 }
             }
+            finally
+            {
+                _writer = null;
+                _pipe?.Dispose();
+                _pipe = null;
+            }
+
+            var delayMs = connected
+                ? Constants.ReconnectBaseDelayMs
+                : Math.Min(Constants.ReconnectBaseDelayMs * (1 << Math.Min(failures - 1, 5)), Constants.ReconnectMaxDelayMs);
+            delayMs += Random.Shared.Next(0, 500);
+            try { await Task.Delay(delayMs, ct); }
+            catch (OperationCanceledException) { return; }
         }
-        _logger.LogError("Failed to connect to Service after {Max} attempts", Constants.ReconnectMaxAttempts);
-        OnDisconnected?.Invoke();
     }
 
     private static async Task AuthenticateAsync(StreamReader reader, StreamWriter writer, CancellationToken ct)

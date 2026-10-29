@@ -73,6 +73,33 @@ public class NamedPipeClientTests
     }
 }
 
+public class NamedPipeClientReconnectTests
+{
+    [Fact]
+    public async Task ReconnectsAfterServiceRestart()
+    {
+        // ISS-013 regression: after a session ended the client never reconnected.
+        var fake = new FakeService();
+        await using var client = new NamedPipeClient(NullLogger<NamedPipeClient>.Instance, fake.PipeName);
+        var states = new System.Collections.Concurrent.BlockingCollection<MonitoringState>();
+        var disconnects = 0;
+        client.OnStateReceived += states.Add;
+        client.OnDisconnected += () => Interlocked.Increment(ref disconnects);
+
+        var firstSession = fake.ServeStatusSessionAsync(MonitoringState.Stopped, holdOpen: TimeSpan.FromMilliseconds(300));
+        await client.StartAsync(CancellationToken.None);
+        Assert.True(states.TryTake(out var first, TimeSpan.FromSeconds(10)));
+        Assert.Equal(MonitoringState.Stopped, first);
+        await firstSession; // "service restart": the session ends
+
+        var secondSession = fake.ServeStatusSessionAsync(MonitoringState.Active, holdOpen: TimeSpan.FromSeconds(2));
+        Assert.True(states.TryTake(out var second, TimeSpan.FromSeconds(15)), "client did not reconnect");
+        Assert.Equal(MonitoringState.Active, second);
+        Assert.True(disconnects >= 1);
+        await secondSession;
+    }
+}
+
 /// <summary>Minimal stand-in for the Agent Service's pipe endpoint.</summary>
 internal sealed class FakeService
 {
@@ -85,6 +112,25 @@ internal sealed class FakeService
         using var reader = IpcLineCodec.CreateReader(pipe);
         await session(pipe, reader);
     }
+
+    /// <summary>Handshake, answer one StatusRequest with <paramref name="state"/>, keep the pipe open, then close.</summary>
+    public Task ServeStatusSessionAsync(MonitoringState state, TimeSpan holdOpen) => ServeOnceAsync(async (pipe, reader) =>
+    {
+        var writer = IpcLineCodec.CreateWriter(pipe);
+        await writer.WriteLineAsync(IpcLineCodec.Serialize(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.NonceChallenge,
+            Payload = JsonSerializer.SerializeToElement(new NonceChallengePayload("n"))
+        }));
+        await reader.ReadLineAsync(); // NonceResponse
+        await reader.ReadLineAsync(); // StatusRequest
+        await writer.WriteLineAsync(IpcLineCodec.Serialize(new IpcEnvelope
+        {
+            Type = IpcMessageTypes.StatusResponse,
+            Payload = JsonSerializer.SerializeToElement(new StatusResponsePayload(state, DateTimeOffset.UtcNow))
+        }));
+        await Task.Delay(holdOpen);
+    });
 
     public NamedPipeServerStream NewServer() => new(PipeName, PipeDirection.InOut,
         NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);

@@ -6,8 +6,10 @@ public static class Constants
     public const int MaxMessageLengthBytes = 65_536;
     public const int IpcConnectionTimeoutMs = 5_000;
     public const int NonceLengthBytes = 32;
+    /// <summary>Consecutive failed connects after which the tray reports "disconnected". Retrying continues.</summary>
     public const int ReconnectMaxAttempts = 5;
     public const int ReconnectBaseDelayMs = 1_000;
+    public const int ReconnectMaxDelayMs = 30_000;
 
     /// <summary>Default activity capture interval (seconds). Max backend interval is 300.</summary>
     public const int DefaultActivitySnapshotIntervalSeconds = 60;
