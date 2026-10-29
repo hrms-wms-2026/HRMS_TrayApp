@@ -32,9 +32,11 @@ public class NamedPipeAuthenticatorTests
     }
 
     [Fact]
-    public async Task LegacyClientWritingBomPerWriter_IsStillUnderstood()
+    public async Task ClientWritingBomPerWriter_IsStillUnderstood()
     {
-        // Backward compatibility with trays built before the fix (new StreamWriter(pipe, Encoding.UTF8) per phase).
+        // Defensive: lines starting with a UTF-8 BOM (StreamWriter(Encoding.UTF8) per phase) still parse.
+        // Writers are flushed asynchronously: setting AutoFlush = true writes the BOM synchronously,
+        // which blocks on Windows until the peer reads (see the characterization test below).
         await using var pair = await PipePair.CreateAsync();
         var serverReader = IpcLineCodec.CreateReader(pair.Server);
         var serverWriter = IpcLineCodec.CreateWriter(pair.Server);
@@ -43,18 +45,52 @@ public class NamedPipeAuthenticatorTests
 
         var clientReader = new StreamReader(pair.Client, Encoding.UTF8, leaveOpen: true);
         var nonce = ReadNonce(await clientReader.ReadLineAsync());
-        var w1 = new StreamWriter(pair.Client, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+        var w1 = new StreamWriter(pair.Client, Encoding.UTF8, leaveOpen: true);
         await w1.WriteLineAsync(JsonSerializer.Serialize(NonceResponse(nonce)));
-        var w2 = new StreamWriter(pair.Client, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
-        // Not awaited yet: Windows pipes with zero-size buffers complete a write only once
-        // the server has read it, which happens after the handshake below.
-        var secondWrite = w2.WriteLineAsync(JsonSerializer.Serialize(new IpcEnvelope { Type = IpcMessageTypes.StatusRequest }));
+        await w1.FlushAsync();
+        var w2 = new StreamWriter(pair.Client, Encoding.UTF8, leaveOpen: true);
+        // Not awaited yet: on Windows the write completes only once the server has read it.
+        var secondWrite = WriteAndFlushAsync(w2, JsonSerializer.Serialize(new IpcEnvelope { Type = IpcMessageTypes.StatusRequest }));
 
         Assert.True(await auth.WaitAsync(TimeSpan.FromSeconds(10)));
         var next = await serverReader.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5));
         await secondWrite.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(IpcLineCodec.TryParse(next, out var envelope));
         Assert.Equal(IpcMessageTypes.StatusRequest, envelope!.Type);
+    }
+
+    [WindowsFact]
+    public void Characterization_OriginalHandshakeWriters_DeadlockOnWindows()
+    {
+        // Documents why IpcLineCodec must not emit a BOM (ISS-006). The original service and tray
+        // each created `new StreamWriter(pipe, Encoding.UTF8) { AutoFlush = true }` before reading.
+        // The AutoFlush setter writes the BOM synchronously and, on a pipe with default (zero)
+        // buffer sizes, that write waits for the peer to read -> both ends wait forever.
+        var name = "onevo-deadlock-" + Guid.NewGuid().ToString("N");
+        var server = new System.IO.Pipes.NamedPipeServerStream(name, System.IO.Pipes.PipeDirection.InOut, 1,
+            System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+        var client = new System.IO.Pipes.NamedPipeClientStream(".", name, System.IO.Pipes.PipeDirection.InOut,
+            System.IO.Pipes.PipeOptions.Asynchronous);
+        Task.WaitAll(server.WaitForConnectionAsync(), client.ConnectAsync(5_000));
+
+        var serverDone = new ManualResetEventSlim();
+        var clientDone = new ManualResetEventSlim();
+        StartBackground(() => { _ = new StreamWriter(server, Encoding.UTF8, leaveOpen: true) { AutoFlush = true }; serverDone.Set(); });
+        StartBackground(() => { _ = new StreamWriter(client, Encoding.UTF8, leaveOpen: true) { AutoFlush = true }; clientDone.Set(); });
+
+        var completed = serverDone.Wait(TimeSpan.FromSeconds(5)) & clientDone.Wait(TimeSpan.FromSeconds(1));
+
+        Assert.False(completed, "original handshake writers completed; the ISS-006 deadlock analysis would be wrong");
+        // Blocked threads are background threads and do not keep the test host alive.
+    }
+
+    private static void StartBackground(Action action) =>
+        new Thread(() => action()) { IsBackground = true }.Start();
+
+    private static async Task WriteAndFlushAsync(StreamWriter writer, string line)
+    {
+        await writer.WriteLineAsync(line);
+        await writer.FlushAsync();
     }
 
     [Fact]
