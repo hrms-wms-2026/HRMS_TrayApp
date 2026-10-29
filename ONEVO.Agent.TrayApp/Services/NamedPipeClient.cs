@@ -207,15 +207,22 @@ public sealed class NamedPipeClient : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Idempotent and non-throwing: it runs from the window's async-void Destroying handler, where
+    /// an exception would crash the process on exit (ISS-035). The writer (leaveOpen) and the
+    /// semaphore own no unmanaged resources and are deliberately not disposed: disposing the writer
+    /// flushes into a pipe the connection loop may already have closed, and disposing the
+    /// semaphore would fault an in-flight submit.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_cts is not null)
+        var cts = Interlocked.Exchange(ref _cts, null);
+        if (cts is not null)
         {
-            await _cts.CancelAsync();
-            _cts.Dispose();
+            await cts.CancelAsync();
+            cts.Dispose();
         }
-        _writer?.Dispose();
+        _writer = null;
         _pipe?.Dispose();
-        _writeLock.Dispose();
     }
 }

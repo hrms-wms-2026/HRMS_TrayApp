@@ -100,6 +100,41 @@ public class NamedPipeClientReconnectTests
     }
 }
 
+public class NamedPipeClientDisposeTests
+{
+    [Fact]
+    public async Task DisposeAsync_Twice_DoesNotThrow()
+    {
+        var client = new NamedPipeClient(NullLogger<NamedPipeClient>.Instance, new FakeService().PipeName);
+        await client.StartAsync(CancellationToken.None);
+
+        await client.DisposeAsync();
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task DisposeAsync_RacingServiceDisconnect_DoesNotThrow()
+    {
+        // ISS-035 regression: disposing the writer flushed into a pipe the connection loop had
+        // just closed -> ObjectDisposedException from the async-void exit handler.
+        for (var i = 0; i < 20; i++)
+        {
+            var fake = new FakeService();
+            var client = new NamedPipeClient(NullLogger<NamedPipeClient>.Instance, fake.PipeName);
+            var connected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            client.OnStateReceived += _ => connected.TrySetResult();
+
+            var session = fake.ServeStatusSessionAsync(MonitoringState.Stopped, holdOpen: TimeSpan.Zero);
+            await client.StartAsync(CancellationToken.None);
+            await connected.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await session; // service side closes now
+
+            await Task.Delay(i % 4); // vary the interleaving with the client's own cleanup
+            await client.DisposeAsync();
+        }
+    }
+}
+
 /// <summary>Minimal stand-in for the Agent Service's pipe endpoint.</summary>
 internal sealed class FakeService
 {
