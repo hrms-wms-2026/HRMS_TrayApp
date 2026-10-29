@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Win32;
 
-public sealed class CredentialStore
+public sealed class CredentialStore : ICredentialStore
 {
     private static readonly string CredentialPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
