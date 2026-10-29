@@ -660,11 +660,11 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         if (!backendResult.Success)
             return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
 
-        if (!_stateMachine.TryTransition(MonitoringState.Paused, out _))
+        // The backend accepted the break. The attendance poll triggered by its AttendanceChanged push
+        // may already have applied it locally; that is the same outcome, not a failure (AUD-035).
+        if (!ApplyPresenceBreakStarted(now))
             return (false, "INVALID_STATE", "Cannot start break.", current);
 
-        _lifecycleGate.SetNotOnBreak(false);
-        _presenceSession.StartBreak(now);
         return (true, null, "Break started.", MonitoringState.Paused);
     }
 
@@ -707,13 +707,13 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return (false, backendResult.ErrorCode ?? "SERVICE_UNAVAILABLE", backendResult.Message, current);
         }
 
-        if (!_stateMachine.TryTransition(MonitoringState.Active, out _))
+        // As for StartBreak: the push-triggered poll may have ended the break locally first (AUD-035).
+        if (!ApplyPresenceBreakEnded(now))
         {
-            _lifecycleGate.SetNotOnBreak(false);
+            _lifecycleGate.SetNotOnBreak(_stateMachine.CurrentState != MonitoringState.Paused);
             return (false, "INVALID_STATE", "Cannot end break.", current);
         }
 
-        _presenceSession.EndBreak(now);
         return (true, null, "Break ended. Welcome back.", MonitoringState.Active);
     }
 
@@ -845,8 +845,10 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
         _lifecycleGate.SetNotOnBreak(false);
 
+        // Losing the transition to a concurrent caller that also paused is still "paused"; only the
+        // winner opens the break, so it is counted once.
         if (!_stateMachine.TryTransition(MonitoringState.Paused, out _))
-            return false;
+            return _stateMachine.CurrentState == MonitoringState.Paused;
 
         _presenceSession.StartBreak(startedAt);
         return true;
@@ -873,7 +875,7 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         }
 
         if (!_stateMachine.TryTransition(MonitoringState.Active, out _))
-            return false;
+            return _stateMachine.CurrentState == MonitoringState.Active;
 
         _presenceSession.EndBreak(now);
         return true;
