@@ -375,10 +375,11 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         }
 
         var coveredSeconds = activeSeconds + idleSeconds;
-        if (coveredSeconds == 0)
-            return; // nothing elapsed since the previous snapshot
+        if (coveredSeconds == 0 && keyboard + mouse == 0)
+            return; // nothing happened since the previous snapshot
 
-        var eventDensity = (keyboard + mouse) / (double)coveredSeconds;
+        // A stop within half a second of the last snapshot still carries the input counted in it.
+        var eventDensity = (keyboard + mouse) / (double)Math.Max(1, coveredSeconds);
         var intensity = Math.Round(
             (decimal)Math.Clamp(eventDensity / 5.0 * 100.0, 0, 100), 2);
 
