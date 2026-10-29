@@ -1,9 +1,10 @@
-# Manual Testing Checklist (T16 → T18)
+# 11 — Manual Testing Checklist (T16 → T18)
 
 Use dedicated test devices and synthetic test accounts only. Never use production employee data.
 
 ## A. Install & lifecycle
-- [ ] Fresh Windows 10 22H2 and Windows 11, standard user: MSIX installs, Service starts automatically, tray starts at logon.
+- [ ] Fresh Windows 10 22H2 and Windows 11, standard user: Service installed (07), MSIX installs, Service starts automatically after reboot.
+- [ ] Sign in after a reboot → record whether the tray starts by itself (expected **no** until UAT-08 is fixed) and how the time before it is opened is classified.
 - [ ] Start a second tray instance in the same session → only one stays running.
 - [ ] Restart the Service while the tray runs → tray shows Offline, then reconnects without user action.
 - [ ] Kill the tray from Task Manager while clocked in → reopen → session state restored from the Service.
@@ -33,6 +34,16 @@ Use dedicated test devices and synthetic test accounts only. Never use productio
 - [ ] Multiple monitors, high DPI, dark/light theme for the tray UI.
 - [ ] Camera absent / denied → face check flow degrades as designed.
 
-## F. Pilot (T18)
+## F. Security on a device
+- [ ] As a standard user, `type %ProgramData%\ONEVO\Agent\credential.dat` → access denied (UAT-09).
+- [ ] Copy `ONEVO.Agent.TrayApp.exe` to Downloads and run it → the Service refuses the connection.
+- [ ] Second Windows user signed in (fast user switching) → their tray is refused while not the console session.
+- [ ] `tray.log` content reviewed against the monitoring policy (UAT-03).
+
+## G. Resources (T10 phase B)
+- [ ] `scripts/check-footprint.ps1` idle run passes on the UAT build.
+- [ ] Full workday with all collectors enabled: record Service/Tray private bytes and CPU, then propose active budgets.
+
+## I. Pilot (T18)
 - [ ] Pilot group completes a full workday; compare tray totals with backend reports.
 - [ ] Support process and known-issue list (issue-register.md) accepted; go/no-go signed.

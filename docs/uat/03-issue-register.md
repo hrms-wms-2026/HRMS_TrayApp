@@ -1,4 +1,4 @@
-# Issue Register — `develop`
+# 03 — Issue Register — `develop`
 
 Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)** (follows from code, not executed), **Observation** (design limitation / decision needed).
 
@@ -6,12 +6,17 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 
 | ID | P | Component | Title | Class | Status |
 |---|---|---|---|---|---|
-| UAT-01 | P1 | Tray `ActivityCountCollector` | Activity snapshots over-report active time | Confirmed (code); fix unit-tested | **Fixed in PR #100** — pending Windows CI + device check |
+| UAT-01 | P1 | Tray `ActivityCountCollector` | Activity snapshots over-report active time | Confirmed (code); fix unit-tested | **Fixed in PR #100** (`61e43f9`, `f987d83`) — device check pending |
 | UAT-02 | P3 | Tray `SessionDayMetrics` | Idle accumulated twice (two collectors), value unused | Confirmed (code) | Open |
 | UAT-03 | P3 | Tray logging / privacy | Per-snapshot keyboard/mouse counts written to `tray.log` | Confirmed (code) | Open — policy decision |
 | UAT-04 | — | Service `PresenceSession` | Idle end detected at 60 s sample resolution | Observation | Accepted limitation (not changed) |
 | UAT-05 | P2 | Release / git | GitHub default branch `main` is still `5cca93e` | Verified | Open — release process (AGT-03) |
 | UAT-06 | P3 | Tests | ~135 Service tests fail off-Windows without being marked Windows-only | Verified | Open — informational |
+| UAT-07 | **P1** | Packaging | Released MSIX does not contain or install the Agent Service | Verified (manifest, release.yml) | **Escalated** — installer decision |
+| UAT-08 | **P1** | Packaging / lifecycle | Tray does not start at logon (no startup task / Run key) | Verified (manifest, code search) | **Escalated** — installer decision |
+| UAT-09 | P3 | Security | Credential confidentiality relies on the folder ACL (DPAPI LocalMachine) | Confirmed (code) | Device verification (11 §F) |
+| UAT-10 | Info | Release | Production code-signing certificate needed; dev cert requires manual trust | Verified (`release.yml`, `build-msix.ps1`) | T17 |
+| UAT-11 | P3 | Configuration | Shipped `ApiBaseUrl` must be confirmed per environment | Verified (`appsettings.json`) | Open — backend team |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
 - **File:** `ONEVO.Agent.TrayApp/Collectors/ActivityCountCollector.cs` (`EmitSnapshotAsync`, `SnapshotLoopAsync`, `StopAsync`).
@@ -27,7 +32,26 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
   - Intensity is computed over the covered time.
 - **Scope:** the IPC/backend wire format is unchanged. Attendance work time is not affected; it comes from `PresenceSession`.
 - **Tests:** `ActivityIntervalTrackerTests` (8; also compiled and run standalone on Linux: 8/8) and `ActivityCountCollectorAccountingTests` (4, headless).
-- **Remaining verification:** Windows CI on PR #100, then device check (manual checklist §B).
+- **Regression caught by CI and fixed:**
+  - PR CI run 206 failed the existing interactive test `Hooks_CountInput_OnTheirOwnThread_WithoutTheCallerPumpingMessages`.
+  - Cause: a stop within half a second of the last snapshot rounded to 0 covered seconds, and the first version of the fix then dropped the snapshot together with its input counts.
+  - Fixed in `f987d83`: skip only when neither time nor input elapsed. That existing test is the regression test.
+- **Remaining verification:** device check (manual checklist §B).
+
+### UAT-07 — Agent Service is not shipped (P1)
+- `Package.appxmanifest` declares only the tray application, with the protocol handler. `release.yml` builds and uploads only that MSIX.
+- The Service is installed only by `scripts/install-service.ps1`, a developer script that publishes from a repo checkout with the SDK.
+- A device that receives only the released MSIX has a tray that stays Offline.
+- **Needs a packaging decision:** MSIX `desktop6:Service`, or an MSI/bootstrapper.
+
+### UAT-08 — Tray does not start at logon (P1)
+- There is no `windows.startupTask` in the manifest, and no Run key or scheduled task anywhere in the code or scripts.
+- After a reboot during a workday, the Service receives no tray IPC. `PresenceSession`'s gap fallback then counts the time as idle until the employee opens the tray, and no activity is captured in the meantime.
+- **Fix with UAT-07's installer work:** a startup task, or register the tray at install.
+
+### UAT-11 — Environment endpoint (P3)
+- The shipped `appsettings.json` targets `https://onexso.com:7229` for every environment unless overridden. Confirm the UAT and production values with the backend team.
+- `PortalDevelopmentOrigins` / `PortalDevelopmentPorts` are honoured only when the host environment is Development (`PortalOriginValidator`), so they are not a production exposure.
 
 ### UAT-02 — Idle accumulated twice in tray day metrics (P3)
 - `ActivityCountCollector` and `DeviceStateCollector` both call `ISessionDayMetrics.AddIdleSample` for the same idle time.

@@ -1,38 +1,36 @@
-# UAT Readiness — `develop` (audit of `a05e7d9`)
+# ONEVO Tray App — UAT Readiness Package (`develop`)
 
-| Document | Contents |
-|---|---|
-| [issue-register.md](issue-register.md) | Findings for `develop` (UAT-01…), status, evidence; mapping of earlier findings to existing AUD fixes |
-| [test-report.md](test-report.md) | Automated test results and how to run them |
-| [manual-testing-checklist.md](manual-testing-checklist.md) | Device testing still required (T16–T18) |
+Start with **[12 — UAT Readiness Summary](12-uat-readiness-summary.md)**.
+
+| # | Document | Task |
+|---|---|---|
+| 01 | [Technology Stack & Architecture](01-architecture-report.md) | T01 |
+| 02 | [Security Review](02-security-review.md) | T03 |
+| 03 | [Issue Register](03-issue-register.md) | T02, T09 |
+| 04 | [Test Coverage Matrix](04-test-coverage-matrix.md) | T08 |
+| 05 | [Automated Test Execution Report](05-test-execution-report.md) | T08 |
+| 06 | [Tray ↔ Backend Integration Report](06-api-integration-report.md) | T04 |
+| 07 | [Installer & Upgrade Guide](07-installer-and-upgrade-guide.md) | T12 |
+| 08 | [Environment Configuration Guide](08-environment-configuration-guide.md) | T13 |
+| 09 | [Troubleshooting Guide](09-troubleshooting-guide.md) | T14 |
+| 10 | [Release Notes & Known Issues](10-release-notes-and-known-issues.md) | T14 |
+| 11 | [Manual Testing Checklist](11-manual-testing-checklist.md) | T16–T18 |
+| 12 | [UAT Readiness Summary](12-uat-readiness-summary.md) | T18 input |
+| 13 | [CPU, RAM, Disk & Network](13-performance-report.md) | T10 |
 
 ## Scope and method
 
-- **Baseline:** `develop` at `a05e7d9` (PR #99), 326 commits ahead of `main` (`5cca93e`, "first commit").
-- **Prior audit:** `develop` has already been through an audit/remediation series. The AUD-001…AUD-036, AGT-01/02/03, SEC-01, T10 and T15 work is visible in commit history and in `docs/fixes/2026-10-12-agt-sec-remediation-plan.md`. That audit's register is not stored in this repository.
+- **Baseline:** `develop` @ `a05e7d9` (PR #99).
+- **Prior audit:** `develop` already carries an audit/remediation series. AUD-001…036, AGT-01/02/03, SEC-01, T10 and T15 are visible in commit history and `docs/fixes/`; that series' own register is not stored in this repository.
 - **What this audit did:**
-  - Re-checked every defect found in an earlier pass over `main` against `develop`'s code.
-  - Reviewed the highest-risk paths: attendance accounting (`PresenceSession`), activity accounting (collectors), sync outcome handling, IPC lifecycle and reconnect, and config validation.
-  - Fixed the one defect that was still present.
-- **What it did not do:** a line-by-line review of all ~25,700 lines of source.
+  - mapped the findings of an earlier audit of `main` to `develop`;
+  - reviewed the high-risk paths (attendance and activity accounting, sync outcomes, IPC lifecycle, configuration, packaging);
+  - verified each claim in these documents against the code;
+  - fixed what was still broken (UAT-01).
+- **What it did not do:** a line-by-line review of all ~25,700 lines.
 
-## Readiness summary
+## Keeping this package current
 
-| Area | State on `develop` |
-|---|---|
-| Build | Shared, Service and TrayApp build on Windows CI (run 197 green) |
-| Automated tests | Shared + Service + TrayApp suites with a coverage gate; T15 in-process workday E2E with a backend outage |
-| Offline sync / data integrity | Durable SQLite queue with peek/ack, per-record quarantine (payload kept), owner-bound rows, backoff, bounded stop flush |
-| Attendance accounting | Service-side `PresenceSession` with idle/break/gap handling and restart resume (AUD-001) |
-| Activity accounting | **UAT-01 fixed in this PR**; previously over-reported active time |
-| Security | Data-folder ACL (AUD-003), IPC client verifier, bounded line reader, https-only API URL, dev-bypass flags refused outside Development (AUD-013) |
-| Lifecycle | Single tray instance, reconnect, sleep/hibernate via SCM, collectors stop on lock (AUD-005/006/014) |
-| Observability | Rolling `tray.log` / `service.log`, correlation IDs, crash capture (AUD-018) |
-
-**Recommendation:** ready for **manual Windows compatibility testing (T16)** once this PR's CI is green. A UAT **Go** still needs:
-- T16 device results ([checklist](manual-testing-checklist.md))
-- a signed installer (T17)
-- product decisions on the open items in the register (UAT-03 logging policy)
-- pilot sign-off (T18)
-
-Nothing in this PR merges or deploys anything by itself.
+Use the project skills in `.claude/skills/`:
+- `uat-docs` updates this package and the issue register;
+- `run-tests` builds, runs and reads CI results.
