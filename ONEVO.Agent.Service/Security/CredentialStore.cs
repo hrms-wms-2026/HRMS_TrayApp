@@ -2,28 +2,38 @@ namespace ONEVO.Agent.Service.Security;
 
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.Win32;
 
 public sealed class CredentialStore : ICredentialStore
 {
-    private static readonly string CredentialPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ONEVO", "Agent", "credential.dat");
+    private readonly string _directory;
+    private readonly string _credentialPath;
+
+    public CredentialStore() : this(SecureAgentStorage.DefaultDirectory)
+    {
+    }
+
+    internal CredentialStore(string directory)
+    {
+        _directory = directory;
+        _credentialPath = Path.Combine(directory, "credential.dat");
+    }
 
     public void StoreDeviceJwt(string jwt)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(CredentialPath)!);
+        // DPAPI LocalMachine scope is decryptable by any local account, so confidentiality
+        // depends on the folder ACL applied here (ISS-010).
+        SecureAgentStorage.EnsureDirectory(_directory);
         var encrypted = ProtectedData.Protect(
             Encoding.UTF8.GetBytes(jwt), null, DataProtectionScope.LocalMachine);
-        File.WriteAllBytes(CredentialPath, encrypted);
+        SecureAgentStorage.WriteAllBytesAtomic(_credentialPath, encrypted);
     }
 
     public string? ReadDeviceJwt()
     {
-        if (!File.Exists(CredentialPath)) return null;
+        if (!File.Exists(_credentialPath)) return null;
         try
         {
-            var encrypted = File.ReadAllBytes(CredentialPath);
+            var encrypted = File.ReadAllBytes(_credentialPath);
             var plain = ProtectedData.Unprotect(encrypted, null, DataProtectionScope.LocalMachine);
             return Encoding.UTF8.GetString(plain);
         }
@@ -35,7 +45,7 @@ public sealed class CredentialStore : ICredentialStore
 
     public void ClearDeviceJwt()
     {
-        if (File.Exists(CredentialPath))
-            File.Delete(CredentialPath);
+        if (File.Exists(_credentialPath))
+            File.Delete(_credentialPath);
     }
 }

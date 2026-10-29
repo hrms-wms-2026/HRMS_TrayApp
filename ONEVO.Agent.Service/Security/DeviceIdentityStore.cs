@@ -5,25 +5,34 @@ using ONEVO.Agent.Shared.Models;
 
 public sealed class DeviceIdentityStore
 {
-    private static readonly string IdentityPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "ONEVO", "Agent", "identity.json");
+    private readonly string _directory;
+    private readonly string _identityPath;
+
+    public DeviceIdentityStore() : this(SecureAgentStorage.DefaultDirectory)
+    {
+    }
+
+    internal DeviceIdentityStore(string directory)
+    {
+        _directory = directory;
+        _identityPath = Path.Combine(directory, "identity.json");
+    }
 
     public void Save(DeviceIdentity identity)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(IdentityPath)!);
-        File.WriteAllText(IdentityPath, JsonSerializer.Serialize(identity));
+        SecureAgentStorage.EnsureDirectory(_directory);
+        SecureAgentStorage.WriteAllBytesAtomic(_identityPath, JsonSerializer.SerializeToUtf8Bytes(identity));
     }
 
     public DeviceIdentity? Load()
     {
-        if (!File.Exists(IdentityPath)) return null;
-        try { return JsonSerializer.Deserialize<DeviceIdentity>(File.ReadAllText(IdentityPath)); }
+        if (!File.Exists(_identityPath)) return null;
+        try { return JsonSerializer.Deserialize<DeviceIdentity>(File.ReadAllText(_identityPath)); }
         catch (JsonException) { return null; }
     }
 
     public void Clear()
     {
-        if (File.Exists(IdentityPath)) File.Delete(IdentityPath);
+        if (File.Exists(_identityPath)) File.Delete(_identityPath);
     }
 }
