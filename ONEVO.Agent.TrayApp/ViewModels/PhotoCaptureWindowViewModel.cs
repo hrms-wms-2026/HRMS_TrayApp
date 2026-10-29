@@ -837,17 +837,11 @@ public sealed partial class PhotoCaptureWindowViewModel : BaseViewModel
 
         try
         {
-            double? lat = double.TryParse(
-                _prefs.Get("onevo.live_latitude", ""),
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out var la) ? la : null;
-            double? lon = double.TryParse(
-                _prefs.Get("onevo.live_longitude", ""),
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out var lo) ? lo : null;
-            var locationDisplay = _prefs.Get("onevo.work_location_display", "");
+            // Only today's fix: an older one would be sent as where this photo was taken (AUD-019).
+            var fix = LiveLocationPreference.TryGetToday(_prefs);
+            double? lat = fix?.Latitude;
+            double? lon = fix?.Longitude;
+            var locationDisplay = _prefs.Get(SessionPreferenceKeys.WorkLocationDisplay, "");
 
             var payload = new FacePhotoPayload
             {

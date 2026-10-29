@@ -116,8 +116,7 @@ public sealed class PhotoCaptureWindowViewModelTests
     public async Task Continue_EmbedsCapturedGpsFromPrefsIntoFacePhotoRecord()
     {
         var prefs = new FakePreferencesStore();
-        prefs.Set("onevo.live_latitude",         (13.0827).ToString("G17"));
-        prefs.Set("onevo.live_longitude",        (80.2707).ToString("G17"));
+        LiveLocationPreference.Save(prefs, 13.0827, 80.2707);
         prefs.Set("onevo.work_location_display", "Chennai Office");
 
         PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
@@ -139,6 +138,41 @@ public sealed class PhotoCaptureWindowViewModelTests
         Assert.InRange(payload.Latitude!.Value,  13.08, 13.09);
         Assert.InRange(payload.Longitude!.Value, 80.27, 80.28);
         Assert.Equal("Chennai Office", payload.LocationAddress);
+    }
+
+    [Theory]
+    [InlineData(true)]  // fix from yesterday's confirmation
+    [InlineData(false)] // undated fix left by an older build
+    public async Task Continue_FixNotFromToday_IsNotSentAsThePhotoLocation_AndIsRemoved(bool datedYesterday)
+    {
+        // AUD-019: a clock-in photo must not carry an old fix as if it were where the photo was taken.
+        var prefs = new FakePreferencesStore();
+        if (datedYesterday)
+        {
+            LiveLocationPreference.Save(prefs, 13.0827, 80.2707, DateTimeOffset.Now.AddDays(-1));
+        }
+        else
+        {
+            prefs.Set(SessionPreferenceKeys.LiveLatitude, (13.0827).ToString("G17"));
+            prefs.Set(SessionPreferenceKeys.LiveLongitude, (80.2707).ToString("G17"));
+        }
+        prefs.Set(SessionPreferenceKeys.WorkLocationDisplay, "Chennai Office");
+
+        PhotoCaptureWindowViewModel.IdentityVerificationDwell = TimeSpan.Zero;
+        var pipe = new FakeNamedPipeClient();
+        var vm   = new PhotoCaptureWindowViewModel(
+            new FakeCameraService { ShouldReturnPhoto = true }, pipe, prefs, new CapturedPhotoBuffer());
+        vm.SetContext("clockin");
+
+        await vm.CapturePhotoCommand.ExecuteAsync(null);
+        await vm.ContinueCommand.ExecuteAsync(null);
+
+        var payload = Assert.Single(Assert.Single(pipe.Submitted)).Payload.Deserialize<FacePhotoPayload>()!;
+        Assert.Null(payload.Latitude);
+        Assert.Null(payload.Longitude);
+        Assert.Equal("Chennai Office", payload.LocationAddress);
+        Assert.Equal("", prefs.Get(SessionPreferenceKeys.LiveLatitude, ""));
+        Assert.Equal("", prefs.Get(SessionPreferenceKeys.LiveLongitude, ""));
     }
 
     [Fact]
