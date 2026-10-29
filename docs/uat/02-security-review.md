@@ -26,6 +26,7 @@ Scope: token lifecycle, local secrets, TLS, backend authorization, IPC trust, us
 |---|---|---|
 | UAT-03 | P3 (privacy, policy) | Per-minute keyboard/mouse counts are persisted to the employee's `tray.log` (Information level). Needs a monitoring-policy decision: log at Debug or drop the counts. |
 | UAT-09 | P3 | DPAPI **LocalMachine** scope means confidentiality relies entirely on the folder ACL (AUD-003). Acceptable with the ACL. Verify on a device that standard users cannot read `credential.dat` (11 §F). |
+| UAT-12 | **P1** (privacy) | Face photos are stored as base64 inside SQLite `payload_json` (not DPAPI-protected, unlike the evidence spool) and kept after upload until the 100 MB limit, ≈2–4 months. Recommendation: encrypted spool, deleted after delivery. |
 | UAT-10 | Info | `release.yml` signs with a PFX from secrets; the publisher must match `CN=ONEVO` in the manifest. A production code-signing certificate from a trusted CA is a T17 prerequisite; the dev self-signed cert needs `TrustedPeople` import on every device. |
 
 ## Manual / backend verification required

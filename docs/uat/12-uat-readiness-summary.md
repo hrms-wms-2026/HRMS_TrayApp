@@ -38,6 +38,7 @@ It is well covered by automated tests, including a workday E2E with a backend ou
 |---|---|---|
 | Change that may break installations | UAT-07 / UAT-08: how the Service and tray autostart are installed | Release / architecture owner |
 | Monitoring behaviour vs. policy | UAT-03: activity counts persisted in `tray.log` | Monitoring-policy owner |
+| Biometric / personal-data retention | UAT-12: face photos (with capture GPS) stored unencrypted in SQLite and kept after upload for ≈2–4 months | Privacy / monitoring-policy owner |
 | Accounting | UAT-01 changes the values reported in activity snapshots (more accurate, lower totals on fragmented days) | Product owner (inform report consumers) |
 
 ## Path to UAT Go

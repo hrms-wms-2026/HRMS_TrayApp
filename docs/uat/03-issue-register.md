@@ -17,6 +17,8 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-09 | P3 | Security | Credential confidentiality relies on the folder ACL (DPAPI LocalMachine) | Confirmed (code) | Device verification (11 §F) |
 | UAT-10 | Info | Release | Production code-signing certificate needed; dev cert requires manual trust | Verified (`release.yml`, `build-msix.ps1`) | T17 |
 | UAT-11 | P3 | Configuration | Shipped `ApiBaseUrl` must be confirmed per environment | Verified (`appsettings.json`) | Open — backend team |
+| UAT-12 | **P1** | Service buffer / privacy | Face photos kept unencrypted (base64 JSON) in SQLite and retained after upload | Verified (code + measurement) | **Escalated** — privacy/retention decision |
+| UAT-13 | P2 | Service buffer / storage | Delivered rows retained until the 100 MB limit (≈2–4 months); then a blocking full `VACUUM` | Verified (measurement) | Open — fix proposed (13 §Storage) |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
 - **File:** `ONEVO.Agent.TrayApp/Collectors/ActivityCountCollector.cs` (`EmitSnapshotAsync`, `SnapshotLoopAsync`, `StopAsync`).
@@ -52,6 +54,22 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 ### UAT-11 — Environment endpoint (P3)
 - The shipped `appsettings.json` targets `https://onexso.com:7229` for every environment unless overridden. Confirm the UAT and production values with the backend team.
 - `PortalDevelopmentOrigins` / `PortalDevelopmentPorts` are honoured only when the host environment is Development (`PortalOriginValidator`), so they are not a production exposure.
+
+### UAT-12 — Face photos kept unencrypted and after upload (P1, privacy)
+- **Write path:** `PhotoCaptureWindowViewModel.SubmitFacePhotoRecordAsync` puts the JPEG into `FacePhotoPayload.Data` as **base64**. The record is stored in `collection_records.payload_json` like any other row: not DPAPI-protected, unlike screenshots in the evidence spool.
+- **Retention:** after upload, `MarkAcknowledged` only sets `status = 'synced'`. The row, with the photo and the capture GPS, stays on disk until the database reaches 100 MB. That is ≈58–110 days at one photo a day (measured, see 13).
+- **Size:** the camera picks its largest format ≥ 640×480. Base64 adds 33%, so a 400 KB JPEG costs ≈ 560 KB of database per photo.
+- **Recommendation:** treat face photos like other evidence.
+  - Spool the bytes DPAPI-encrypted (`EvidenceSpoolStore`), keep only a reference in the row, and delete after delivery.
+  - Or, at minimum, delete the row's photo data on acknowledgement.
+- Biometric retention is a policy decision → **Escalated**.
+
+### UAT-13 — Delivered rows retained; blocking VACUUM (P2)
+- Synced rows of every type stay until the 100 MB byte limit. Then `HasRoomUnlocked` deletes them and runs a full `VACUUM` while holding the buffer lock. A full `VACUUM` rewrites the whole file and needs up to the same amount of free disk again.
+- **Measured** with the real `ActivityRecordBuffer` and a synthetic 8-hour day: 1,681 rows/day, 0.91–1.73 MB/day after acknowledgement. Deleting the synced rows plus `VACUUM` brings the file back to 32 KB.
+- **Recommendation:**
+  - Delete synced rows shortly after acknowledgement, keeping a short window for de-duplication (synced inactivity attempts are already handled specially).
+  - Switch to `PRAGMA auto_vacuum = INCREMENTAL` with small `incremental_vacuum` steps instead of a periodic full `VACUUM`.
 
 ### UAT-02 — Idle accumulated twice in tray day metrics (P3)
 - `ActivityCountCollector` and `DeviceStateCollector` both call `ISessionDayMetrics.AddIdleSample` for the same idle time.

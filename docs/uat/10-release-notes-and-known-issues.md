@@ -44,3 +44,5 @@
 | UAT-09 | P3 | Credential confidentiality relies on the folder ACL | Device check (11 §F) |
 | UAT-10 | Info | Production signing certificate needed | T17 |
 | UAT-11 | P3 | Confirm `ApiBaseUrl` per environment | Override with `Agent__ApiBaseUrl` |
+| UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |
+| UAT-13 | P2 | Delivered rows kept until 100 MB, then a blocking full VACUUM | Fix proposed (13 §Storage) |
