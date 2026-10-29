@@ -1,7 +1,6 @@
 namespace ONEVO.Agent.TrayApp.Services;
 
 using System.IO.Pipes;
-using System.Text;
 using System.Text.Json;
 using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
@@ -14,6 +13,7 @@ public sealed class NamedPipeClient : IAsyncDisposable
     private NamedPipeClientStream? _pipe;
     private StreamWriter? _writer;
     private CancellationTokenSource? _cts;
+    private readonly string _pipeName;
 
     // CRITICAL: all collectors MUST stop on this event (§2.3)
     public event Action? OnDisconnected;
@@ -21,8 +21,14 @@ public sealed class NamedPipeClient : IAsyncDisposable
     public event Action<AgentPolicy>? OnPolicyReceived;
 
     public NamedPipeClient(ILogger<NamedPipeClient> logger)
+        : this(logger, Constants.PipeName)
+    {
+    }
+
+    internal NamedPipeClient(ILogger<NamedPipeClient> logger, string pipeName)
     {
         _logger = logger;
+        _pipeName = pipeName;
     }
 
     public Task StartAsync(CancellationToken ct)
@@ -40,15 +46,19 @@ public sealed class NamedPipeClient : IAsyncDisposable
             try
             {
                 _pipe = new NamedPipeClientStream(
-                    ".", Constants.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                    ".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
                 await _pipe.ConnectAsync(Constants.IpcConnectionTimeoutMs, ct);
-                await AuthenticateAsync(_pipe, ct);
 
-                _writer = new StreamWriter(_pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
+                // One reader/writer for the whole connection (ISS-006).
+                using var reader = IpcLineCodec.CreateReader(_pipe);
+                var writer = IpcLineCodec.CreateWriter(_pipe);
+                await AuthenticateAsync(reader, writer, ct);
+
+                _writer = writer;
                 _logger.LogInformation("Connected to ONEVO Agent Service");
 
                 await RequestStatusAsync(ct);
-                await ReadLoopAsync(_pipe, ct);
+                await ReadLoopAsync(_pipe, reader, ct);
                 return;
             }
             catch (OperationCanceledException) { return; }
@@ -72,21 +82,18 @@ public sealed class NamedPipeClient : IAsyncDisposable
         OnDisconnected?.Invoke();
     }
 
-    private static async Task AuthenticateAsync(NamedPipeClientStream pipe, CancellationToken ct)
+    private static async Task AuthenticateAsync(StreamReader reader, StreamWriter writer, CancellationToken ct)
     {
-        var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);
-        var writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
-
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(Constants.IpcConnectionTimeoutMs);
 
         var line = await reader.ReadLineAsync(cts.Token)
             ?? throw new InvalidOperationException("Pipe closed during auth challenge");
 
-        var challenge = JsonSerializer.Deserialize<IpcEnvelope>(line)
-            ?? throw new InvalidOperationException("Invalid auth challenge envelope");
+        if (!IpcLineCodec.TryParse(line, out var challenge))
+            throw new InvalidOperationException("Invalid auth challenge envelope");
 
-        if (challenge.Type != IpcMessageTypes.NonceChallenge)
+        if (challenge!.Type != IpcMessageTypes.NonceChallenge)
             throw new InvalidOperationException($"Unexpected message type: {challenge.Type}");
 
         var payload = challenge.Payload?.Deserialize<NonceChallengePayload>()
@@ -98,7 +105,7 @@ public sealed class NamedPipeClient : IAsyncDisposable
             CorrelationId = challenge.CorrelationId,
             Payload = JsonSerializer.SerializeToElement(new NonceResponsePayload(payload.Nonce))
         };
-        await writer.WriteLineAsync(JsonSerializer.Serialize(response));
+        await writer.WriteLineAsync(IpcLineCodec.Serialize(response));
     }
 
     private async Task RequestStatusAsync(CancellationToken ct)
@@ -134,7 +141,7 @@ public sealed class NamedPipeClient : IAsyncDisposable
         {
             if (_writer is null)
                 return;
-            await _writer.WriteLineAsync(JsonSerializer.Serialize(envelope).AsMemory(), ct);
+            await _writer.WriteLineAsync(IpcLineCodec.Serialize(envelope).AsMemory(), ct);
         }
         finally
         {
@@ -142,25 +149,18 @@ public sealed class NamedPipeClient : IAsyncDisposable
         }
     }
 
-    private async Task ReadLoopAsync(NamedPipeClientStream pipe, CancellationToken ct)
+    private async Task ReadLoopAsync(NamedPipeClientStream pipe, StreamReader reader, CancellationToken ct)
     {
-        using var reader = new StreamReader(pipe, Encoding.UTF8);
         try
         {
             while (pipe.IsConnected && !ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync(ct);
                 if (line is null) break;
-                if (line.Length > Constants.MaxMessageLengthBytes) continue;
-
-                IpcEnvelope? envelope;
-                try { envelope = JsonSerializer.Deserialize<IpcEnvelope>(line); }
-                catch (JsonException) { continue; }
-
-                if (envelope is null)
+                if (!IpcLineCodec.TryParse(line, out var envelope))
                     continue;
 
-                switch (envelope.Type)
+                switch (envelope!.Type)
                 {
                     case IpcMessageTypes.StatusResponse:
                     {

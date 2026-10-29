@@ -4,4 +4,5 @@
   <Project Path="ONEVO.Agent.TrayApp/ONEVO.Agent.TrayApp.csproj" />
   <Project Path="tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj" />
   <Project Path="tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj" />
+  <Project Path="tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj" />
 </Solution>

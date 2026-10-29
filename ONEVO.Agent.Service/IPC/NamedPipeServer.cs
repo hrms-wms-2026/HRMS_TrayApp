@@ -3,8 +3,6 @@ namespace ONEVO.Agent.Service.IPC;
 using System.IO.Pipes;
 using System.Security.AccessControl;
 using System.Security.Principal;
-using System.Text;
-using System.Text.Json;
 using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
 
@@ -49,7 +47,12 @@ public sealed class NamedPipeServer : IAsyncDisposable
     {
         using (pipe)
         {
-            if (!await _authenticator.AuthenticateAsync(pipe, ct))
+            // One reader/writer for the whole connection: a separate handshake reader would
+            // swallow messages the client sends right after authenticating (ISS-006).
+            using var reader = IpcLineCodec.CreateReader(pipe);
+            await using var writer = IpcLineCodec.CreateWriter(pipe);
+
+            if (!await _authenticator.AuthenticateAsync(reader, writer, ct))
             {
                 _logger.LogWarning("IPC client failed authentication — connection dropped");
                 return;
@@ -57,12 +60,9 @@ public sealed class NamedPipeServer : IAsyncDisposable
 
             _logger.LogInformation("IPC client authenticated");
 
-            var writer = new StreamWriter(pipe, Encoding.UTF8, leaveOpen: true) { AutoFlush = true };
-
             Task SendAsync(IpcEnvelope envelope) =>
-                writer.WriteLineAsync(JsonSerializer.Serialize(envelope));
+                writer.WriteLineAsync(IpcLineCodec.Serialize(envelope));
 
-            using var reader = new StreamReader(pipe, Encoding.UTF8, leaveOpen: true);
             try
             {
                 while (pipe.IsConnected && !ct.IsCancellationRequested)
@@ -75,11 +75,8 @@ public sealed class NamedPipeServer : IAsyncDisposable
                         continue;
                     }
 
-                    IpcEnvelope? envelope;
-                    try { envelope = JsonSerializer.Deserialize<IpcEnvelope>(line); }
-                    catch (JsonException) { continue; }
-
-                    if (envelope is null || !IpcProtocolVersion.IsCompatible(envelope.Version)) continue;
+                    if (!IpcLineCodec.TryParse(line, out var envelope)
+                        || !IpcProtocolVersion.IsCompatible(envelope!.Version)) continue;
 
                     if (MessageReceived is not null)
                         await MessageReceived(envelope, SendAsync);
