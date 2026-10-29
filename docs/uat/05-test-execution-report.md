@@ -10,22 +10,20 @@
 
 `release.yml` runs the same three test projects before building a signed MSIX for a `vX.Y.Z` tag.
 
-## Results of record — PR #100 head `f987d83`
+## Results of record — PR #100 head `86aa632`
 
-Run: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/40864898740> — **success**
+Run: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/40869661955> — **success**
 
 | Test project | Result |
 |---|---|
 | ONEVO.Agent.Shared.Tests | 42/42 passed |
-| ONEVO.Agent.Service.Tests | 514/514 passed |
-| ONEVO.Agent.TrayApp.Tests | **580/580 passed** (includes the interactive-desktop hook tests and the 12 tests added in this PR) |
-
-The Shared and Service counts were read from the PR's first run on `61e43f9`. Both steps passed again on `f987d83`, which changes no code in those projects.
+| ONEVO.Agent.Service.Tests | **518/518 passed** (includes the 4 UAT-13 retention tests) |
+| ONEVO.Agent.TrayApp.Tests | **580/580 passed** (includes the interactive-desktop hook tests and the 12 UAT-01 tests) |
 
 | Assembly | Line (floor) | Branch (floor) | vs `develop` baseline |
 |---|---|---|---|
 | Shared | 46.8% (26%) | 87.5% (0%) | = |
-| Service | 75.1% (72%) | 68.1% (63%) | = |
+| Service | 75.2% (72%) | 68.2% (63%) | +0.1 / +0.1 |
 | TrayApp | 47.4% (45%) | 26.4% (24%) | +0.4 / +0.1 |
 
 ## Run history on this PR
@@ -34,9 +32,12 @@ The Shared and Service counts were read from the PR's first run on `61e43f9`. Bo
 |---|---|---|---|
 | 40864213479 | `61e43f9` | ❌ TrayApp 579/580 | `ActivityCountCollectorTests.Hooks_CountInput_OnTheirOwnThread_WithoutTheCallerPumpingMessages` failed: the first UAT-01 version dropped a sub-second final snapshot together with its input counts. Real regression, fixed in `f987d83` |
 | 40864446548 | `23dabe1` (docs) | superseded | Same code as above |
-| 40864898740 | `f987d83` | ✅ | Results of record |
+| 40864898740 | `f987d83` | ✅ | |
+| 40868376706 | `a8dab05` | ✅ | UAT-13 fix |
+| 40868481969 | `2c64edf` (docs) | ❌ Service 517/518 | `ActivitySyncFlushRequestTests.WithoutARequest_RowsWaitForTheIngestInterval` expected 0 uploads, got 1. Timing race in the test: it assumed the start-up flush had read the queue within a fixed 200 ms. The same code had passed on `a8dab05` |
+| 40869661955 | `86aa632` | ✅ | Results of record |
 
-No test was skipped, disabled or changed to get green.
+No test was skipped or disabled. One existing test was changed (`86aa632`): `WithoutARequest_RowsWaitForTheIngestInterval` now waits for the start-up flush's own log line instead of a fixed delay. Its assertion (no upload without a request) is unchanged.
 
 ## Baseline — `develop` @ `a05e7d9`
 

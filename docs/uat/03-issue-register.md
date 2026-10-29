@@ -18,7 +18,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-10 | Info | Release | Production code-signing certificate needed; dev cert requires manual trust | Verified (`release.yml`, `build-msix.ps1`) | T17 |
 | UAT-11 | P3 | Configuration | Shipped `ApiBaseUrl` must be confirmed per environment | Verified (`appsettings.json`) | Open — backend team |
 | UAT-12 | **P1** | Service buffer / privacy | Face photos kept unencrypted (base64 JSON) in SQLite and retained after upload | Verified (code + measurement) | **Escalated** — privacy/retention decision |
-| UAT-13 | P2 | Service buffer / storage | Delivered rows retained until the 100 MB limit (≈2–4 months); then a blocking full `VACUUM` | Verified (measurement) | **Fixed in PR #100** (`a8dab05`) — CI pending |
+| UAT-13 | P2 | Service buffer / storage | Delivered rows retained until the 100 MB limit (≈2–4 months); then a blocking full `VACUUM` | Verified (measurement) | **Fixed in PR #100** (`a8dab05`); CI green on `86aa632` (Service 518/518) |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
 - **File:** `ONEVO.Agent.TrayApp/Collectors/ActivityCountCollector.cs` (`EmitSnapshotAsync`, `SnapshotLoopAsync`, `StopAsync`).
