@@ -14,6 +14,10 @@ public sealed class CollectorCoordinator : IAsyncDisposable
     private readonly NamedPipeClient _pipeClient;
     private readonly object _gate = new();
 
+    // Reconciles run one at a time and always apply the latest state, so a fast
+    // Active -> Paused -> Active sequence can never overlap collector Start/Stop (ISS-015).
+    private readonly SemaphoreSlim _reconcileLock = new(1, 1);
+
     private AgentPolicy? _policy;
     private MonitoringState _state = MonitoringState.Unenrolled;
     private bool _collectorsRunning;
@@ -53,27 +57,43 @@ public sealed class CollectorCoordinator : IAsyncDisposable
 
     private void OnDisconnected()
     {
-        _logger.LogWarning("IPC disconnected — stopping all collectors immediately");
-        _ = StopAllAsync();
-    }
-
-    private async Task ReconcileAsync()
-    {
-        MonitoringState state;
-        AgentPolicy? policy;
+        _logger.LogWarning("IPC disconnected — stopping all collectors");
         lock (_gate)
         {
-            state = _state;
-            policy = _policy;
+            _state = MonitoringState.Stopped; // a fresh StatusResponse follows reconnection
         }
+        _ = ReconcileAsync();
+    }
 
-        // Collect only when Active and we have a policy that enables features.
-        var shouldRun = state == MonitoringState.Active && policy is not null;
+    internal async Task ReconcileAsync()
+    {
+        await _reconcileLock.WaitAsync();
+        try
+        {
+            MonitoringState state;
+            AgentPolicy? policy;
+            lock (_gate)
+            {
+                state = _state;
+                policy = _policy;
+            }
 
-        if (shouldRun)
-            await StartAllAsync(policy!);
-        else
-            await StopAllAsync();
+            // Collect only when Active and we have a policy that enables features.
+            var shouldRun = state == MonitoringState.Active && policy is not null;
+
+            if (shouldRun)
+                await StartAllAsync(policy!);
+            else
+                await StopAllAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Collector reconcile failed");
+        }
+        finally
+        {
+            _reconcileLock.Release();
+        }
     }
 
     private async Task StartAllAsync(AgentPolicy policy)
@@ -136,6 +156,10 @@ public sealed class CollectorCoordinator : IAsyncDisposable
         _pipeClient.OnStateReceived -= OnStateReceived;
         _pipeClient.OnPolicyReceived -= OnPolicyReceived;
         _pipeClient.OnDisconnected -= OnDisconnected;
-        await StopAllAsync();
+        lock (_gate)
+        {
+            _state = MonitoringState.Stopped;
+        }
+        await ReconcileAsync();
     }
 }
