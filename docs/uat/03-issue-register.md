@@ -1,6 +1,6 @@
 # 03 — Issue Register
 
-Baseline revision: `5cca93e`. Classification legend:
+Baseline revision: `5cca93e`. Last updated after `ef81a0c` (Windows CI run 203: 89/89 tests passed). Classification legend:
 
 - **Verified** — reproduced by an automated test, experiment or build log.
 - **Confirmed (code)** — follows deterministically from the code/platform documentation; not executed (usually needs Windows).
@@ -16,36 +16,37 @@ Status values: Open · Escalated (needs human/backend decision) · Fixed – ver
 | ISS-002 | P0 | Auth | No login / enrollment / token lifecycle | Verified (code) | Escalated |
 | ISS-003 | P0 | Attendance | Clock-in/out and break tracking not implemented | Verified (code) | Escalated |
 | ISS-004 | P0 | Service buffer | Offline queue is RAM-only; all pending activity lost on restart | Confirmed (code) | Escalated |
-| ISS-005 | P0 | Tray build | TrayApp does not build | Suspected → see 05 | Open |
-| ISS-006 | P1 | IPC | Handshake reader buffering drops tray's first message | Verified | Open |
-| ISS-007 | P1 | Sync | Records permanently dropped on HTTP 401/403 | Confirmed (code) | Open |
-| ISS-008 | P1 | Sync | Dequeued batch lost on unexpected exception; silent drops | Confirmed (code) | Open |
+| ISS-005 | P0 | Tray build | TrayApp project compiles nothing (no executable) | Verified (Windows CI) | Escalated |
+| ISS-006 | **P0** | IPC | Handshake deadlocks on Windows / drops post-handshake message | Verified (Windows CI) | Fixed – verified |
+| ISS-007 | P1 | Sync | Records permanently dropped on HTTP 401/403 | Verified | Fixed – verified |
+| ISS-008 | P1 | Sync | Dequeued batch lost on unexpected exception; silent drops | Verified | Fixed – verified |
 | ISS-009 | P1 | API contract | No idempotency key → duplicates after lost responses | Confirmed (code) | Escalated |
-| ISS-010 | P1 | Security | Device JWT readable by any local user | Confirmed (code) | Open |
+| ISS-010 | P1 | Security | Device JWT readable by any local user | Confirmed (code) | Fixed – verified (Windows CI) |
 | ISS-011 | P1 | Security/IPC | IPC has no real client/server authentication | Confirmed (code) | Escalated |
-| ISS-012 | P1 | Tray collector | LL hooks installed on a thread without a message loop | Confirmed (code) | Open |
-| ISS-013 | P1 | Tray IPC | Pipe client never reconnects after disconnect / 5 failed attempts | Confirmed (code) | Open |
-| ISS-014 | P1 | Calculation | Active/idle seconds wrong for partial intervals; idle heuristic | Confirmed (code) | Open |
-| ISS-015 | P1 | Tray collector | Start/stop race can orphan the snapshot loop (capture during break) | Confirmed (code) | Open |
-| ISS-016 | P1 | Tray lifecycle | No single-instance guard → double counting | Confirmed (code) | Open |
-| ISS-017 | P1 | Tray collector | Snapshot loop dies permanently on first IPC write error | Confirmed (code) | Open |
-| ISS-018 | P2 | Service IPC | Pipe server: double-dispose exception, silent accept-loop death, unobserved auth faults | Verified | Open |
-| ISS-019 | P2 | Config/TLS | `ApiBaseUrl` not validated (http allowed); timeout option unused | Confirmed (code) | Open |
+| ISS-012 | P1 | Tray collector | LL hooks installed on a thread without a message loop | Confirmed (code) | Open – needs Windows device |
+| ISS-013 | P1 | Tray IPC | Pipe client never reconnects after disconnect / 5 failed attempts | Verified | Fixed – verified |
+| ISS-014 | P1 | Calculation | Active/idle seconds wrong for partial intervals; idle heuristic | Confirmed (code) | Fixed – unit-verified, device verification pending |
+| ISS-015 | P1 | Tray collector | Start/stop race can orphan the snapshot loop (capture during break) | Verified | Fixed – verified |
+| ISS-016 | P1 | Tray lifecycle | No single-instance guard → double counting | Confirmed (code) | Open – blocked by ISS-005 |
+| ISS-017 | P1 | Tray collector | Snapshot loop dies permanently on first IPC write error | Confirmed (code) | Fixed – verified |
+| ISS-018 | P2 | Service IPC | Pipe server: double-dispose exception, silent accept-loop death, unobserved auth faults | Verified | Fixed – verified |
+| ISS-019 | P2 | Config/TLS | `ApiBaseUrl` not validated (http allowed); timeout option unused | Confirmed (code) | Partly fixed (https enforced; timeout open with ISS-001) |
 | ISS-020 | P2 | IPC | Unbounded line read before size check | Confirmed (code) | Open |
-| ISS-021 | P2 | Sync | Final flush on shutdown has no time bound | Confirmed (code) | Open |
+| ISS-021 | P2 | Sync | Final flush on shutdown has no time bound | Verified | Fixed – verified |
 | ISS-022 | P2 | Isolation | Multi-user machines: records carry no user identity | Confirmed (code) | Escalated |
 | ISS-023 | P2 | Data integrity | Tray stamps `DeviceId = MachineName` | Confirmed (code) | Open |
-| ISS-024 | P2 | Storage | Non-atomic credential/identity writes | Confirmed (code) | Open |
+| ISS-024 | P2 | Storage | Non-atomic credential/identity writes | Confirmed (code) | Fixed – verified |
 | ISS-025 | P2 | Observability | No persistent tray logs, rotation, crash reporting, correlation IDs | Confirmed (code) | Open |
 | ISS-026 | P2 | Tray UX | State never pushed; "Ready" shown while disconnected | Confirmed (code) | Open |
-| ISS-027 | P3 | Repo | 363 build outputs committed; `.gitignore` deleted | Verified | Open |
-| ISS-028 | P3 | Release | No CI, installer, or version stamping | Verified | Open |
-| ISS-029 | P3 | Dependencies | Runtime packages behind servicing; ProtectedData major mismatch | Verified | Open |
-| ISS-030 | P3 | Buffer | Cap non-atomic, counts records not MB; requeue reorders | Confirmed (code) | Open |
+| ISS-027 | P3 | Repo | 363 build outputs committed; `.gitignore` deleted | Verified | Fixed |
+| ISS-028 | P3 | Release | No CI, installer, or version stamping | Verified | Partly fixed (CI + CI version stamping; no installer) |
+| ISS-029 | P3 | Dependencies | Runtime packages behind servicing; ProtectedData major mismatch | Verified | Fixed |
+| ISS-030 | P3 | Buffer | Cap non-atomic, counts records not MB; requeue reorders | Verified (ordering) | Fixed (ordering, atomic cap); MB cap open |
 | ISS-031 | P3 | State machine | `Locked→Locked` allowed; state not persisted | Verified (code) | Open |
 | ISS-032 | P3 | Tray UI | Blocking init, dropped early state, empty MAUI window | Suspected | Open |
-| ISS-033 | P3 | Sync | `HttpResponseMessage` never disposed | Confirmed (code) | Open |
+| ISS-033 | P3 | Sync | `HttpResponseMessage` never disposed | Confirmed (code) | Fixed |
 | ISS-034 | P3 | Policy | Employee can exit tray and stop capture | Policy question | Escalated |
+| ISS-035 | P2 | Tray lifecycle | Pipe-client disposal throws on exit (async-void handler → crash) | Verified | Fixed – verified |
 
 ---
 
@@ -78,12 +79,12 @@ Status values: Open · Escalated (needs human/backend decision) · Fixed – ver
 - **Actual:** Service restart, crash, reboot, upgrade or power loss discards every un-uploaded record (up to 5,000 ≈ 3.5 days at 1/min). **Expected:** durable queue surviving restarts (T05).
 - **Recommended fix:** Encrypted SQLite (as planned) or append-only journal; needs a dependency decision (rule 4). **Status:** Escalated.
 
-### ISS-005 — TrayApp does not build (P0, suspected)
+### ISS-005 — TrayApp does not build (P0) — verified, see update below
 - **Files:** `ONEVO.Agent.TrayApp/ONEVO.Agent.TrayApp.csproj`, `Services/TrayIconService.cs:50`, `App.xaml.cs:5`
 - **Evidence:** committed `obj/project.assets.json` has no MAUI packages; generated `GlobalUsings.g.cs` has `System.Windows.Forms`/`System.Drawing` but no `Microsoft.Maui.*`; no `bin/` output; `NotifyIcon` has no `Invoke` method (it is a `Component`, not a `Control`); `Application`/`Window` would be ambiguous between MAUI and WinForms implicit usings.
 - **Verification:** Windows CI build — result recorded in 05.
 
-### ISS-006 — IPC handshake drops tray's first message (P1, Verified)
+### ISS-006 — IPC handshake deadlocks on Windows and drops the tray's first message (P0, Verified — see resolution log)
 - **Files:** `Service/IPC/NamedPipeAuthenticator.cs:27-28`, `Service/IPC/NamedPipeServer.cs:52,65`; `TrayApp/Services/NamedPipeClient.cs:47,77-78,147`
 - **Problem:** The authenticator reads the handshake with its own `StreamReader`, which buffers everything available on the pipe. The tray writes `NonceResponse` and immediately `StatusRequest`. If both arrive before the first read completes, `StatusRequest` sits in the discarded authenticator buffer and `HandleClientAsync`'s new reader never sees it. Additionally each `new StreamWriter(pipe, Encoding.UTF8)` emits a UTF-8 BOM, so simply reusing one reader yields `\uFEFF{...}` lines that fail JSON parsing.
 - **Actual:** Intermittently the tray never receives its initial state (tooltip stuck at "Starting..."). **Expected:** every message after a successful handshake is processed.
@@ -188,3 +189,34 @@ Status values: Open · Escalated (needs human/backend decision) · Fixed – ver
 
 ### ISS-034 — Employee can exit tray (Policy)
 - `TrayIconService.cs:76-80`. Needs a documented monitoring-policy decision. **Escalated.**
+
+### ISS-035 — Pipe-client disposal throws on exit (P2, Verified) — found during Phase 2
+- **File:** `TrayApp/Services/NamedPipeClient.cs` `DisposeAsync`; caller `App.xaml.cs` `window.Destroying += async (_, _) => …` (async void)
+- **Problem:** disposing the `StreamWriter` flushes into a pipe the connection loop may already have closed → `ObjectDisposedException`; a second call throws on the disposed CTS. In an async-void handler either exception terminates the process on exit.
+- **Evidence:** reproduced in 3 of 8 parallel test runs while stabilising the ISS-013 test; double-dispose reproduces deterministically.
+
+---
+
+## Resolution log (Phase 2)
+
+All tests below ran on Linux (SDK 10.0.113) **and** on Windows CI with the pinned SDK 10.0.300 (run 203, commit `8d808a7`: 89/89 passed). "Red on old code" = the new test was run against the previous implementation (with only the test seam applied) and failed.
+
+| Issue | Commit | Tests added | Red on old code | Verification |
+|---|---|---|---|---|
+| ISS-006 | `3fdddad`, `8d808a7` | `IpcLineCodecTests` (10), `NamedPipeAuthenticatorTests` (5), `NamedPipeClientTests` (2), `NamedPipeServerTests.ProductionPipe_WithAcl_…` | Yes (client tests 2/2) | Windows CI: production ACL pipe completes handshake + status round trip. `Characterization_OriginalHandshakeWriters_DeadlockOnWindows` passed on Windows, proving the **original** handshake (both ends create `StreamWriter(Encoding.UTF8){AutoFlush=true}` before reading → synchronous BOM write on a zero-buffer pipe) deadlocks on every connection. Priority raised to P0. |
+| ISS-007, 008, 021, 030, 033 | `14507cf` | `ActivitySyncServiceTests` (13), `ActivityRecordBufferTests` (3) | Yes (7 tests) | Passed Linux + Windows. Note: the concurrency-cap test also passes on old code (race rarely hit), so ISS-030's cap race is hardening, not reproduced. `CancelledDuringSend` fails on old code because cancellation was swallowed, not because data was lost. |
+| ISS-018 | `d522795` | `NamedPipeServerTests` (3 + 1 Windows-only) | Yes (3/3) | Passed Linux (15/15 repeats) + Windows. `ClientDroppingDuringHandshake` reproduces via Linux pipe semantics; on Windows the old behaviour would delay rather than reset the next client. |
+| ISS-010, 024 | `d7547e8` | `SecureStorageTests` (1 + 3 Windows-only) | n/a (old code had no ACL handling; the assertions cannot hold without it) | Windows CI: folder DACL protected, only SYSTEM + Administrators, owner Administrators, squatted folder reclaimed, DPAPI round trip. |
+| ISS-019 | `694d496` | `OptionsValidationTests` (8) | — | Passed. HTTP timeout still unapplied (no HttpClient registration — ISS-001). |
+| ISS-013 | `dbe7755` | `NamedPipeClientReconnectTests` (1) | Yes | Passed Linux + Windows. |
+| ISS-015 | `4eb7058` | `CollectorCoordinatorTests` (1) | Yes — old code ran **6 concurrent** Start/Stop calls (3/3 runs) | Passed Linux + Windows. |
+| ISS-014, 017 | `970f55c` | `ActivityIntervalTrackerTests` (8), `ActivityCountCollectorTests` (3) | Not runnable (calculation was not separable); old values derived from the old formula are recorded in test comments | Unit-verified. **Real-device verification pending** (hooks + GetLastInputInfo cannot run in CI). |
+| ISS-035 | `b60d645` | `NamedPipeClientDisposeTests` (2) | Yes (double dispose, deterministic) | Passed Linux (8/8 full-suite repeats) + Windows. |
+| ISS-027, 028 | `23118b7`, `ae878c8`, `d83a964` | CI workflow | — | CI runs on every push; tray job intentionally red until ISS-005 is resolved. |
+| ISS-029 | `ef81a0c` | — | — | `dotnet list package --vulnerable`: none; all tests pass. |
+
+### ISS-005 update (Verified)
+Windows CI (runs 198, 199, 201, 203): `dotnet build ONEVO.Agent.TrayApp.csproj` reports "Build succeeded, 0 errors" in ~0.4 s and produces **no assembly**; the project has no `Platforms/Windows` head (WinUI `App.xaml`, manifest) that a MAUI Windows app requires. The original CI-less repository therefore never had a runnable tray. Making it buildable requires either adding MAUI Windows platform scaffolding and resolving the MAUI/WinForms namespace conflicts, or re-platforming the tray (a tray-only UI does not need MAUI). This is an architecture decision → **Escalated**. Until then every tray-side fix is verified only through `tests/ONEVO.Agent.TrayApp.Tests`, which compiles the tray's UI-free sources.
+
+### Open P0/P1 items after Phase 2
+ISS-001, 002, 003, 004, 005, 009, 011, 022 (escalated — need product/backend/architecture decisions); ISS-012, 016 (need a buildable tray and a Windows device).

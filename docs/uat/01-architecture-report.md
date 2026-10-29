@@ -90,10 +90,10 @@ Dotted/marked links do not exist in code. What actually runs today:
 | Event | Service | Tray |
 |---|---|---|
 | Boot / logon | Started by SCM (start type not defined — no installer) | No autostart mechanism exists (no installer / Run key / scheduled task) |
-| Tray start before service | — | 5 connect attempts with backoff (~15–40 s), then gives up permanently (ISS-013) |
-| Service restart / upgrade | In-memory buffer lost (ISS-004) | Read loop ends → `OnDisconnected` → **never reconnects** (ISS-013) |
+| Tray start before service | — | Originally: 5 attempts then gave up (ISS-013). **Fixed:** retries indefinitely, backoff capped at 30 s |
+| Service restart / upgrade | In-memory buffer lost (ISS-004, open) | Originally never reconnected (ISS-013). **Fixed:** reconnects automatically |
 | Lock / unlock, sleep / hibernate | No handling (`SessionSwitch`/power events not subscribed) | No handling; snapshot timer fires once on resume |
-| Logoff / shutdown | `ActivitySyncService` final flush with no timeout (ISS-021) | Window `Destroying` async-void disposal |
+| Logoff / shutdown | Final flush now bounded to 5 s (ISS-021, fixed) | Window `Destroying` async-void disposal; dispose made non-throwing (ISS-035, fixed) |
 | Force kill | All buffered data lost | Hooks released by OS |
 | Multiple instances | SCM guarantees one service | **No single-instance guard** (ISS-016) |
 
@@ -123,19 +123,21 @@ Privacy design is sound in intent: hooks never read key codes or coordinates; wi
 
 Source: `dotnet list package --vulnerable --include-transitive` and `--outdated` against nuget.org. Native dependencies: `user32.dll`, `kernel32.dll` only.
 
-## 8. Build status at audit time
+## 8. Build status
 
-| Project | Linux (SDK 10.0.113, `EnableWindowsTargeting`) | Notes |
+| Project | Linux (SDK 10.0.113, `EnableWindowsTargeting`) | Windows CI (SDK 10.0.300, pinned) |
 |---|---|---|
-| Shared, Service, both test projects | Build clean, **26/26 tests pass** | |
-| TrayApp | Not buildable on Linux (MAUI Windows) | **Evidence it has never built** (ISS-005): committed `obj/project.assets.json` contains no MAUI package, generated `GlobalUsings.g.cs` has no `Microsoft.Maui.*` namespaces, and the project has no `bin/` output unlike all other projects. Verified on Windows CI — see 05-automated-test-execution-report.md. |
+| Shared, Service, test projects | Build clean (warnings as errors); all tests pass | Build clean; **89/89 tests pass** (run 203); versioned service publish artifact produced |
+| TrayApp | Not buildable (MAUI Windows) | **Produces no binary**: "Build succeeded" in ~0.4 s with nothing compiled; no `Platforms/Windows` head exists (ISS-005, verified) |
+
+At audit time (`5cca93e`) the committed `obj/` state already showed this: no MAUI packages restored, no `Microsoft.Maui.*` implicit usings, no `bin/` output.
 
 ## 9. Risk summary
 
 | Risk | Level |
 |---|---|
 | Core workflows (login, attendance, activity upload) not implemented / not wired | **Blocker** |
-| Tray application build status | **Blocker** (see 05) |
+| Tray application produces no executable (ISS-005) | **Blocker** |
 | Activity data not durable; several data-loss paths in sync | High |
 | Local credential readable by any local user; IPC has no real authentication | High |
 | Windows lifecycle (reconnect, sleep, lock, single instance) unhandled | High |
