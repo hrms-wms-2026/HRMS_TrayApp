@@ -29,8 +29,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<AgentStateMachine>();
         services.AddSingleton<LifecycleGate>();
         services.AddSingleton<PresenceSession>();
-        services.AddSingleton<ISystemPowerEvents, SystemPowerEvents>();
-        services.AddHostedService<PowerModeIdleListener>();
+        // Must follow UseWindowsService: replaces its lifetime to receive SCM power events (AUD-014).
+        services.AddPowerEvents(Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService());
         services.AddSingleton<PolicyCache>();
         services.AddSingleton<IEvidenceProtector, DpapiEvidenceProtector>();
         services.AddSingleton<EvidenceSpoolStore>();
