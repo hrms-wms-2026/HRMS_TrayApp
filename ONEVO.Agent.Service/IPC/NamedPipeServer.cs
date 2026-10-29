@@ -10,14 +10,26 @@ public sealed class NamedPipeServer : IAsyncDisposable
 {
     private readonly ILogger<NamedPipeServer> _logger;
     private readonly NamedPipeAuthenticator _authenticator;
+    private readonly Func<NamedPipeServerStream> _createPipe;
     private CancellationTokenSource? _cts;
+
+    private static readonly TimeSpan PipeCreateRetryDelay = TimeSpan.FromSeconds(1);
 
     public event Func<IpcEnvelope, Func<IpcEnvelope, Task>, Task>? MessageReceived;
 
     public NamedPipeServer(ILogger<NamedPipeServer> logger, NamedPipeAuthenticator authenticator)
+        : this(logger, authenticator, CreateSecurePipe)
+    {
+    }
+
+    internal NamedPipeServer(
+        ILogger<NamedPipeServer> logger,
+        NamedPipeAuthenticator authenticator,
+        Func<NamedPipeServerStream> createPipe)
     {
         _logger = logger;
         _authenticator = authenticator;
+        _createPipe = createPipe;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -32,14 +44,26 @@ public sealed class NamedPipeServer : IAsyncDisposable
     {
         while (!ct.IsCancellationRequested)
         {
-            var pipe = CreateSecurePipe();
+            NamedPipeServerStream? pipe = null;
             try
             {
+                // Creation is inside the guard: a single failure must not end the loop and
+                // leave the service running without IPC (ISS-018).
+                pipe = _createPipe();
                 await pipe.WaitForConnectionAsync(ct);
-                _ = HandleClientAsync(pipe, ct);
+                // Dispatch off the accept loop so the next instance is created immediately,
+                // even when the handler's first steps complete synchronously.
+                var connected = pipe;
+                _ = Task.Run(() => HandleClientAsync(connected, ct), CancellationToken.None);
             }
-            catch (OperationCanceledException) { pipe.Dispose(); break; }
-            catch (Exception ex) { _logger.LogError(ex, "Pipe accept failed"); pipe.Dispose(); }
+            catch (OperationCanceledException) { pipe?.Dispose(); break; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Pipe accept failed");
+                pipe?.Dispose();
+                try { await Task.Delay(PipeCreateRetryDelay, ct); }
+                catch (OperationCanceledException) { break; }
+            }
         }
     }
 
@@ -49,10 +73,27 @@ public sealed class NamedPipeServer : IAsyncDisposable
         {
             // One reader/writer for the whole connection: a separate handshake reader would
             // swallow messages the client sends right after authenticating (ISS-006).
+            // The writer is intentionally not disposed: it owns nothing (leaveOpen) and its
+            // dispose-time Flush throws IOException when the client has already disconnected.
             using var reader = IpcLineCodec.CreateReader(pipe);
-            await using var writer = IpcLineCodec.CreateWriter(pipe);
+            var writer = IpcLineCodec.CreateWriter(pipe);
 
-            if (!await _authenticator.AuthenticateAsync(reader, writer, ct))
+            bool authenticated;
+            try
+            {
+                authenticated = await _authenticator.AuthenticateAsync(reader, writer, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogInformation("IPC client dropped during handshake: {Message}", ex.Message);
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            if (!authenticated)
             {
                 _logger.LogWarning("IPC client failed authentication — connection dropped");
                 return;
@@ -112,12 +153,14 @@ public sealed class NamedPipeServer : IAsyncDisposable
             pipeSecurity: security);
     }
 
+    /// <summary>Idempotent: called by AgentWorker.StopAsync and again by the DI container (ISS-018).</summary>
     public async ValueTask DisposeAsync()
     {
-        if (_cts is not null)
+        var cts = Interlocked.Exchange(ref _cts, null);
+        if (cts is not null)
         {
-            await _cts.CancelAsync();
-            _cts.Dispose();
+            await cts.CancelAsync();
+            cts.Dispose();
         }
     }
 }

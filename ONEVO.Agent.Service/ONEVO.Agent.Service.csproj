@@ -11,6 +11,9 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="ONEVO.Agent.Service.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ONEVO.Agent.Shared\ONEVO.Agent.Shared.csproj" />
   </ItemGroup>
 </Project>
