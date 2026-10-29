@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# bash runs with -eo pipefail, so any failing command fails the step. The default pwsh
+# shell only checks the exit code of the last command in a multi-line step.
+defaults:
+  run:
+    shell: bash
+
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: 1
@@ -28,6 +34,7 @@ jobs:
         run: |
           dotnet restore tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj
           dotnet restore tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj
+          dotnet restore tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj
 
       - name: Vulnerable package check
         shell: pwsh
@@ -40,11 +47,13 @@ jobs:
         run: |
           dotnet build tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj -c Release --no-restore -p:Version=${{ env.CI_VERSION }}
           dotnet build tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj -c Release --no-restore -p:Version=${{ env.CI_VERSION }}
+          dotnet build tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj -c Release --no-restore -p:Version=${{ env.CI_VERSION }}
 
       - name: Test
         run: |
           dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj -c Release --no-build --logger "trx;LogFileName=shared.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults
           dotnet test tests/ONEVO.Agent.Service.Tests/ONEVO.Agent.Service.Tests.csproj -c Release --no-build --logger "trx;LogFileName=service.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults
+          dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj -c Release --no-build --logger "trx;LogFileName=trayapp-logic.trx" --logger "console;verbosity=normal" --collect "XPlat Code Coverage" --results-directory TestResults
 
       - name: Publish service
         run: dotnet publish ONEVO.Agent.Service/ONEVO.Agent.Service.csproj -c Release -r win-x64 --self-contained false -p:Version=${{ env.CI_VERSION }} -o artifacts/service
@@ -75,6 +84,15 @@ jobs:
 
       - name: Build TrayApp
         run: dotnet build ONEVO.Agent.TrayApp/ONEVO.Agent.TrayApp.csproj -c Release -p:Version=${{ env.CI_VERSION }} -bl:artifacts/tray.binlog
+
+      # Guard against a hollow build: the project previously reported "Build succeeded"
+      # in <1 s without compiling anything (ISS-005).
+      - name: Verify tray binary was produced
+        shell: pwsh
+        run: |
+          $bin = Get-ChildItem ONEVO.Agent.TrayApp/bin -Recurse -Include ONEVO.Agent.TrayApp.dll,ONEVO.Agent.TrayApp.exe -ErrorAction SilentlyContinue
+          if (-not $bin) { Write-Error "No ONEVO.Agent.TrayApp binary produced - the TrayApp project compiles nothing (ISS-005)"; exit 1 }
+          $bin | ForEach-Object { $_.FullName }
 
       - uses: actions/upload-artifact@v4
         if: always()
