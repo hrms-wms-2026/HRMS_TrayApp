@@ -20,6 +20,12 @@ public sealed class OptionsValidation : IValidateOptions<AgentOptions>
         if (options.HttpTimeoutSeconds is < 5 or > 300)
             errors.Add("HttpTimeoutSeconds must be between 5 and 300");
 
+        // The device JWT is sent as a Bearer header: never allow plain HTTP (ISS-019).
+        if (!string.IsNullOrWhiteSpace(options.ApiBaseUrl)
+            && (!Uri.TryCreate(options.ApiBaseUrl, UriKind.Absolute, out var apiUri)
+                || apiUri.Scheme != Uri.UriSchemeHttps))
+            errors.Add("ApiBaseUrl must be an absolute https:// URL");
+
         return errors.Count > 0
             ? ValidateOptionsResult.Fail(errors)
             : ValidateOptionsResult.Success;
