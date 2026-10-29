@@ -1,0 +1,60 @@
+# Measurement only: builds the MSIX of the PR #100 code with a throwaway self-signed certificate
+# and reports its size. No secrets, no upload anywhere except a 1-day workflow artifact.
+name: MSIX size
+
+on:
+  push:
+    branches: [claude/magical-curie-y2y0r4]
+    paths: [.github/workflows/msix-size.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  msix-size:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/uat-audit-develop
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          dotnet-version: "10.0.300"
+
+      - name: Install MAUI workload
+        run: dotnet workload install maui-windows --skip-manifest-update
+
+      - name: Build MSIX (throwaway cert)
+        shell: pwsh
+        run: ./build-msix.ps1 -Version 1.0.0 -CertPassword ([guid]::NewGuid().ToString()) -CertFile "$env:RUNNER_TEMP\throwaway.pfx"
+
+      - name: Report sizes
+        shell: pwsh
+        run: |
+          $msix = Get-ChildItem publish\msix -Recurse -Filter *.msix | Select-Object -First 1
+          "MSIX: $($msix.Name)  $([math]::Round($msix.Length/1MB,2)) MB ($($msix.Length) bytes)"
+          Get-ChildItem publish\msix -Recurse -File | ForEach-Object { "  $($_.FullName.Substring((Resolve-Path publish\msix).Path.Length))  $([math]::Round($_.Length/1MB,2)) MB" }
+
+          $x = Join-Path $env:RUNNER_TEMP unpacked
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [IO.Compression.ZipFile]::ExtractToDirectory($msix.FullName, $x)
+          $files = Get-ChildItem $x -Recurse -File
+          "Installed (unpacked): $([math]::Round(($files | Measure-Object Length -Sum).Sum/1MB,2)) MB in $($files.Count) files"
+          "Has Agent Service exe: $([bool]($files | Where-Object Name -like 'ONEVO.Agent.Service*.exe'))"
+          ""
+          "Largest 30 files (unpacked):"
+          $files | Sort-Object Length -Descending | Select-Object -First 30 |
+            ForEach-Object { "  {0,8:N2} MB  {1}" -f ($_.Length/1MB), $_.FullName.Substring($x.Length + 1) }
+          ""
+          "By top-level folder / extension:"
+          $files | Group-Object { $r = $_.FullName.Substring($x.Length + 1); if ($r.Contains('\')) { $r.Split('\')[0] + '\' } else { '*' + $_.Extension } } |
+            ForEach-Object { [pscustomobject]@{ Group = $_.Name; MB = [math]::Round(($_.Group | Measure-Object Length -Sum).Sum/1MB,2); Files = $_.Count } } |
+            Sort-Object MB -Descending | Select-Object -First 25 | Format-Table -AutoSize | Out-String -Width 200
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msix-size
+          path: publish/msix/**/*.msix
+          retention-days: 1
