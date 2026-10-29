@@ -17,9 +17,16 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 {
     public string Name => "ActivityCount";
 
+    /// <summary>How often last-input time is sampled for idle accounting.</summary>
+    internal static readonly TimeSpan SamplePeriod = TimeSpan.FromSeconds(5);
+
     private readonly ILogger<ActivityCountCollector> _logger;
-    private readonly NamedPipeClient _pipeClient;
+    private readonly Func<IReadOnlyList<CollectionRecord>, CancellationToken, Task> _submit;
+    private readonly Func<long> _clockMs;
+    private readonly Func<int> _secondsSinceLastInput;
     private readonly string _deviceId;
+    private readonly object _trackerLock = new();
+    private ActivityIntervalTracker _tracker;
 
     private readonly object _counterLock = new();
     private long _keyboardCount;
@@ -41,11 +48,28 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
     public ActivityCountCollector(
         ILogger<ActivityCountCollector> logger,
         NamedPipeClient pipeClient)
+        : this(logger, pipeClient.SubmitCollectionRecordsAsync,
+            () => Environment.TickCount64, PrivacyScrubber.GetSecondsSinceLastInput)
+    {
+    }
+
+    internal ActivityCountCollector(
+        ILogger<ActivityCountCollector> logger,
+        Func<IReadOnlyList<CollectionRecord>, CancellationToken, Task> submit,
+        Func<long> clockMs,
+        Func<int> secondsSinceLastInput)
     {
         _logger = logger;
-        _pipeClient = pipeClient;
+        _submit = submit;
+        _clockMs = clockMs;
+        _secondsSinceLastInput = secondsSinceLastInput;
         _deviceId = Environment.MachineName;
+        _tracker = NewTracker();
     }
+
+    // Idle rule kept from the original heuristic: no input for at least half the interval.
+    private ActivityIntervalTracker NewTracker() =>
+        new(_intervalSeconds, idleThresholdSeconds: _intervalSeconds / 2, _clockMs());
 
     public Task StartAsync(AgentPolicy policy, CancellationToken cancellationToken)
     {
@@ -62,6 +86,8 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             Constants.DefaultActivitySnapshotIntervalSeconds, 15, 300);
 
         InstallHooks();
+        lock (_trackerLock)
+            _tracker = NewTracker();
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _snapshotLoop = SnapshotLoopAsync(_runCts.Token);
         _running = true;
@@ -93,7 +119,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             _snapshotLoop = null;
         }
 
-        // Final snapshot flush before unhook (counts only)
+        // Final snapshot before unhook: covers only the time since the last snapshot (ISS-014).
         try
         {
             await EmitSnapshotAsync(CancellationToken.None);
@@ -193,13 +219,11 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 
     private async Task SnapshotLoopAsync(CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_intervalSeconds));
+        using var timer = new PeriodicTimer(SamplePeriod);
         try
         {
             while (await timer.WaitForNextTickAsync(ct))
-            {
-                await EmitSnapshotAsync(ct);
-            }
+                await TickAsync(ct);
         }
         catch (OperationCanceledException)
         {
@@ -207,7 +231,32 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         }
     }
 
-    private async Task EmitSnapshotAsync(CancellationToken ct)
+    /// <summary>
+    /// One sampling step; emits a snapshot once the interval has elapsed. Never throws except on
+    /// cancellation, so a transient IPC failure cannot end the loop for good (ISS-017).
+    /// </summary>
+    internal async Task TickAsync(CancellationToken ct)
+    {
+        try
+        {
+            bool due;
+            lock (_trackerLock)
+            {
+                var now = _clockMs();
+                _tracker.Sample(now, _secondsSinceLastInput());
+                due = _tracker.ElapsedMs(now) >= _intervalSeconds * 1000L;
+            }
+
+            if (due)
+                await EmitSnapshotAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning("{Name}: snapshot hand-off failed: {Message}", Name, ex.Message);
+        }
+    }
+
+    internal async Task EmitSnapshotAsync(CancellationToken ct)
     {
         long keyboard;
         long mouse;
@@ -220,16 +269,21 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             _mouseCount = 0;
         }
 
-        var interval = _intervalSeconds;
-        var secondsSinceInput = PrivacyScrubber.GetSecondsSinceLastInput();
-        // Heuristic: idle if no system input for ≥ half the interval.
-        var idleSeconds = secondsSinceInput >= interval / 2
-            ? Math.Min(interval, secondsSinceInput)
-            : 0;
-        var activeSeconds = Math.Max(0, interval - idleSeconds);
+        int activeSeconds;
+        int idleSeconds;
+        lock (_trackerLock)
+        {
+            var now = _clockMs();
+            _tracker.Sample(now, _secondsSinceLastInput());
+            (activeSeconds, idleSeconds) = _tracker.Complete(now);
+        }
 
-        // Intensity 0–100 from event density (counts only — no content).
-        var eventDensity = (keyboard + mouse) / (double)Math.Max(1, interval);
+        var totalSeconds = activeSeconds + idleSeconds;
+        if (totalSeconds == 0)
+            return; // nothing elapsed since the previous snapshot
+
+        // Intensity 0–100 from event density over the time actually covered (counts only — no content).
+        var eventDensity = (keyboard + mouse) / (double)totalSeconds;
         var intensity = Math.Round(
             (decimal)Math.Clamp(eventDensity / 5.0 * 100.0, 0, 100), 2);
 
@@ -259,7 +313,7 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         // Do not log counts or process name in production paths (privacy).
         _logger.LogDebug("{Name}: snapshot handed off eventId={EventId}", Name, record.EventId);
 
-        await _pipeClient.SubmitCollectionRecordsAsync([record], ct);
+        await _submit([record], ct);
     }
 
     private void ResetCounters()
