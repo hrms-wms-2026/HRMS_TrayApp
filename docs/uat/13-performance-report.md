@@ -68,11 +68,22 @@ Compression of the small JSON payloads (239 KB/day raw):
 | Brotli per row (what compressing `payload_json` would give) | 84% of raw | **Not worth it**: rows are too small to compress |
 | gzip of a whole upload batch | 9% of raw | Large saving on the **network**. Needs the backend to accept `Content-Encoding: gzip`, so it is a contract change |
 
+### Result of option 1 + 3 (implemented in PR #100, `a8dab05`)
+
+30 simulated days (same synthetic day, uploaded daily), with the real buffer:
+
+| | Day 1 | Day 7 | Day 30 | Later |
+|---|---|---|---|---|
+| `develop` before | 1.19 MB | 6.49 MB | 26.9 MB | 100 MB around day 83, then purge + full VACUUM |
+| With UAT-13 fix | ≈1.2 MB | ≈1.2 MB | ≈1.2 MB | stays ≈1.2–1.7 MB (the last 24 h of delivered rows) plus any pending backlog |
+
+Purge cost: 339 ms for 30 purges (~11 ms each).
+
 ### What to do (in order of value)
 
-1. **Delete synced rows soon after acknowledgement (UAT-13).** Keep a short de-duplication window. Steady-state storage drops from tens of MB to well under 1 MB per employee, and delivered GPS and activity data stop lingering on the device.
+1. **Done in PR #100 — delete synced rows soon after acknowledgement (UAT-13).** Keep a short de-duplication window. Steady-state storage drops from tens of MB to well under 1 MB per employee, and delivered GPS and activity data stop lingering on the device.
 2. **Stop storing face photos as base64 in SQLite (UAT-12).** Spool the JPEG bytes DPAPI-encrypted, as screenshots already are, and delete them after delivery. This is −25% size plus encryption, and the largest single item per day.
-3. **Incremental auto-vacuum instead of a full `VACUUM` at 100 MB.** No long lock, and no 2× temporary disk.
+3. **Done in PR #100 — incremental auto-vacuum instead of a full `VACUUM` at 100 MB.** No long lock, and no 2× temporary disk.
 4. **Request compression for uploads (gzip).** About −90% of upload bytes for snapshot batches. Needs backend support first.
 5. **Screenshot byte budget.** `Constants.MaxScreenshotBytes` allows ≈9.5 MB per screenshot against a 256 MB / 72 h spool, so roughly 25 maximum-size screenshots fill it. A lower budget saves disk and network but lowers evidence quality, which is a product decision.
 6. **Not recommended:** per-row compression of `payload_json`, which saves only 16% for extra CPU and opaque rows.

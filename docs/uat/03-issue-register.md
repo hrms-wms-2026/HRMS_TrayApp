@@ -18,7 +18,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-10 | Info | Release | Production code-signing certificate needed; dev cert requires manual trust | Verified (`release.yml`, `build-msix.ps1`) | T17 |
 | UAT-11 | P3 | Configuration | Shipped `ApiBaseUrl` must be confirmed per environment | Verified (`appsettings.json`) | Open — backend team |
 | UAT-12 | **P1** | Service buffer / privacy | Face photos kept unencrypted (base64 JSON) in SQLite and retained after upload | Verified (code + measurement) | **Escalated** — privacy/retention decision |
-| UAT-13 | P2 | Service buffer / storage | Delivered rows retained until the 100 MB limit (≈2–4 months); then a blocking full `VACUUM` | Verified (measurement) | Open — fix proposed (13 §Storage) |
+| UAT-13 | P2 | Service buffer / storage | Delivered rows retained until the 100 MB limit (≈2–4 months); then a blocking full `VACUUM` | Verified (measurement) | **Fixed in PR #100** (`a8dab05`) — CI pending |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
 - **File:** `ONEVO.Agent.TrayApp/Collectors/ActivityCountCollector.cs` (`EmitSnapshotAsync`, `SnapshotLoopAsync`, `StopAsync`).
@@ -67,9 +67,21 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 ### UAT-13 — Delivered rows retained; blocking VACUUM (P2)
 - Synced rows of every type stay until the 100 MB byte limit. Then `HasRoomUnlocked` deletes them and runs a full `VACUUM` while holding the buffer lock. A full `VACUUM` rewrites the whole file and needs up to the same amount of free disk again.
 - **Measured** with the real `ActivityRecordBuffer` and a synthetic 8-hour day: 1,681 rows/day, 0.91–1.73 MB/day after acknowledgement. Deleting the synced rows plus `VACUUM` brings the file back to 32 KB.
-- **Recommendation:**
-  - Delete synced rows shortly after acknowledgement, keeping a short window for de-duplication (synced inactivity attempts are already handled specially).
-  - Switch to `PRAGMA auto_vacuum = INCREMENTAL` with small `incremental_vacuum` steps instead of a periodic full `VACUUM`.
+- **Fix (`a8dab05`):**
+  - `PurgeDelivered` deletes synced rows queued more than 24 h ago, after every flush and once at open.
+  - Inside the 24 h window, `INSERT OR IGNORE` still de-duplicates late re-submits. After it, a replay is refused (snapshots > 24 h), upserted (work sessions) or de-duplicated by idempotency key (face photos).
+  - Pending, quarantined and synced inactivity-attempt rows are never touched.
+  - The file runs with `auto_vacuum = INCREMENTAL` (existing files are converted once at open), and freed pages are returned with `incremental_vacuum`.
+  - Housekeeping failures are logged and never stop capture, upload or startup.
+- **Measured** (1,681 rows + a 200 KB photo per day, uploaded daily):
+  - `develop`: 26.9 MB after 30 days, reaching 100 MB around day 83.
+  - With the fix: ~1.2 MB steady state (one day of delivered rows).
+  - 30 purges took 339 ms in total.
+- **Tests:** `ActivityRecordBufferRetentionTests` (4):
+  - only the right rows are deleted;
+  - re-submit dedupe inside the window;
+  - the file shrinks > 10×;
+  - a legacy file is converted with its pending rows kept.
 
 ### UAT-02 — Idle accumulated twice in tray day metrics (P3)
 - `ActivityCountCollector` and `DeviceStateCollector` both call `ISessionDayMetrics.AddIdleSample` for the same idle time.

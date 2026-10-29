@@ -6,6 +6,7 @@
 |---|---|
 | Activity snapshots report the time they actually cover. A partial interval (break, lock, reconnect) no longer counts as a full minute, and every idle span inside an interval is counted. Wire format unchanged; `active_seconds`/`idle_seconds` values are now accurate. | UAT-01 |
 | Input counted in a sub-second final snapshot is kept (regression caught by CI in the first version of the fix). | UAT-01 follow-up |
+| Delivered rows are deleted 24 h after queueing and freed space is returned with incremental auto-vacuum. Device storage stays ≈1–2 MB instead of growing to 100 MB, and there is no full `VACUUM` under the buffer lock. | UAT-13 |
 | UAT documentation package (`docs/uat/`) and project skills for maintaining it (`.claude/skills/`). | — |
 
 **Expected effect on reports:** activity `active_seconds` totals drop slightly on days with many breaks, locks or reconnects. Days with idle stretches that ended before a snapshot show more idle time. Attendance work time (from `PresenceSession`) is not affected.
@@ -45,4 +46,3 @@
 | UAT-10 | Info | Production signing certificate needed | T17 |
 | UAT-11 | P3 | Confirm `ApiBaseUrl` per environment | Override with `Agent__ApiBaseUrl` |
 | UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |
-| UAT-13 | P2 | Delivered rows kept until 100 MB, then a blocking full VACUUM | Fix proposed (13 §Storage) |
