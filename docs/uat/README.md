@@ -1,6 +1,6 @@
 # ONEVO Tray App — UAT Readiness Package (`develop`)
 
-Start with **[12 — UAT Readiness Summary](12-uat-readiness-summary.md)**.
+Start with **[12 — UAT Readiness Summary](12-uat-readiness-summary.md)**, then **[14 — Final Gap Audit](14-final-uat-gap-audit.md)** (`develop` @ `9a13436`).
 
 | # | Document | Task |
 |---|---|---|
@@ -17,6 +17,7 @@ Start with **[12 — UAT Readiness Summary](12-uat-readiness-summary.md)**.
 | 11 | [Manual Testing Checklist](11-manual-testing-checklist.md) | T16–T18 |
 | 12 | [UAT Readiness Summary](12-uat-readiness-summary.md) | T18 input |
 | 13 | [CPU, RAM, Disk & Network](13-performance-report.md) | T10 |
+| 14 | [Final UAT Readiness Gap Audit](14-final-uat-gap-audit.md) | Final audit, Go/No-Go |
 
 ## Scope and method
 

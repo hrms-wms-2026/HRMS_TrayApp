@@ -17,6 +17,13 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
+## PR #102 (draft, CI green)
+
+| Change | Issue |
+|---|---|
+| The Service handles independent tray requests (daily tasks, location change, consent, notification ack, update check, …) off the pipe read loop, at most 4 at a time per tray. A slow backend call no longer holds back a clock action sent after it. Stateful messages keep their order. A failing request no longer drops the tray's connection | AUD-008, UAT-17 (part 1) |
+| Final UAT gap audit documents (14) and register updates | — |
+
 ## Already on `develop` before PR #100 (summary from commit history)
 
 - Durable queue with per-record outcomes and quarantine (AGT-01/02).
@@ -50,5 +57,14 @@
 | UAT-06 | P3 | Some Service tests are Windows-only but not marked | Run tests on Windows |
 | UAT-09 | P3 | Credential confidentiality relies on the folder ACL | Device check (11 §F) |
 | UAT-10 | Info | Production signing certificate needed | T17 |
-| UAT-11 | P3 | Confirm `ApiBaseUrl` per environment | Override with `Agent__ApiBaseUrl` |
+| UAT-11 | P1 | No UAT configuration; default `ApiBaseUrl` is the dev host | Override with `Agent__ApiBaseUrl` |
+| UAT-15 | P2 | Daily summary task list empty against backend `development` (endpoint not merged) | None |
+| UAT-16 | P2 | App-usage/device-state/meeting rows can be duplicated after a lost response | None; report caveat |
+| UAT-17 | P1 | Part 1 on branch: independent requests no longer block. Remaining: no per-handler time budget; a slow stateful call (e.g. face enrol) can still delay later messages | Retry the action |
+| UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
+| UAT-19 | P3 | Windows version declarations inconsistent | None |
+| UAT-20 | P3 | No whole-suite test guard for real data paths | None |
+| UAT-22 | P3 | 49 XamlC XC0025 build warnings in TrayApp | None |
+| AUD-020 | P1 | QuestPDF Community licence eligibility not decided | Legal decision |
+| UAT-21 | P2 | No release tag/branch/RC yet | — |
 | UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |

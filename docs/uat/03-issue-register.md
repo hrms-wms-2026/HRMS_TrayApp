@@ -1,5 +1,7 @@
 # 03 — Issue Register — `develop`
 
+Final gap audit of `9a13436` (2026-10-30), with the AUD-001…036 status matrix: **[14](14-final-uat-gap-audit.md)**.
+
 Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)** (follows from code, not executed), **Observation** (design limitation / decision needed).
 
 ## Findings
@@ -16,10 +18,18 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-08 | **P1** | Packaging / lifecycle | Tray does not start at logon (no startup task / Run key) | Verified (manifest, code search) | **Escalated** — installer decision |
 | UAT-09 | P3 | Security | Credential confidentiality relies on the folder ACL (DPAPI LocalMachine) | Confirmed (code) | Device verification (11 §F) |
 | UAT-10 | Info | Release | Production code-signing certificate needed; dev cert requires manual trust | Verified (`release.yml`, `build-msix.ps1`) | T17 |
-| UAT-11 | P3 | Configuration | Shipped `ApiBaseUrl` must be confirmed per environment | Verified (`appsettings.json`) | Open — backend team |
+| UAT-11 | **P1** (was P3) | Configuration | No UAT configuration; shipped `ApiBaseUrl` is the dev host (AUD-013/030) | Verified (`appsettings.json`) | **Escalated** — UAT URLs needed (14 §G D-04) |
 | UAT-12 | **P1** | Service buffer / privacy | Face photos kept unencrypted (base64 JSON) in SQLite and retained after upload | Verified (code + measurement) | **Escalated** — privacy/retention decision |
 | UAT-13 | P2 | Service buffer / storage | Delivered rows retained until the 100 MB limit (≈2–4 months); then a blocking full `VACUUM` | Verified (measurement) | **Fixed in PR #100** (`a8dab05`); CI green on `86aa632` (Service 518/518) |
 | UAT-14 | P3 | Packaging / size | MSIX carried 45 images no screen uses | Verified (measurement build) | **Fixed in PR #101**: MSIX 48.25 → 43.85 MB |
+| UAT-15 | P2 | Backend contract (AUD-007) | `tray/daily-tasks` and attendance day fields not on backend `development` | Confirmed (code, both repos) | Escalated — backend branch decision |
+| UAT-16 | P2 | Backend ingest (AUD-007) | No replay de-dupe for app-usage, device-state, meeting signals | Confirmed (code) | Escalated — backend contract |
+| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed in PR #102** (`2a41be6`): independent requests off the read loop. Per-handler time budgets still open |
+| UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
+| UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
+| UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
+| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | Open |
+| UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
 - **File:** `ONEVO.Agent.TrayApp/Collectors/ActivityCountCollector.cs` (`EmitSnapshotAsync`, `SnapshotLoopAsync`, `StopAsync`).
@@ -53,7 +63,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - After a reboot during a workday, the Service receives no tray IPC. `PresenceSession`'s gap fallback then counts the time as idle until the employee opens the tray, and no activity is captured in the meantime.
 - **Fix with UAT-07's installer work:** a startup task, or register the tray at install.
 
-### UAT-11 — Environment endpoint (P3)
+### UAT-11 — Environment endpoint (P1, raised from P3 by the final gap audit: AUD-013/030 are P0 release blockers)
 - The shipped `appsettings.json` targets `https://onexso.com:7229` for every environment unless overridden. Confirm the UAT and production values with the backend team.
 - `PortalDevelopmentOrigins` / `PortalDevelopmentPorts` are honoured only when the host environment is Development (`PortalOriginValidator`), so they are not a production exposure.
 
@@ -101,12 +111,68 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - Shortening the DeviceState sample window is the effective lever if more precision is required.
 
 ### UAT-05 — Stale default branch (P2)
-- `main` (the GitHub default branch) is `5cca93e`, 326 commits behind `develop`. Fresh clones and tools that use the default branch see a scaffold without most features.
+- `main` (the GitHub default branch) is `5cca93e`, 340 commits behind `develop` at `9a13436`. Fresh clones and tools that use the default branch see a scaffold without most features.
 - Already identified as AGT-03. The planned `develop → main` release PR has not happened yet.
 
 ### UAT-06 — Platform-specific tests not marked (P3)
 - On Linux, 135 of 514 Service tests fail: `PlatformNotSupportedException` for DPAPI, ACL and SystemEvents, plus Windows path semantics.
 - CI is Windows-only, so this is informational. Marking them Windows-only would let the platform-neutral majority run anywhere.
+
+### UAT-15 — Daily-tasks endpoint not on backend `development` (P2, AUD-007)
+- **Files:** tray `ONEVO.Agent.Service/Api/AgentApiRoutes.cs` (`TrayDailyTasks`), `OnevoApiClient.GetDailyTasksAsync`, `TrayAttendanceStatusPayload`; backend `TrayAttendanceController.cs`, `TrayAttendanceStatusDto.cs`.
+- **Actual:** backend commit `51d84d4c` (adds `GET …/tray/daily-tasks` and `day_clocked_in_at_utc` / `day_clocked_out_at_utc`) is only on `origin/fix/dapi-seeder-skip-today`, not on `origin/development` (`8ce94e8`). The other 37 tray routes match a backend route and verb.
+- **Effect:** the call returns 404; the tray logs a warning and the daily summary shows no tasks. Attendance fields default to null, so a tray restarted after clock-out cannot show the finished day. No crash, no data loss.
+- **Recommendation:** merge the commit (with its tests) into `development`, or remove the feature from UAT scope. Add a route contract test (14 §F.1 AI-2, AI-4).
+- **Manual:** 11 §H.
+
+### UAT-16 — No replay de-dupe for three ingest families (P2, AUD-007)
+- **Files:** backend `IngestAppUsageSnapshotsCommandHandler.cs`, `IngestDeviceStateSnapshotsCommandHandler.cs`, `IngestMeetingSignalsCommandHandler.cs`; index configs `AppUsageSnapshotConfiguration.cs`, `DeviceStateSnapshotConfiguration.cs`, `MeetingSignalConfiguration.cs` (indexes are not unique).
+- **Actual:** only activity snapshots skip already-ingested `captured_at` values. A 202 lost after commit, followed by the tray's retry (AGT-01, AUD-023), inserts the rows again.
+- **Expected:** idempotent replay, as planned in `docs/fixes/2026-10-12-agt-sec-remediation-plan.md` (AGT-01 step 3, not implemented).
+- **Recommendation:** natural-key de-dupe `(tenant, device, captured_at)` + unique index migration (created, applied by a developer). Contract change → Escalated.
+- **Manual:** 11 §D (drop the network after send).
+
+### UAT-17 — Serial IPC dispatch with unbudgeted backend calls (P1, AUD-008 remainder)
+- **Files:** `ONEVO.Agent.Service/IPC/NamedPipeServer.cs` (read loop `await MessageReceived(...)`), `AgentWorker.HandleMessageAsync`.
+- **Actual:** each connection's messages are processed one at a time. These handlers call the backend with `CancellationToken.None`, bounded only by `HttpTimeoutSeconds` (30 s) per attempt and the retry policy: activation code, device-pairing start, location change submit/pending/respond, daily tasks, generic-notification ack, work-location confirm, face photo validate, face reference status, permission consent, face enrol commit, legal acceptance, update check, logout (15), plus biometric enrolment start/finish, which call the backend through `EnrollmentCoordinator` with `CancellationToken.None` (17 in total). The assignment counts 13; the difference is not resolved because the original list is in the missing register (14 §A).
+- **Effect:** a clock-in sent while one of these is waiting is not read until it finishes; the tray's lifecycle reply timeout can expire although the Service is healthy.
+- **Recommendation:** per-message time budgets and bounded concurrent dispatch, keeping lifecycle commands ordered; tests with a hanging stub backend (AI-1).
+- **Fix, part 1 (`2a41be6`, branch `claude/upbeat-hamilton-ebza6u`, not yet in a PR):**
+  - `IPC/IpcDispatch.cs` lists 10 message types whose handlers only read the device credential, call the backend and reply by correlation id: daily tasks, location change submit/pending/respond, work-location confirm, face reference status, permission consent status/submit, generic-notification ack, update check. `NamedPipeServer` runs these off the read loop, at most 4 per connection; when all 4 are busy the loop waits for a slot.
+  - Kept on the read loop, in arrival order: everything else. That includes the 7 backend-calling handlers that also change Service state: activation code, device pairing, logout, biometric enrolment start/finish, face photo validate (stages the photo), face enrol commit, legal acceptance (clears the pending challenge). Unknown types stay on the loop too.
+  - A failing independent handler is logged at Warning and no longer drops the connection.
+  - The tray already matches replies by correlation id (`NamedPipeClient._pending`), and server writes are serialized per connection (`IpcConnection`), so out-of-order replies are safe.
+- **Tests:** `NamedPipeServerDispatchTests` (4 pipe tests + 2 classification theories, 22 cases):
+  - a pending daily-tasks call does not hold back a later lifecycle command; on the old code this send or read times out;
+  - ordered messages keep order with no overlap;
+  - no more than `MaxConcurrentRequestsPerConnection` run at once;
+  - a throwing independent handler leaves the connection up; on the old code the connection dropped.
+  - The pipe harness moved unchanged from `NamedPipeServerBroadcastTests` into `TestPipeConnection`.
+- **Verification:** PR #102 CI run 221 (<https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41004208690>): success, Service 544/544 (+26 new), 0 build warnings in Service. Not run locally (SDK download blocked).
+- **Remaining (part 2):** per-handler time budgets. One backend call can still hold a slot for about 2.5–3 minutes: 5 attempts × `HttpTimeoutSeconds` 30 s, plus back-off of up to ≈15 s. Four such calls at once would block the loop again. The 7 stateful handlers above still run serially without a budget.
+- **Manual:** 11 §C (clock in while the backend is slow, e.g. by throttling with a proxy).
+
+### UAT-18 — Monitoring privacy gates not enforced (P0, AUD-010)
+- **Files:** `ONEVO.Agent.Service/AgentWorker.cs` `ApplyEnrollmentGates` (sets `ConsentValid`, `PolicyAllowsCollection`, `NotOnApprovedTimeOff` to `true`, with a comment that the real sources are "not yet built"); `ONEVO.Agent.TrayApp/Collectors/CollectorCoordinator.cs` `CreateLocalDefaultPolicy` (`ActivitySignalEnabled = true` when Active and no policy received); backend ingest handlers check the feature toggle (`_toggleResolver`) but not consent or leave; `TrayClockInCommandHandler` has no leave check.
+- **Actual:** after enrolment, clock-in and keyboard/mouse activity capture proceed whether or not the employee's consent is recorded and whether or not they are on approved leave. App usage and screenshots do wait for a real policy.
+- **Expected:** rules approved by product and privacy owners, enforced before any collector starts.
+- **Recommendation:** decide the rules (14 §G D-05), then wire consent (`permission-consent`), policy (`PolicyCache`) and leave (backend field) into `LifecycleGate`, drop capture on the local default policy, test each gate (AI-5).
+- **Manual:** 11 §I.
+
+### UAT-19 — Windows version declarations (P3, AUD-029)
+- `Package.appxmanifest` `MinVersion 10.0.17763.0`, `MaxVersionTested 10.0.19041.0`; project `SupportedOSPlatformVersion`/`TargetPlatformMinVersion 10.0.19041.0`; `release.yml` registers `minimumWindowsVersion 10.0.19041.0`. Align with the supported matrix (Windows 10 22H2, Windows 11) in the installer work.
+
+### UAT-20 — No whole-suite real-path guard (P3, AUD-017/036)
+- Isolation is per path: `TestAgentDataRoot` (`AgentDataPaths.OverrideRootForTests`, AUD-034) and `TestAssemblySetup` (`TrayBootLog.FallbackPath`, AUD-036). The only guard test, `TestPathIsolationTests`, checks the tray-boot fallback path. A new path added later is not covered automatically.
+- **Recommendation:** a CI step that hashes/lists `%ProgramData%\ONEVO` and `%LocalAppData%\ONEVO` before and after the test run and fails on any change.
+
+### UAT-21 — No release candidate process in use (P2, R10)
+- No tags, no GitHub release, no `release/*` branch; `main` stale (UAT-05). `scripts/check-footprint.ps1` is manual only. R10 needs: release PR, tag, signed MSIX from `release.yml`, version matrix, release notes.
+
+### UAT-22 — XamlC XC0025 warnings (P3)
+- **Evidence:** CI run 220 (`9a13436`), step "Build TrayApp": `49 Warning(s)`, all `XC0025` ("Binding was not compiled because it has an explicitly set Source property…"), e.g. `…HeaderBar.xaml`, `…StatusBar.xaml`. Shared and Service: `0 Warning(s)`.
+- **Effect:** those bindings use reflection at runtime; no functional defect.
+- **Recommendation:** enable `MauiEnableXamlCBindingWithSourceCompilation` (or add `x:DataType` on the bindings) and keep the build warning-free.
 
 ## Earlier findings (audit of `main`) → status on `develop`
 

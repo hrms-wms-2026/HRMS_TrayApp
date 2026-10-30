@@ -39,6 +39,7 @@ Idempotency:
 ## Tray ↔ Service IPC
 
 - **Transport:** pipe `ONEVO.Agent.Pipe.v1`, one JSON `IpcEnvelope` per line, protocol version check, bounded line length, client verified before the handshake.
+- **Dispatch** (branch `claude/upbeat-hamilton-ebza6u`, `2a41be6`): the request types in `IPC/IpcDispatch.cs` run off the read loop, at most 4 per connection. All other messages are handled in arrival order. Replies are matched by correlation id (UAT-17).
 - **Message families** (~70 types in `IpcMessages.cs`):
   - status / policy push;
   - collection submit / ack (with `buffer_full` / `storage_error` codes);
