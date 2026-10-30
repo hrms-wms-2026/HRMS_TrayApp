@@ -9,7 +9,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | ID | P | Component | Title | Class | Status |
 |---|---|---|---|---|---|
 | UAT-01 | P1 | Tray `ActivityCountCollector` | Activity snapshots over-report active time | Confirmed (code); fix unit-tested | **Fixed in PR #100** (`61e43f9`, `f987d83`) — device check pending |
-| UAT-02 | P3 | Tray `SessionDayMetrics` | Idle accumulated twice (two collectors), value unused | Confirmed (code) | **Fixed** (`b347107`, step 2 PR, CI pending) |
+| UAT-02 | P3 | Tray `SessionDayMetrics` | Idle accumulated twice (two collectors), value unused | Confirmed (code) | **Fixed in PR #103** (`b347107`, CI run 228) |
 | UAT-03 | P3 | Tray logging / privacy | Per-snapshot keyboard/mouse counts written to `tray.log` | Confirmed (code) | Open — policy decision |
 | UAT-04 | — | Service `PresenceSession` | Idle end detected at 60 s sample resolution | Observation | Accepted limitation (not changed) |
 | UAT-05 | P2 | Release / git | GitHub default branch `main` is still `5cca93e` | Verified | Open — release process (AGT-03) |
@@ -28,7 +28,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
 | UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
-| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Fixed** (`40efd1a`, step 2 PR, CI pending) |
+| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Mostly fixed in PR #103**: 49 → 5 warnings (CI run 228); 5 `XC0023` remain on 2 page bindings |
 | UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)

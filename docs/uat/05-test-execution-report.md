@@ -10,6 +10,18 @@
 
 `release.yml` runs the same three test projects before building a signed MSIX for a `vX.Y.Z` tag.
 
+## PR #103 head `7895578` — steps 1–2 (UAT-17 part 2, UAT-02, UAT-22)
+
+Run 228: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41015247939> — **success**. Shared 42/42, Service 559/559, TrayApp 582/582, 0 skipped; coverage Shared 46.8%, Service 76%, TrayApp 47.3% line (all above floors).
+
+TrayApp build: **5 warnings** (all `XC0023` on the two opted-out page bindings), down from 49 `XC0025`. Shared and Service: 0.
+
+| Run | Commit | Result | Notes |
+|---|---|---|---|
+| 226 | `a15e628` | ✅ but 52 warnings | Source compilation without `x:DataType`: 47 × `XC0022` + 5 × `XC0023` |
+| 227 | `76a2b56` | ❌ build | `XC0045` errors on the 2 page bindings without opt-out (checked against the DataTemplate type); otherwise 0 warnings |
+| 228 | `7895578` | ✅ | Results of record |
+
 ## PR #103 (`139c645`) — UAT-17 part 2
 
 Run 224: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41012511847> — **success**.

@@ -17,12 +17,12 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
-## Step 2 PR (after #103)
+## PR #103, step 2
 
 | Change | Issue |
 |---|---|
 | Tray day idle counted once (DeviceState only) | UAT-02 |
-| XAML bindings with `Source={x:Reference}` compiled; TrayApp build warnings 49 → expected 0 | UAT-22 |
+| XAML bindings with `Source={x:Reference}` compiled; TrayApp build warnings 49 → 5 (CI run 228) | UAT-22 |
 
 ## PR #103
 
@@ -76,7 +76,7 @@
 | UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
 | UAT-19 | P3 | Windows version declarations inconsistent | None |
 | UAT-20 | P3 | No whole-suite test guard for real data paths | None |
-| UAT-22 | P3 | 49 XamlC XC0025 build warnings in TrayApp | None |
+| UAT-22 | P3 | 5 XamlC XC0023 build warnings remain on 2 page bindings (was 49) | None |
 | AUD-020 | P1 | QuestPDF Community licence eligibility not decided | Legal decision |
 | UAT-21 | P2 | No release tag/branch/RC yet | — |
 | UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |
