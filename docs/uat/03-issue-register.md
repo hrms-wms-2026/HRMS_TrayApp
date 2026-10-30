@@ -178,7 +178,8 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - **Recommendation:** enable `MauiEnableXamlCBindingWithSourceCompilation` (or add `x:DataType` on the bindings) and keep the build warning-free.
 - **Fix (`40efd1a`, corrected in the next commit):** `MauiEnableXamlCBindingWithSourceCompilation=true`, plus `x:DataType` set to the control's own class on the root of the 9 controls whose bindings all use `Source={x:Reference Root}` (47 bindings). Paths were checked against the controls' public properties before pushing.
   - First attempt (CI run 226, green but 52 warnings): without `x:DataType` the 47 bindings gave `XC0022`, and the `x:DataType="{x:Null}"` opt-out on the 2 page bindings gave `XC0023`. Both were removed.
-  - The 2 page bindings through `BindingContext` (LegalConsentPage "View", WorkLocationPage option tap) are unchanged from before. Their warning count is in the next CI run.
+  - Second attempt (`76a2b56`, CI red): the 2 page bindings through `BindingContext` (LegalConsentPage "View", WorkLocationPage option tap) without opt-out failed the build with `XC0045` ("Property BindingContext not found on PendingLegalDocumentPayload / WorkLocationOption"). Inside a typed `DataTemplate`, XamlC checks them against the template's `x:DataType`, not the `x:Reference` page. That build otherwise printed 0 warnings, so the 47 control bindings compile.
+  - Final: those 2 elements opt out with `x:DataType="{x:Null}"` again and keep their runtime binding. Expected result is 5 `XC0023` warnings (the bindings on those two elements), down from 49. Removing them needs those commands reachable from the item type, for example a command on `WorkLocationOption`. That is a ViewModel change and is left open.
 - **Manual:** 11 §E (both page actions and the 9 controls).
 
 ## Earlier findings (audit of `main`) → status on `develop`

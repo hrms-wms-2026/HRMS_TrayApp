@@ -55,7 +55,10 @@
                       </Label.FormattedText>
                     </Label>
                   </VerticalStackLayout>
+                  <!-- x:DataType null: this Command binds through the page's BindingContext (typed
+                       object), which XamlC checks against the DataTemplate's x:DataType and rejects (XC0045); it stays a runtime binding (UAT-22). -->
                   <Button Grid.Column="2" Text="View" FontSize="13"
+                          x:DataType="{x:Null}"
                           IsVisible="{Binding ContentUrl, Converter={StaticResource IsNotNullConverter}}"
                           BackgroundColor="Transparent" TextColor="{StaticResource Primary}" BorderWidth="0"
                           VerticalOptions="Center"

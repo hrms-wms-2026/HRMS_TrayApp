@@ -126,7 +126,10 @@
                   </DataTrigger>
                 </Border.Triggers>
                 <Border.GestureRecognizers>
-                  <TapGestureRecognizer Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.SelectOptionCommand}"
+                  <!-- x:DataType null: binds through the page's BindingContext (typed object), which
+                       cannot be compiled; it stays a runtime binding (UAT-22). -->
+                  <TapGestureRecognizer x:DataType="{x:Null}"
+                                         Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.SelectOptionCommand}"
                                          CommandParameter="{Binding .}" />
                 </Border.GestureRecognizers>
                 <Grid ColumnDefinitions="22,40,*" ColumnSpacing="10">
