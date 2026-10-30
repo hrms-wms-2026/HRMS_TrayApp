@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
              x:Class="ONEVO.Agent.TrayApp.Controls.GlassConfirmHost"
+             x:DataType="controls:GlassConfirmHost"
              x:Name="Root"
              IsVisible="{Binding Source={x:Reference Root}, Path=IsOpen}">
   <Grid>

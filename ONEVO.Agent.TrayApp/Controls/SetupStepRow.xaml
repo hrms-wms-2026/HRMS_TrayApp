@@ -2,6 +2,8 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="ONEVO.Agent.TrayApp.Controls.SetupStepRow"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:DataType="controls:SetupStepRow"
              x:Name="Root">
   <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" MinimumHeightRequest="40">
     <Grid Grid.Column="0" WidthRequest="28" HeightRequest="28"

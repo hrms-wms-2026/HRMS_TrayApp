@@ -9,7 +9,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | ID | P | Component | Title | Class | Status |
 |---|---|---|---|---|---|
 | UAT-01 | P1 | Tray `ActivityCountCollector` | Activity snapshots over-report active time | Confirmed (code); fix unit-tested | **Fixed in PR #100** (`61e43f9`, `f987d83`) — device check pending |
-| UAT-02 | P3 | Tray `SessionDayMetrics` | Idle accumulated twice (two collectors), value unused | Confirmed (code) | Open |
+| UAT-02 | P3 | Tray `SessionDayMetrics` | Idle accumulated twice (two collectors), value unused | Confirmed (code) | **Fixed in PR #103** (`b347107`, CI run 228) |
 | UAT-03 | P3 | Tray logging / privacy | Per-snapshot keyboard/mouse counts written to `tray.log` | Confirmed (code) | Open — policy decision |
 | UAT-04 | — | Service `PresenceSession` | Idle end detected at 60 s sample resolution | Observation | Accepted limitation (not changed) |
 | UAT-05 | P2 | Release / git | GitHub default branch `main` is still `5cca93e` | Verified | Open — release process (AGT-03) |
@@ -24,11 +24,11 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-14 | P3 | Packaging / size | MSIX carried 45 images no screen uses | Verified (measurement build) | **Fixed in PR #101**: MSIX 48.25 → 43.85 MB |
 | UAT-15 | P2 | Backend contract (AUD-007) | `tray/daily-tasks` and attendance day fields not on backend `development` | Confirmed (code, both repos) | Escalated — backend branch decision |
 | UAT-16 | P2 | Backend ingest (AUD-007) | No replay de-dupe for app-usage, device-state, meeting signals | Confirmed (code) | Escalated — backend contract |
-| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed in PR #102** (`2a41be6`): independent requests off the read loop. Per-handler time budgets still open |
+| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed**: part 1 in PR #102 (`2a41be6`); part 2, read-only budgets, in PR #103 (`923692a`, CI run 224: Service 559/559): independent requests off the read loop. Per-handler time budgets still open |
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
 | UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
-| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | Open |
+| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Mostly fixed in PR #103**: 49 → 5 warnings (CI run 228); 5 `XC0023` remain on 2 page bindings |
 | UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
@@ -99,6 +99,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - `ActivityCountCollector` and `DeviceStateCollector` both call `ISessionDayMetrics.AddIdleSample` for the same idle time.
 - `SessionDayMetrics.TotalIdle` has no production reader: the session idle shown to users comes from the Service (`SessionSnapshot.AccumulatedIdle`). There is therefore no visible impact today, but anyone who starts using `TotalIdle` gets roughly double the idle.
 - **Recommendation:** keep a single source (DeviceState, which uses the policy idle threshold) or remove `TotalIdle`.
+- **Fix (`b347107`):** `ActivityCountCollector` no longer takes `ISessionDayMetrics`, so it cannot add idle; `DeviceStateCollector` is the only source. The constructor change is the guard (a behaviour test cannot observe a dependency that no longer exists). Existing collector tests updated.
 
 ### UAT-03 — Activity counts in `tray.log` (P3, privacy)
 - `ActivityCountCollector` logs `snapshot #N kb=… mouse=…` at Information. `TrayLogging` persists Information and above to the rolling `tray.log` (5 MB × retained files).
@@ -150,6 +151,8 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
   - The pipe harness moved unchanged from `NamedPipeServerBroadcastTests` into `TestPipeConnection`.
 - **Verification:** PR #102 CI run 221 (<https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41004208690>): success, Service 544/544 (+26 new), 0 build warnings in Service. Not run locally (SDK download blocked).
 - **Remaining (part 2):** per-handler time budgets. One backend call can still hold a slot for about 2.5–3 minutes: 5 attempts × `HttpTimeoutSeconds` 30 s, plus back-off of up to ≈15 s. Four such calls at once would block the loop again. The 7 stateful handlers above still run serially without a budget.
+- **Fix, part 2 (`923692a`):** `IpcDispatch.ReadOnlyBudget` gives the 6 read-only requests the same budget the tray waits for their reply: daily tasks 10 s, pending location check 10 s, face reference 15 s, consent status 8 s, update check 20 s, delivery ack 30 s. On expiry the handler sends its normal failure reply. Tests in `AgentWorkerTests`: a backend that never answers → failure within the budget (before: never returned); budget table theories.
+- **Still open (needs decision D-15):** writing requests (consent submit, location change submit/respond, work-location confirm, activation, pairing, logout, biometric, face validate/commit, legal acceptance) still have no budget. Cancelling them can leave the backend committed while the Service drops the result, so each needs a recovery path first, as AUD-008 did for clock actions.
 - **Manual:** 11 §C (clock in while the backend is slow, e.g. by throttling with a proxy).
 
 ### UAT-18 — Monitoring privacy gates not enforced (P0, AUD-010)
@@ -173,6 +176,11 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - **Evidence:** CI run 220 (`9a13436`), step "Build TrayApp": `49 Warning(s)`, all `XC0025` ("Binding was not compiled because it has an explicitly set Source property…"), e.g. `…HeaderBar.xaml`, `…StatusBar.xaml`. Shared and Service: `0 Warning(s)`.
 - **Effect:** those bindings use reflection at runtime; no functional defect.
 - **Recommendation:** enable `MauiEnableXamlCBindingWithSourceCompilation` (or add `x:DataType` on the bindings) and keep the build warning-free.
+- **Fix (`40efd1a`, corrected in the next commit):** `MauiEnableXamlCBindingWithSourceCompilation=true`, plus `x:DataType` set to the control's own class on the root of the 9 controls whose bindings all use `Source={x:Reference Root}` (47 bindings). Paths were checked against the controls' public properties before pushing.
+  - First attempt (CI run 226, green but 52 warnings): without `x:DataType` the 47 bindings gave `XC0022`, and the `x:DataType="{x:Null}"` opt-out on the 2 page bindings gave `XC0023`. Both were removed.
+  - Second attempt (`76a2b56`, CI red): the 2 page bindings through `BindingContext` (LegalConsentPage "View", WorkLocationPage option tap) without opt-out failed the build with `XC0045` ("Property BindingContext not found on PendingLegalDocumentPayload / WorkLocationOption"). Inside a typed `DataTemplate`, XamlC checks them against the template's `x:DataType`, not the `x:Reference` page. That build otherwise printed 0 warnings, so the 47 control bindings compile.
+  - Final: those 2 elements opt out with `x:DataType="{x:Null}"` again and keep their runtime binding. Expected result is 5 `XC0023` warnings (the bindings on those two elements), down from 49. Removing them needs those commands reachable from the item type, for example a command on `WorkLocationOption`. That is a ViewModel change and is left open.
+- **Manual:** 11 §E (both page actions and the 9 controls).
 
 ## Earlier findings (audit of `main`) → status on `develop`
 

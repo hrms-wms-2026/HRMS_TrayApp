@@ -267,6 +267,12 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             "ForceMonitoringActive=true — monitoring forced Active (development only)");
     }
 
+    /// <summary>
+    /// Time budget for the backend call of a read-only IPC request (UAT-17 part 2,
+    /// <see cref="IpcDispatch.ReadOnlyBudget"/>). Settable so tests need not wait the real budget.
+    /// </summary>
+    internal Func<string, TimeSpan> ReadOnlyRequestBudget { get; set; } = IpcDispatch.ReadOnlyBudget;
+
     private async Task HandleMessageAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
     {
         // The Tray's cid becomes this flow's id: it tags every Service log line and is sent to the
@@ -1446,7 +1452,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return;
         }
 
-        var result = await _apiClient.GetPendingLocationChangeDecisionAsync(jwt, CancellationToken.None);
+        using var budget = new CancellationTokenSource(ReadOnlyRequestBudget(IpcMessageTypes.LocationChangePendingCheck));
+        var result = await _apiClient.GetPendingLocationChangeDecisionAsync(jwt, budget.Token);
 
         await reply(new IpcEnvelope
         {
@@ -1466,7 +1473,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return;
         }
 
-        var result = await _apiClient.GetDailyTasksAsync(jwt, CancellationToken.None);
+        using var budget = new CancellationTokenSource(ReadOnlyRequestBudget(IpcMessageTypes.DailyTasksRequest));
+        var result = await _apiClient.GetDailyTasksAsync(jwt, budget.Token);
         if (!result.Success || result.Payload is null)
         {
             await ReplyDailyTasks(new DailyTasksResultPayload(
@@ -1571,7 +1579,18 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         if (string.IsNullOrWhiteSpace(jwt))
             return;
 
-        if (!await _apiClient.AckTrayDeliveryAsync(jwt, payload.DeliveryId, CancellationToken.None))
+        using var budget = new CancellationTokenSource(ReadOnlyRequestBudget(IpcMessageTypes.GenericNotificationAccepted));
+        bool acked;
+        try
+        {
+            acked = await _apiClient.AckTrayDeliveryAsync(jwt, payload.DeliveryId, budget.Token);
+        }
+        catch (OperationCanceledException) when (budget.IsCancellationRequested)
+        {
+            acked = false;
+        }
+
+        if (!acked)
             _logger.LogDebug("Tray delivery {DeliveryId} ack not confirmed; it will be re-offered", payload.DeliveryId);
     }
 
@@ -1689,7 +1708,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
             return;
         }
 
-        var result = await _apiClient.GetFaceReferenceStatusAsync(jwt, CancellationToken.None);
+        using var budget = new CancellationTokenSource(ReadOnlyRequestBudget(IpcMessageTypes.FaceReferenceStatus));
+        var result = await _apiClient.GetFaceReferenceStatusAsync(jwt, budget.Token);
         await Reply(new FaceReferenceStatusResultPayload(
             result.Success, result.ErrorCode, result.Enrolled, result.ReferencePhotoCount));
     }
@@ -1717,7 +1737,8 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
 
         if (envelope.Type == IpcMessageTypes.PermissionConsentStatus)
         {
-            await Reply(await _apiClient.GetPermissionConsentAsync(jwt, CancellationToken.None));
+            using var budget = new CancellationTokenSource(ReadOnlyRequestBudget(IpcMessageTypes.PermissionConsentStatus));
+            await Reply(await _apiClient.GetPermissionConsentAsync(jwt, budget.Token));
             return;
         }
 
@@ -1874,12 +1895,27 @@ public sealed class AgentWorker : BackgroundService, IPresenceReconciler
         });
     }
 
-    private async Task HandleUpdateCheckRequestAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
+    internal async Task HandleUpdateCheckRequestAsync(IpcEnvelope envelope, Func<IpcEnvelope, Task> reply)
     {
         var request = envelope.Payload?.Deserialize<UpdateCheckRequestPayload>();
-        var result = string.IsNullOrWhiteSpace(request?.CurrentVersion)
-            ? new UpdateCheckResultPayload(false, false, false, null, null, null, 0, null, "BAD_REQUEST")
-            : await _apiClient.CheckForUpdateAsync(request.CurrentVersion, CancellationToken.None);
+        UpdateCheckResultPayload result;
+        if (string.IsNullOrWhiteSpace(request?.CurrentVersion))
+        {
+            result = new UpdateCheckResultPayload(false, false, false, null, null, null, 0, null, "BAD_REQUEST");
+        }
+        else
+        {
+            using var budget = new CancellationTokenSource(ReadOnlyRequestBudget(IpcMessageTypes.UpdateCheckRequest));
+            try
+            {
+                result = await _apiClient.CheckForUpdateAsync(request.CurrentVersion, budget.Token);
+            }
+            catch (OperationCanceledException) when (budget.IsCancellationRequested)
+            {
+                // CheckForUpdateAsync lets cancellation through; report it like any other outage.
+                result = new UpdateCheckResultPayload(false, false, false, null, null, null, 0, null, "SERVICE_UNAVAILABLE");
+            }
+        }
 
         await reply(new IpcEnvelope
         {

@@ -10,6 +10,30 @@
 
 `release.yml` runs the same three test projects before building a signed MSIX for a `vX.Y.Z` tag.
 
+## PR #103 head `7895578` — steps 1–2 (UAT-17 part 2, UAT-02, UAT-22)
+
+Run 228: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41015247939> — **success**. Shared 42/42, Service 559/559, TrayApp 582/582, 0 skipped; coverage Shared 46.8%, Service 76%, TrayApp 47.3% line (all above floors).
+
+TrayApp build: **5 warnings** (all `XC0023` on the two opted-out page bindings), down from 49 `XC0025`. Shared and Service: 0.
+
+| Run | Commit | Result | Notes |
+|---|---|---|---|
+| 226 | `a15e628` | ✅ but 52 warnings | Source compilation without `x:DataType`: 47 × `XC0022` + 5 × `XC0023` |
+| 227 | `76a2b56` | ❌ build | `XC0045` errors on the 2 page bindings without opt-out (checked against the DataTemplate type); otherwise 0 warnings |
+| 228 | `7895578` | ✅ | Results of record |
+
+## PR #103 (`139c645`) — UAT-17 part 2
+
+Run 224: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41012511847> — **success**.
+
+| Test project | Result |
+|---|---|
+| ONEVO.Agent.Shared.Tests | `Passed! - Failed: 0, Passed: 42, Skipped: 0, Total: 42` |
+| ONEVO.Agent.Service.Tests | `Passed! - Failed: 0, Passed: 559, Skipped: 0, Total: 559` (+15 in `AgentWorkerTests`: 2 facts + 13 theory cases) |
+| ONEVO.Agent.TrayApp.Tests | `Passed! - Failed: 0, Passed: 582, Skipped: 0, Total: 582` |
+
+Coverage: Service 76% line / 68.6% branch (floors 72% / 63%); Shared and TrayApp unchanged. Build: Service 0 warnings; TrayApp 49 `XC0025` (UAT-22).
+
 ## PR #102 (`f06743a`) — AUD-008 / UAT-17 part 1
 
 Run 221: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41004208690> — **success**.
@@ -22,7 +46,7 @@ Run 221: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41004208690
 
 Coverage: Shared 46.8% / 87.5%; Service 75.3% / 68.2% (+0.1 line); TrayApp 47.4% / 26.4%; all above floors. Build: Shared/Service 0 warnings, TrayApp 49 `XC0025` (UAT-22, unchanged).
 
-The regression tests were not run against the old code: no SDK in the session (§Local run). That they fail there follows from the code: before the change the read loop awaited every handler, so the second send or the first read times out (dispatch test 1), and a handler exception ended the connection (test 4).
+The regression tests were not run against the old code: no SDK in the session (see "Local run for this audit" below). That they fail there follows from the code: before the change the read loop awaited every handler, so the second send or the first read times out (dispatch test 1), and a handler exception ended the connection (test 4).
 
 ## Results of record — `develop` head `9a13436` (final gap audit, 2026-10-30)
 

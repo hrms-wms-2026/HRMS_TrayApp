@@ -4,6 +4,8 @@
     <OutputType>WinExe</OutputType>
     <RootNamespace>ONEVO.Agent.TrayApp</RootNamespace>
     <UseMaui>true</UseMaui>
+    <!-- Compile bindings that set Source={x:Reference ...} too (UAT-22: 49 XC0025 warnings). -->
+    <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
     <SingleProject>true</SingleProject>
     <!-- Dev builds run unpackaged. Pass -p:WindowsPackageType=MSIX to build the installer. -->
     <WindowsPackageType>None</WindowsPackageType>

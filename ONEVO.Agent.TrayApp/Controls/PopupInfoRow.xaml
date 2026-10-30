@@ -2,6 +2,8 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="ONEVO.Agent.TrayApp.Controls.PopupInfoRow"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:DataType="controls:PopupInfoRow"
              x:Name="Root">
   <VerticalStackLayout Spacing="0">
     <Grid ColumnDefinitions="32,*" ColumnSpacing="10" Padding="0,11">

@@ -2,6 +2,8 @@
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="ONEVO.Agent.TrayApp.Controls.FooterStatusBar"
+             xmlns:controls="clr-namespace:ONEVO.Agent.TrayApp.Controls"
+             x:DataType="controls:FooterStatusBar"
              x:Name="Root">
   <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,4,0,0">
     <HorizontalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">

@@ -1,5 +1,4 @@
 using ONEVO.Agent.TrayApp.Services;
-using ONEVO.Agent.TrayApp.Tests.Fakes;
 
 namespace ONEVO.Agent.TrayApp.Tests.Collectors;
 
@@ -17,7 +16,6 @@ public class ActivityCountCollectorAccountingTests
         var collector = new ActivityCountCollector(
             NullLogger<ActivityCountCollector>.Instance,
             new NamedPipeClient(NullLogger<NamedPipeClient>.Instance),
-            new FakeSessionDayMetrics(),
             () => _nowMs,
             () => _secondsSinceInput);
         var emitted = new List<ActivitySnapshotPayload>();

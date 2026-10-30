@@ -17,7 +17,20 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
-## PR #102 (draft, CI green)
+## PR #103, step 2
+
+| Change | Issue |
+|---|---|
+| Tray day idle counted once (DeviceState only) | UAT-02 |
+| XAML bindings with `Source={x:Reference}` compiled; TrayApp build warnings 49 → 5 (CI run 228) | UAT-22 |
+
+## PR #103
+
+| Change | Issue |
+|---|---|
+| Read-only tray requests (daily tasks, pending location check, face reference, consent status, update check, notification ack) give up on a hung backend after the time the tray waits (8–30 s) and reply with a failure, instead of waiting through every retry | UAT-17 part 2 |
+
+## PR #102 (merged)
 
 | Change | Issue |
 |---|---|
@@ -51,7 +64,6 @@
 | UAT-07 | P1 | Released MSIX does not install the Agent Service | Install the Service with `scripts/install-service.ps1` (07) |
 | UAT-08 | P1 | Tray does not start at logon | Employee opens the tray after every sign-in; time before that counts as idle |
 | UAT-03 | P3 | Activity counts are written to `tray.log` | Policy decision pending |
-| UAT-02 | P3 | Tray day-metrics idle accumulated twice (value unused) | None needed today |
 | UAT-04 | — | Idle end detected at 60 s sample resolution | Accepted limitation |
 | UAT-05 | P2 | GitHub default branch `main` is stale | Use `develop`; release PR `develop → main` pending |
 | UAT-06 | P3 | Some Service tests are Windows-only but not marked | Run tests on Windows |
@@ -60,11 +72,11 @@
 | UAT-11 | P1 | No UAT configuration; default `ApiBaseUrl` is the dev host | Override with `Agent__ApiBaseUrl` |
 | UAT-15 | P2 | Daily summary task list empty against backend `development` (endpoint not merged) | None |
 | UAT-16 | P2 | App-usage/device-state/meeting rows can be duplicated after a lost response | None; report caveat |
-| UAT-17 | P1 | Part 1 on branch: independent requests no longer block. Remaining: no per-handler time budget; a slow stateful call (e.g. face enrol) can still delay later messages | Retry the action |
+| UAT-17 | P1 | Parts 1–2 done: independent requests no longer block; read-only calls have a budget. Remaining: writing calls have no budget (D-15); a slow face enrol can still delay later messages | Retry the action |
 | UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
 | UAT-19 | P3 | Windows version declarations inconsistent | None |
 | UAT-20 | P3 | No whole-suite test guard for real data paths | None |
-| UAT-22 | P3 | 49 XamlC XC0025 build warnings in TrayApp | None |
+| UAT-22 | P3 | 5 XamlC XC0023 build warnings remain on 2 page bindings (was 49) | None |
 | AUD-020 | P1 | QuestPDF Community licence eligibility not decided | Legal decision |
 | UAT-21 | P2 | No release tag/branch/RC yet | — |
 | UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |
