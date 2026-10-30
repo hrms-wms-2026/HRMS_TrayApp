@@ -24,7 +24,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-14 | P3 | Packaging / size | MSIX carried 45 images no screen uses | Verified (measurement build) | **Fixed in PR #101**: MSIX 48.25 → 43.85 MB |
 | UAT-15 | P2 | Backend contract (AUD-007) | `tray/daily-tasks` and attendance day fields not on backend `development` | Confirmed (code, both repos) | Escalated — backend branch decision |
 | UAT-16 | P2 | Backend ingest (AUD-007) | No replay de-dupe for app-usage, device-state, meeting signals | Confirmed (code) | Escalated — backend contract |
-| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code) | Open — AI task AI-1 |
+| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix tested in a new test class, CI pending | **Partly fixed** on branch `claude/upbeat-hamilton-ebza6u` (`2a41be6`): independent requests off the read loop. Per-handler time budgets still open |
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
 | UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
@@ -137,6 +137,20 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - **Actual:** each connection's messages are processed one at a time. These handlers call the backend with `CancellationToken.None`, bounded only by `HttpTimeoutSeconds` (30 s) per attempt and the retry policy: activation code, device-pairing start, location change submit/pending/respond, daily tasks, generic-notification ack, work-location confirm, face photo validate, face reference status, permission consent, face enrol commit, legal acceptance, update check, logout (15), plus biometric enrolment start/finish, which call the backend through `EnrollmentCoordinator` with `CancellationToken.None` (17 in total). The assignment counts 13; the difference is not resolved because the original list is in the missing register (14 §A).
 - **Effect:** a clock-in sent while one of these is waiting is not read until it finishes; the tray's lifecycle reply timeout can expire although the Service is healthy.
 - **Recommendation:** per-message time budgets and bounded concurrent dispatch, keeping lifecycle commands ordered; tests with a hanging stub backend (AI-1).
+- **Fix, part 1 (`2a41be6`, branch `claude/upbeat-hamilton-ebza6u`, not yet in a PR):**
+  - `IPC/IpcDispatch.cs` lists 10 message types whose handlers only read the device credential, call the backend and reply by correlation id: daily tasks, location change submit/pending/respond, work-location confirm, face reference status, permission consent status/submit, generic-notification ack, update check. `NamedPipeServer` runs these off the read loop, at most 4 per connection; when all 4 are busy the loop waits for a slot.
+  - Kept on the read loop, in arrival order: everything else. That includes the 7 backend-calling handlers that also change Service state: activation code, device pairing, logout, biometric enrolment start/finish, face photo validate (stages the photo), face enrol commit, legal acceptance (clears the pending challenge). Unknown types stay on the loop too.
+  - A failing independent handler is logged at Warning and no longer drops the connection.
+  - The tray already matches replies by correlation id (`NamedPipeClient._pending`), and server writes are serialized per connection (`IpcConnection`), so out-of-order replies are safe.
+- **Tests:** `NamedPipeServerDispatchTests` (4 pipe tests + 2 classification theories, 22 cases):
+  - a pending daily-tasks call does not hold back a later lifecycle command; on the old code this send or read times out;
+  - ordered messages keep order with no overlap;
+  - no more than `MaxConcurrentRequestsPerConnection` run at once;
+  - a throwing independent handler leaves the connection up; on the old code the connection dropped.
+  - The pipe harness moved unchanged from `NamedPipeServerBroadcastTests` into `TestPipeConnection`.
+- **Verification:** not built or run locally, because the environment blocks the .NET SDK download. It needs a Windows CI run, which starts only when a PR into `develop` exists.
+- **Remaining (part 2):** per-handler time budgets. One backend call can still hold a slot for about 2.5–3 minutes: 5 attempts × `HttpTimeoutSeconds` 30 s, plus back-off of up to ≈15 s. Four such calls at once would block the loop again. The 7 stateful handlers above still run serially without a budget.
+- **Manual:** 11 §C (clock in while the backend is slow, e.g. by throttling with a proxy).
 
 ### UAT-18 — Monitoring privacy gates not enforced (P0, AUD-010)
 - **Files:** `ONEVO.Agent.Service/AgentWorker.cs` `ApplyEnrollmentGates` (sets `ConsentValid`, `PolicyAllowsCollection`, `NotOnApprovedTimeOff` to `true`, with a comment that the real sources are "not yet built"); `ONEVO.Agent.TrayApp/Collectors/CollectorCoordinator.cs` `CreateLocalDefaultPolicy` (`ActivitySignalEnabled = true` when Active and no policy received); backend ingest handlers check the feature toggle (`_toggleResolver`) but not consent or leave; `TrayClockInCommandHandler` has no leave check.

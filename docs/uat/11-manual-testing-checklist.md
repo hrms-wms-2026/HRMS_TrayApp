@@ -25,6 +25,7 @@ Use dedicated test devices and synthetic test accounts only. Never use productio
 - [ ] Idle beyond the policy threshold → idle pause recorded; work time excludes it.
 - [ ] Lock / sleep / hibernate during a session → time excluded as idle, not counted twice.
 - [ ] Reboot mid-session → session resumes (AUD-001), breaks already taken preserved.
+- [ ] Slow backend (throttle with a proxy to ~20 s per call): open Daily Summary, then clock in at once → clock-in completes without waiting for the summary (UAT-17).
 
 ## D. Offline & integrity
 - [ ] Network off for 1 h while clocked in → rows queued, uploaded in order after reconnect, no duplicates in backend.

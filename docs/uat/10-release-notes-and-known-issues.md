@@ -17,6 +17,13 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
+## Branch `claude/upbeat-hamilton-ebza6u` (not yet in a PR)
+
+| Change | Issue |
+|---|---|
+| The Service handles independent tray requests (daily tasks, location change, consent, notification ack, update check, …) off the pipe read loop, at most 4 at a time per tray. A slow backend call no longer holds back a clock action sent after it. Stateful messages keep their order. A failing request no longer drops the tray's connection | AUD-008, UAT-17 (part 1) |
+| Final UAT gap audit documents (14) and register updates | — |
+
 ## Already on `develop` before PR #100 (summary from commit history)
 
 - Durable queue with per-record outcomes and quarantine (AGT-01/02).
@@ -53,7 +60,7 @@
 | UAT-11 | P1 | No UAT configuration; default `ApiBaseUrl` is the dev host | Override with `Agent__ApiBaseUrl` |
 | UAT-15 | P2 | Daily summary task list empty against backend `development` (endpoint not merged) | None |
 | UAT-16 | P2 | App-usage/device-state/meeting rows can be duplicated after a lost response | None; report caveat |
-| UAT-17 | P1 | A slow backend call can delay a clock action (serial IPC) | Retry the action |
+| UAT-17 | P1 | Part 1 on branch: independent requests no longer block. Remaining: no per-handler time budget; a slow stateful call (e.g. face enrol) can still delay later messages | Retry the action |
 | UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
 | UAT-19 | P3 | Windows version declarations inconsistent | None |
 | UAT-20 | P3 | No whole-suite test guard for real data paths | None |
