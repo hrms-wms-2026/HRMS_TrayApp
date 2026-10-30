@@ -25,7 +25,6 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 
     private readonly ILogger<ActivityCountCollector> _logger;
     private readonly NamedPipeClient _pipeClient;
-    private readonly ISessionDayMetrics _dayMetrics;
     private readonly string _deviceId;
     private readonly Func<long> _clockMs;
     private readonly Func<int> _secondsSinceLastInput;
@@ -54,9 +53,8 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 
     public ActivityCountCollector(
         ILogger<ActivityCountCollector> logger,
-        NamedPipeClient pipeClient,
-        ISessionDayMetrics dayMetrics)
-        : this(logger, pipeClient, dayMetrics,
+        NamedPipeClient pipeClient)
+        : this(logger, pipeClient,
             () => Environment.TickCount64, PrivacyScrubber.GetSecondsSinceLastInput)
     {
     }
@@ -65,13 +63,11 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
     internal ActivityCountCollector(
         ILogger<ActivityCountCollector> logger,
         NamedPipeClient pipeClient,
-        ISessionDayMetrics dayMetrics,
         Func<long> clockMs,
         Func<int> secondsSinceLastInput)
     {
         _logger = logger;
         _pipeClient = pipeClient;
-        _dayMetrics = dayMetrics;
         _deviceId = Environment.MachineName;
         _clockMs = clockMs;
         _secondsSinceLastInput = secondsSinceLastInput;
@@ -413,9 +409,6 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         _logger.LogInformation(
             "{Name}: snapshot #{Seq} kb={Kb} mouse={Mouse} eventId={EventId}",
             Name, seq, payload.KeyboardEventsCount, payload.MouseEventsCount, record.EventId);
-
-        if (idleSeconds > 0)
-            _dayMetrics.AddIdleSample(TimeSpan.FromSeconds(idleSeconds));
 
         try
         {

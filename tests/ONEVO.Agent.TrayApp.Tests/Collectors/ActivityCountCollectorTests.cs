@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using ONEVO.Agent.TrayApp.Services;
-using ONEVO.Agent.TrayApp.Tests.Fakes;
 
 namespace ONEVO.Agent.TrayApp.Tests.Collectors;
 
@@ -20,8 +19,7 @@ public class ActivityCountCollectorTests
     {
         var collector = new ActivityCountCollector(
             NullLogger<ActivityCountCollector>.Instance,
-            new NamedPipeClient(NullLogger<NamedPipeClient>.Instance),
-            new FakeSessionDayMetrics());
+            new NamedPipeClient(NullLogger<NamedPipeClient>.Instance));
         ActivitySnapshotPayload? finalSnapshot = null;
         collector.SnapshotEmitted += (payload, _) => finalSnapshot = payload;
 
@@ -49,8 +47,7 @@ public class ActivityCountCollectorTests
     {
         var collector = new ActivityCountCollector(
             NullLogger<ActivityCountCollector>.Instance,
-            new NamedPipeClient(NullLogger<NamedPipeClient>.Instance),
-            new FakeSessionDayMetrics());
+            new NamedPipeClient(NullLogger<NamedPipeClient>.Instance));
         var policy = new AgentPolicy { Version = "v1", ActivitySignalEnabled = true };
 
         await collector.StartAsync(policy, CancellationToken.None);
