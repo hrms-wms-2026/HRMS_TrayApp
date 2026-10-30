@@ -17,6 +17,12 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
+## Next PR
+
+| Change | Issue |
+|---|---|
+| Legal consent "View" and Work Location option tap call their commands from code-behind; last 5 XamlC warnings removed | UAT-22 |
+
 ## PR #104 (step 3)
 
 | Change | Issue |
@@ -81,7 +87,6 @@
 | UAT-17 | P1 | Parts 1–2 done: independent requests no longer block; read-only calls have a budget. Remaining: writing calls have no budget (D-15); a slow face enrol can still delay later messages | Retry the action |
 | UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
 | UAT-19 | P3 | Windows version declarations inconsistent | None |
-| UAT-22 | P3 | 5 XamlC XC0023 build warnings remain on 2 page bindings (was 49) | None |
 | AUD-020 | P1 | QuestPDF Community licence eligibility not decided | Legal decision |
 | UAT-21 | P2 | No release tag/branch/RC yet | — |
 | UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |
