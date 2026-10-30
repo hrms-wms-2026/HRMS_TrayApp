@@ -30,6 +30,7 @@
 | Logging, correlation ids, crash capture | ✅ | — | — | 🖐 | `Diagnostics`, `TrayBootLogTests` |
 | Installer / upgrade / autostart | — | — | — | 🖐 | No automation; UAT-07/08 |
 | Live backend contract | — | — | — | 🖐 | Postman collection `docs/postman/` |
+| Test isolation from real agent data (UAT-20) | — | CI guard `scripts/check-test-isolation.ps1` | — | — | Snapshot before tests, compare after; self-check proves it can fail |
 | Resource footprint | — | `scripts/check-footprint.ps1` (manual run) | — | 🖐 | Idle budgets only (13) |
 
 ## Coverage (develop baseline, CI run 197)

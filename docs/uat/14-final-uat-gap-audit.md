@@ -203,8 +203,8 @@ One step at a time. Each AI step gets its own branch commits, regression tests, 
 
 | Step | Who | Work | Items | Needs first | Done when |
 |---|---|---|---|---|---|
-| 1 | AI | Read-only IPC time budgets | UAT-17 part 2 | — | PR merged, CI green |
-| 2 | AI | Build hygiene: compiled XAML bindings, single idle source | UAT-22, UAT-02 | — | 0 build warnings in TrayApp; PR merged |
+| 1 ✅ | AI | Read-only IPC time budgets | UAT-17 part 2 | — | Merged in PR #103 |
+| 2 ✅ | AI | Build hygiene: compiled XAML bindings, single idle source | UAT-22, UAT-02 | — | Merged in PR #103 (warnings 49 → 5) |
 | 3 | AI | CI guard: test run must not touch real `%ProgramData%\ONEVO` / `%LocalAppData%\ONEVO` | UAT-20 | — | CI step fails on a planted write; PR merged |
 | 4 | AI | Windows-version declarations aligned | UAT-19 | Supported OS list (Release owner) | Manifest, csproj, `release.yml` agree |
 | 5 | Human | Decision meeting: D-01…D-15 (14 §G) | all Escalated | — | Each decision recorded in §G with owner and date |
