@@ -27,7 +27,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed**: part 1 in PR #102 (`2a41be6`); part 2, read-only budgets, in PR #103 (`923692a`, CI run 224: Service 559/559): independent requests off the read loop. Per-handler time budgets still open |
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
-| UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
+| UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | **Fixed in PR #104** (`44d881e`, CI run 231: guard passes; self-check catches a planted write) |
 | UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Mostly fixed in PR #103**: 49 → 5 warnings (CI run 228); 5 `XC0023` remain on 2 page bindings |
 | UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 
@@ -168,6 +168,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 ### UAT-20 — No whole-suite real-path guard (P3, AUD-017/036)
 - Isolation is per path: `TestAgentDataRoot` (`AgentDataPaths.OverrideRootForTests`, AUD-034) and `TestAssemblySetup` (`TrayBootLog.FallbackPath`, AUD-036). The only guard test, `TestPathIsolationTests`, checks the tray-boot fallback path. A new path added later is not covered automatically.
 - **Recommendation:** a CI step that hashes/lists `%ProgramData%\ONEVO` and `%LocalAppData%\ONEVO` before and after the test run and fails on any change.
+- **Fix (step 3):** `scripts/check-test-isolation.ps1` lists every folder and file (size, last write time) under both roots. `ci.yml` snapshots before the first test project and compares after the last one (also when tests fail). A self-check step plants a file under a temp root and requires the script to exit 1, so the guard is shown to be able to fail. Local use: run with `-Snapshot <file>` before `dotnet test` and `-Compare <file>` after.
 
 ### UAT-21 — No release candidate process in use (P2, R10)
 - No tags, no GitHub release, no `release/*` branch; `main` stale (UAT-05). `scripts/check-footprint.ps1` is manual only. R10 needs: release PR, tag, signed MSIX from `release.yml`, version matrix, release notes.

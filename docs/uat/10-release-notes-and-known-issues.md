@@ -17,6 +17,12 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
+## PR #104 (step 3)
+
+| Change | Issue |
+|---|---|
+| CI fails when a test run creates, changes or deletes anything under the real `%ProgramData%\ONEVO` or `%LOCALAPPDATA%\ONEVO` | UAT-20 |
+
 ## PR #103, step 2
 
 | Change | Issue |
@@ -75,7 +81,6 @@
 | UAT-17 | P1 | Parts 1–2 done: independent requests no longer block; read-only calls have a budget. Remaining: writing calls have no budget (D-15); a slow face enrol can still delay later messages | Retry the action |
 | UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
 | UAT-19 | P3 | Windows version declarations inconsistent | None |
-| UAT-20 | P3 | No whole-suite test guard for real data paths | None |
 | UAT-22 | P3 | 5 XamlC XC0023 build warnings remain on 2 page bindings (was 49) | None |
 | AUD-020 | P1 | QuestPDF Community licence eligibility not decided | Legal decision |
 | UAT-21 | P2 | No release tag/branch/RC yet | — |
