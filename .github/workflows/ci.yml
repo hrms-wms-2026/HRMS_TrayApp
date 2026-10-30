@@ -38,6 +38,23 @@ jobs:
       - name: Build TrayApp
         run: dotnet build ONEVO.Agent.TrayApp/ONEVO.Agent.TrayApp.csproj --configuration Release
 
+      # Proves the isolation guard below can fail: a write planted under a temp folder must be reported.
+      - name: Test isolation guard - self-check
+        shell: pwsh
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP "isolation-self-check"
+          New-Item -ItemType Directory -Force $root | Out-Null
+          ./scripts/check-test-isolation.ps1 -Snapshot "$root.txt" -Roots $root
+          Set-Content (Join-Path $root "planted.txt") "planted"
+          ./scripts/check-test-isolation.ps1 -Compare "$root.txt" -Roots $root -Plain
+          if ($LASTEXITCODE -ne 1) { throw "check-test-isolation.ps1 missed a planted write" }
+          $global:LASTEXITCODE = 0
+
+      # Tests must never touch the real %ProgramData%\ONEVO or %LOCALAPPDATA%\ONEVO (UAT-20).
+      - name: Test isolation guard - snapshot
+        shell: pwsh
+        run: ./scripts/check-test-isolation.ps1 -Snapshot "$env:RUNNER_TEMP/agent-data-before.txt"
+
       # Each project writes its cobertura report under coverage/<TestProject> for the gate below.
       - name: Test - Shared
         run: dotnet test tests/ONEVO.Agent.Shared.Tests/ONEVO.Agent.Shared.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory coverage/ONEVO.Agent.Shared.Tests
@@ -47,6 +64,11 @@ jobs:
 
       - name: Test - TrayApp
         run: dotnet test tests/ONEVO.Agent.TrayApp.Tests/ONEVO.Agent.TrayApp.Tests.csproj --configuration Release --collect:"XPlat Code Coverage" --results-directory coverage/ONEVO.Agent.TrayApp.Tests
+
+      - name: Test isolation guard - compare
+        if: success() || failure()
+        shell: pwsh
+        run: ./scripts/check-test-isolation.ps1 -Compare "$env:RUNNER_TEMP/agent-data-before.txt"
 
       # Floors are in coverage-thresholds.json (AUD-025).
       - name: Coverage gate
