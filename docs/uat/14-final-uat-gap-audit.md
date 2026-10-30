@@ -127,7 +127,7 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 
 | # | Task | Repo | Blocked by |
 |---|---|---|---|
-| AI-1 | ~~Bounded concurrent IPC dispatch~~ done (PR #102, CI 221 green). Remaining: per-message time budgets for the 17 handlers (UAT-17 part 2) | Tray | — |
+| AI-1 | ~~Bounded concurrent IPC dispatch~~ done (PR #102). ~~Read-only budgets~~ done (`923692a`). Remaining: budgets + recovery for writing requests | Tray | D-15 |
 | AI-2 | Bring `GetTrayDailyTasks` + attendance day fields (`51d84d4c`) into backend `development` with its tests (UAT-15) | Backend | D-02 |
 | AI-3 | Replay de-dupe for app-usage/device-state/meeting signals (natural key `(tenant, device, captured_at)` like activity), migration created not applied; idempotent-replay tests (UAT-16) | Backend | D-03 |
 | AI-4 | Contract tests: tray wire records ↔ backend DTO JSON (snapshot of property names) on both sides | Both | AI-2 |
@@ -154,6 +154,7 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | D-09 | DPAPI LocalMachine + ACL as credential protection | UAT-09 | Security owner | Accept after 11 §F · change scheme | Open |
 | D-10 | AUD-016, AUD-026 (texts in missing register) | R07 | Security/Legal | — | Open |
 | D-14 | QuestPDF Community licence eligibility | AUD-020 | Legal | Community licence applies · buy commercial licence · replace library | Open |
+| D-15 | Time budget + recovery for writing IPC requests (consent submit, location change, activation, face enrol, legal acceptance) | UAT-17 | Tech lead | Budget + reconcile from backend (like AUD-008) · leave unbounded (accept) | Open |
 | D-11 | Accept UAT-04 (60 s idle-end resolution) for UAT | UAT-04 | Product | Accept · shorten sample window | Proposed: accept |
 | D-12 | Production code-signing certificate | UAT-10 | Release owner | — | Open |
 | D-13 | Inform report consumers of UAT-01 value change | UAT-01 | Product | — | Open |
@@ -195,6 +196,29 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | AUD-016/026 | P1 | Unknown content | Obtain text; decide | D-10 |
 | AUD-020 | P1 | Licence non-compliance if Community terms do not apply | Legal decision | D-14 |
 | AUD-027/028 | ? | Unknown content | Obtain text | §A |
+
+## K. Execution plan (2026-10-30)
+
+One step at a time. Each AI step gets its own branch commits, regression tests, a PR into `develop`, green Windows CI and human review before the next step starts. Docs (03, 05, 10, 12, 14) are updated in the same PR.
+
+| Step | Who | Work | Items | Needs first | Done when |
+|---|---|---|---|---|---|
+| 1 | AI | Read-only IPC time budgets | UAT-17 part 2 | — | PR merged, CI green |
+| 2 | AI | Build hygiene: compiled XAML bindings, single idle source | UAT-22, UAT-02 | — | 0 build warnings in TrayApp; PR merged |
+| 3 | AI | CI guard: test run must not touch real `%ProgramData%\ONEVO` / `%LocalAppData%\ONEVO` | UAT-20 | — | CI step fails on a planted write; PR merged |
+| 4 | AI | Windows-version declarations aligned | UAT-19 | Supported OS list (Release owner) | Manifest, csproj, `release.yml` agree |
+| 5 | Human | Decision meeting: D-01…D-15 (14 §G) | all Escalated | — | Each decision recorded in §G with owner and date |
+| 6 | AI | Privacy gates: consent, policy, leave enforced before any collector | AUD-010, UAT-18 | D-05 | Gate tests per rule; 11 §I passes |
+| 7 | AI | UAT environment configuration and validation | AUD-013, AUD-030, UAT-11 | D-04 | UAT config shipped; validation test |
+| 8 | AI | Backend contract: daily-tasks merge, ingest de-dupe (migration created, applied by a developer), contract tests | AUD-007, UAT-15, UAT-16 | D-02, D-03 | Backend + tray PRs merged; 11 §H passes on UAT backend |
+| 9 | AI | Installer: Service + tray autostart, upgrade, uninstall, CI install smoke test | AUD-029, UAT-07, UAT-08 | D-01, D-12 | Signed package installs on a clean VM in CI |
+| 10 | AI | Privacy/legal follow-ups | UAT-03, UAT-12, AUD-019, AUD-020 | D-07, D-08, D-14 | Per decision |
+| 11 | AI | Budgets + recovery for writing IPC requests | UAT-17 rest | D-15 | Recovery tests |
+| 12 | Human | Windows device matrix (11 §A–§I), active-monitoring run (13) | R08, R09, T10 B | Steps 6–9 | Checklist signed; active budgets in `footprint-budgets.json` |
+| 13 | AI + Human | Release candidate: `develop → main`, tag, signed MSIX, release notes, version matrix | R10, UAT-05, UAT-21 | Step 12 | Immutable RC with CI evidence |
+| 14 | Human | Pilot and Go/No-Go sign-off | R11 | Step 13 | Signed decision |
+
+Steps 2–4 need no decision and can run while step 5 is being organised. Steps 6–11 can run in parallel once their decisions exist.
 
 ## J. Go / No-Go recommendation
 

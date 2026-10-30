@@ -24,7 +24,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-14 | P3 | Packaging / size | MSIX carried 45 images no screen uses | Verified (measurement build) | **Fixed in PR #101**: MSIX 48.25 → 43.85 MB |
 | UAT-15 | P2 | Backend contract (AUD-007) | `tray/daily-tasks` and attendance day fields not on backend `development` | Confirmed (code, both repos) | Escalated — backend branch decision |
 | UAT-16 | P2 | Backend ingest (AUD-007) | No replay de-dupe for app-usage, device-state, meeting signals | Confirmed (code) | Escalated — backend contract |
-| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed in PR #102** (`2a41be6`): independent requests off the read loop. Per-handler time budgets still open |
+| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed**: part 1 in PR #102 (`2a41be6`); part 2, read-only budgets, `923692a`: independent requests off the read loop. Per-handler time budgets still open |
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
 | UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
@@ -150,6 +150,8 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
   - The pipe harness moved unchanged from `NamedPipeServerBroadcastTests` into `TestPipeConnection`.
 - **Verification:** PR #102 CI run 221 (<https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41004208690>): success, Service 544/544 (+26 new), 0 build warnings in Service. Not run locally (SDK download blocked).
 - **Remaining (part 2):** per-handler time budgets. One backend call can still hold a slot for about 2.5–3 minutes: 5 attempts × `HttpTimeoutSeconds` 30 s, plus back-off of up to ≈15 s. Four such calls at once would block the loop again. The 7 stateful handlers above still run serially without a budget.
+- **Fix, part 2 (`923692a`):** `IpcDispatch.ReadOnlyBudget` gives the 6 read-only requests the same budget the tray waits for their reply: daily tasks 10 s, pending location check 10 s, face reference 15 s, consent status 8 s, update check 20 s, delivery ack 30 s. On expiry the handler sends its normal failure reply. Tests in `AgentWorkerTests`: a backend that never answers → failure within the budget (before: never returned); budget table theories.
+- **Still open (needs decision D-15):** writing requests (consent submit, location change submit/respond, work-location confirm, activation, pairing, logout, biometric, face validate/commit, legal acceptance) still have no budget. Cancelling them can leave the backend committed while the Service drops the result, so each needs a recovery path first, as AUD-008 did for clock actions.
 - **Manual:** 11 §C (clock in while the backend is slow, e.g. by throttling with a proxy).
 
 ### UAT-18 — Monitoring privacy gates not enforced (P0, AUD-010)

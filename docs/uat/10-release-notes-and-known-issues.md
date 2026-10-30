@@ -17,7 +17,13 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
-## PR #102 (draft, CI green)
+## Next PR (branch `claude/upbeat-hamilton-ebza6u`)
+
+| Change | Issue |
+|---|---|
+| Read-only tray requests (daily tasks, pending location check, face reference, consent status, update check, notification ack) give up on a hung backend after the time the tray waits (8–30 s) and reply with a failure, instead of waiting through every retry | UAT-17 part 2 |
+
+## PR #102 (merged)
 
 | Change | Issue |
 |---|---|
@@ -60,7 +66,7 @@
 | UAT-11 | P1 | No UAT configuration; default `ApiBaseUrl` is the dev host | Override with `Agent__ApiBaseUrl` |
 | UAT-15 | P2 | Daily summary task list empty against backend `development` (endpoint not merged) | None |
 | UAT-16 | P2 | App-usage/device-state/meeting rows can be duplicated after a lost response | None; report caveat |
-| UAT-17 | P1 | Part 1 on branch: independent requests no longer block. Remaining: no per-handler time budget; a slow stateful call (e.g. face enrol) can still delay later messages | Retry the action |
+| UAT-17 | P1 | Parts 1–2 done: independent requests no longer block; read-only calls have a budget. Remaining: writing calls have no budget (D-15); a slow face enrol can still delay later messages | Retry the action |
 | UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
 | UAT-19 | P3 | Windows version declarations inconsistent | None |
 | UAT-20 | P3 | No whole-suite test guard for real data paths | None |
