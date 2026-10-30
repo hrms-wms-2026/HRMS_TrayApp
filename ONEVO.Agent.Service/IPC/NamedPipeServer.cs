@@ -107,6 +107,11 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
 
             Task SendAsync(IpcEnvelope envelope) => connection.SendAsync(envelope, ct);
 
+            // Not disposed: a request still in flight when the connection ends releases its slot
+            // afterwards, and SemaphoreSlim needs no disposal unless its wait handle is used.
+            var independentSlots = new SemaphoreSlim(
+                IpcDispatch.MaxConcurrentRequestsPerConnection, IpcDispatch.MaxConcurrentRequestsPerConnection);
+
             try
             {
                 while (pipe.IsConnected && !ct.IsCancellationRequested)
@@ -120,8 +125,20 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
 
                     if (envelope is null || !IpcProtocolVersion.IsCompatible(envelope.Version)) continue;
 
-                    if (MessageReceived is not null)
-                        await MessageReceived(envelope, SendAsync);
+                    var handler = MessageReceived;
+                    if (handler is null) continue;
+
+                    if (IpcDispatch.RunsConcurrently(envelope.Type))
+                    {
+                        // Off the read loop, so a slow backend call cannot hold back the messages
+                        // behind it (AUD-008). Waiting for a slot here bounds the work per client.
+                        await independentSlots.WaitAsync(ct);
+                        _ = HandleIndependentRequestAsync(handler, envelope, SendAsync, independentSlots);
+                    }
+                    else
+                    {
+                        await handler(envelope, SendAsync);
+                    }
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -132,6 +149,31 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
             {
                 _connections.TryRemove(connectionId, out _);
             }
+        }
+    }
+
+    private async Task HandleIndependentRequestAsync(
+        Func<IpcEnvelope, Func<IpcEnvelope, Task>, Task> handler,
+        IpcEnvelope envelope,
+        Func<IpcEnvelope, Task> reply,
+        SemaphoreSlim slots)
+    {
+        try
+        {
+            // The handler's synchronous start (credential read, payload parsing) must not run on
+            // the read loop either.
+            await Task.Yield();
+            await handler(envelope, reply);
+        }
+        catch (Exception ex)
+        {
+            // On the read loop this would have dropped the connection. Here only this request
+            // fails; the tray's own timeout for it reports the failure.
+            _logger.LogWarning(ex, "IPC {Type} handler failed", envelope.Type);
+        }
+        finally
+        {
+            slots.Release();
         }
     }
 
