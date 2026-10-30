@@ -27,7 +27,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed**: part 1 in PR #102 (`2a41be6`); part 2, read-only budgets, in PR #103 (`923692a`, CI run 224: Service 559/559): independent requests off the read loop. Per-handler time budgets still open |
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
-| UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | **Fixed** (step 3 PR, CI pending): CI guard `scripts/check-test-isolation.ps1` |
+| UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | **Fixed in PR #104** (`44d881e`, CI run 231: guard passes; self-check catches a planted write) |
 | UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Mostly fixed in PR #103**: 49 → 5 warnings (CI run 228); 5 `XC0023` remain on 2 page bindings |
 | UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 

@@ -10,6 +10,15 @@
 
 `release.yml` runs the same three test projects before building a signed MSIX for a `vX.Y.Z` tag.
 
+## PR #104 (`eeb5b43`) — UAT-20 isolation guard
+
+Run 231: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41018122916> — **success**. Shared 42/42, Service 559/559, TrayApp 582/582, 0 skipped. TrayApp build 5 warnings (UAT-22, unchanged).
+
+Guard output, as printed:
+- Self-check: `Test run touched real agent data - new or changed: F|D:\a\_temp\isolation-self-check\planted.txt|…`, so the script exits 1 on a planted write.
+- Snapshot: `Recorded 0 entries under: C:\ProgramData\ONEVO, C:\Users\runneradmin\AppData\Local\ONEVO`.
+- Compare after all three test projects: `Real agent data folders unchanged`. Today's suites do not touch the real folders.
+
 ## PR #103 head `7895578` — steps 1–2 (UAT-17 part 2, UAT-02, UAT-22)
 
 Run 228: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41015247939> — **success**. Shared 42/42, Service 559/559, TrayApp 582/582, 0 skipped; coverage Shared 46.8%, Service 76%, TrayApp 47.3% line (all above floors).

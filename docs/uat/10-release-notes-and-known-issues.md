@@ -17,7 +17,7 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
-## Step 3 PR
+## PR #104 (step 3)
 
 | Change | Issue |
 |---|---|
