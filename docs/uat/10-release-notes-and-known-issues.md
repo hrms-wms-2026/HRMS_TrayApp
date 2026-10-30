@@ -17,7 +17,14 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
-## Next PR (branch `claude/upbeat-hamilton-ebza6u`)
+## Step 2 PR (after #103)
+
+| Change | Issue |
+|---|---|
+| Tray day idle counted once (DeviceState only) | UAT-02 |
+| XAML bindings with `Source={x:Reference}` compiled; TrayApp build warnings 49 → expected 0 | UAT-22 |
+
+## PR #103
 
 | Change | Issue |
 |---|---|
@@ -57,7 +64,6 @@
 | UAT-07 | P1 | Released MSIX does not install the Agent Service | Install the Service with `scripts/install-service.ps1` (07) |
 | UAT-08 | P1 | Tray does not start at logon | Employee opens the tray after every sign-in; time before that counts as idle |
 | UAT-03 | P3 | Activity counts are written to `tray.log` | Policy decision pending |
-| UAT-02 | P3 | Tray day-metrics idle accumulated twice (value unused) | None needed today |
 | UAT-04 | — | Idle end detected at 60 s sample resolution | Accepted limitation |
 | UAT-05 | P2 | GitHub default branch `main` is stale | Use `develop`; release PR `develop → main` pending |
 | UAT-06 | P3 | Some Service tests are Windows-only but not marked | Run tests on Windows |

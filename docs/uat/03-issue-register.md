@@ -9,7 +9,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | ID | P | Component | Title | Class | Status |
 |---|---|---|---|---|---|
 | UAT-01 | P1 | Tray `ActivityCountCollector` | Activity snapshots over-report active time | Confirmed (code); fix unit-tested | **Fixed in PR #100** (`61e43f9`, `f987d83`) — device check pending |
-| UAT-02 | P3 | Tray `SessionDayMetrics` | Idle accumulated twice (two collectors), value unused | Confirmed (code) | Open |
+| UAT-02 | P3 | Tray `SessionDayMetrics` | Idle accumulated twice (two collectors), value unused | Confirmed (code) | **Fixed** (`b347107`, step 2 PR, CI pending) |
 | UAT-03 | P3 | Tray logging / privacy | Per-snapshot keyboard/mouse counts written to `tray.log` | Confirmed (code) | Open — policy decision |
 | UAT-04 | — | Service `PresenceSession` | Idle end detected at 60 s sample resolution | Observation | Accepted limitation (not changed) |
 | UAT-05 | P2 | Release / git | GitHub default branch `main` is still `5cca93e` | Verified | Open — release process (AGT-03) |
@@ -28,7 +28,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
 | UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
-| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | Open |
+| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Fixed** (`40efd1a`, step 2 PR, CI pending) |
 | UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
@@ -99,6 +99,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - `ActivityCountCollector` and `DeviceStateCollector` both call `ISessionDayMetrics.AddIdleSample` for the same idle time.
 - `SessionDayMetrics.TotalIdle` has no production reader: the session idle shown to users comes from the Service (`SessionSnapshot.AccumulatedIdle`). There is therefore no visible impact today, but anyone who starts using `TotalIdle` gets roughly double the idle.
 - **Recommendation:** keep a single source (DeviceState, which uses the policy idle threshold) or remove `TotalIdle`.
+- **Fix (`b347107`):** `ActivityCountCollector` no longer takes `ISessionDayMetrics`, so it cannot add idle; `DeviceStateCollector` is the only source. The constructor change is the guard (a behaviour test cannot observe a dependency that no longer exists). Existing collector tests updated.
 
 ### UAT-03 — Activity counts in `tray.log` (P3, privacy)
 - `ActivityCountCollector` logs `snapshot #N kb=… mouse=…` at Information. `TrayLogging` persists Information and above to the rolling `tray.log` (5 MB × retained files).
@@ -175,6 +176,8 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - **Evidence:** CI run 220 (`9a13436`), step "Build TrayApp": `49 Warning(s)`, all `XC0025` ("Binding was not compiled because it has an explicitly set Source property…"), e.g. `…HeaderBar.xaml`, `…StatusBar.xaml`. Shared and Service: `0 Warning(s)`.
 - **Effect:** those bindings use reflection at runtime; no functional defect.
 - **Recommendation:** enable `MauiEnableXamlCBindingWithSourceCompilation` (or add `x:DataType` on the bindings) and keep the build warning-free.
+- **Fix (`40efd1a`):** property enabled. The 47 control self-bindings are compiled (paths checked against the controls' public properties before pushing). The 2 page bindings through `BindingContext` (LegalConsentPage "View", WorkLocationPage option tap) opt out with `x:DataType="{x:Null}"`, so they keep today's runtime binding.
+- **Manual:** 11 §E (both opted-out actions).
 
 ## Earlier findings (audit of `main`) → status on `develop`
 

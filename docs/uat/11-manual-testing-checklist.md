@@ -36,6 +36,7 @@ Use dedicated test devices and synthetic test accounts only. Never use productio
 - [ ] Antivirus/EDR products in use: LL hooks and camera not blocked or flagged.
 - [ ] Proxy, captive portal and metered networks.
 - [ ] Multiple monitors, high DPI, dark/light theme for the tray UI.
+- [ ] After UAT-22: legal consent "View" opens the document; Work Location option tap selects the option; setup step rows, confirm dialogs and status bar render as before.
 - [ ] Camera absent / denied → face check flow degrades as designed.
 
 ## F. Security on a device
