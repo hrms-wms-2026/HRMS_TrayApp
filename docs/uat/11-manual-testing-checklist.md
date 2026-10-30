@@ -9,6 +9,9 @@ Use dedicated test devices and synthetic test accounts only. Never use productio
 - [ ] Restart the Service while the tray runs → tray shows Offline, then reconnects without user action.
 - [ ] Kill the tray from Task Manager while clocked in → reopen → session state restored from the Service.
 - [ ] Upgrade from the previous build → enrollment kept, pending queue rows still uploaded.
+- [ ] Upgrade while clocked in and while offline → session and queue survive; Service and tray versions match afterwards.
+- [ ] Uninstall → Service stopped and removed, autostart entry removed, decision on `%ProgramData%\ONEVO\Agent` (keep/delete) applied (AUD-029).
+- [ ] Install as a standard user without admin rights → record what is refused.
 
 ## B. Activity accounting (UAT-01)
 - [ ] Clock in, type for 60 s → snapshot ≈ 60 s active (backend activity record).
@@ -44,6 +47,16 @@ Use dedicated test devices and synthetic test accounts only. Never use productio
 - [ ] `scripts/check-footprint.ps1` idle run passes on the UAT build.
 - [ ] Full workday with all collectors enabled: record Service/Tray private bytes and CPU, then propose active budgets.
 
-## I. Pilot (T18)
+## H. Backend contract on the UAT backend (AUD-007)
+- [ ] Every route in `AgentApiRoutes.cs` answers on the UAT backend with the expected verb (no 404/405); record `tray/daily-tasks` explicitly (UAT-15).
+- [ ] Lose the response of an app-usage upload (drop network after send) → count backend rows; duplicates expected until UAT-16 is fixed.
+
+## I. Privacy gates (AUD-010, UAT-18) — after D-05 is decided and implemented
+- [ ] New employee who has not given consent → no collector starts, nothing queued.
+- [ ] Employee on approved leave → clock-in and monitoring refused as decided.
+- [ ] Policy disables activity → no activity rows are queued (not only quarantined).
+- [ ] Fresh enrolment before the first policy arrives → no capture.
+
+## J. Pilot (T18)
 - [ ] Pilot group completes a full workday; compare tray totals with backend reports.
 - [ ] Support process and known-issue list (issue-register.md) accepted; go/no-go signed.

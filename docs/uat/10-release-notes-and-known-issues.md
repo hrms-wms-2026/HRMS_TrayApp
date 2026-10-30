@@ -50,5 +50,12 @@
 | UAT-06 | P3 | Some Service tests are Windows-only but not marked | Run tests on Windows |
 | UAT-09 | P3 | Credential confidentiality relies on the folder ACL | Device check (11 §F) |
 | UAT-10 | Info | Production signing certificate needed | T17 |
-| UAT-11 | P3 | Confirm `ApiBaseUrl` per environment | Override with `Agent__ApiBaseUrl` |
+| UAT-11 | P1 | No UAT configuration; default `ApiBaseUrl` is the dev host | Override with `Agent__ApiBaseUrl` |
+| UAT-15 | P2 | Daily summary task list empty against backend `development` (endpoint not merged) | None |
+| UAT-16 | P2 | App-usage/device-state/meeting rows can be duplicated after a lost response | None; report caveat |
+| UAT-17 | P1 | A slow backend call can delay a clock action (serial IPC) | Retry the action |
+| UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
+| UAT-19 | P3 | Windows version declarations inconsistent | None |
+| UAT-20 | P3 | No whole-suite test guard for real data paths | None |
+| UAT-21 | P2 | No release tag/branch/RC yet | — |
 | UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |
