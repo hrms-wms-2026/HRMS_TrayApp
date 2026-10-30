@@ -24,10 +24,11 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-14 | P3 | Packaging / size | MSIX carried 45 images no screen uses | Verified (measurement build) | **Fixed in PR #101**: MSIX 48.25 → 43.85 MB |
 | UAT-15 | P2 | Backend contract (AUD-007) | `tray/daily-tasks` and attendance day fields not on backend `development` | Confirmed (code, both repos) | Escalated — backend branch decision |
 | UAT-16 | P2 | Backend ingest (AUD-007) | No replay de-dupe for app-usage, device-state, meeting signals | Confirmed (code) | Escalated — backend contract |
-| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 15 non-lifecycle handlers call the backend without a budget | Confirmed (code) | Open — AI task AI-1 |
+| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code) | Open — AI task AI-1 |
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
-| UAT-20 | P3 | Tests (AUD-017/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
+| UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
+| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | Open |
 | UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
@@ -110,7 +111,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - Shortening the DeviceState sample window is the effective lever if more precision is required.
 
 ### UAT-05 — Stale default branch (P2)
-- `main` (the GitHub default branch) is `5cca93e`, 326 commits behind `develop`. Fresh clones and tools that use the default branch see a scaffold without most features.
+- `main` (the GitHub default branch) is `5cca93e`, 340 commits behind `develop` at `9a13436`. Fresh clones and tools that use the default branch see a scaffold without most features.
 - Already identified as AGT-03. The planned `develop → main` release PR has not happened yet.
 
 ### UAT-06 — Platform-specific tests not marked (P3)
@@ -133,7 +134,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 
 ### UAT-17 — Serial IPC dispatch with unbudgeted backend calls (P1, AUD-008 remainder)
 - **Files:** `ONEVO.Agent.Service/IPC/NamedPipeServer.cs` (read loop `await MessageReceived(...)`), `AgentWorker.HandleMessageAsync`.
-- **Actual:** each connection's messages are processed one at a time. These handlers call the backend with `CancellationToken.None`, bounded only by `HttpTimeoutSeconds` (30 s) per attempt and the retry policy: activation code, device-pairing start, location change submit/pending/respond, daily tasks, generic-notification ack, work-location confirm, face photo validate, face reference status, permission consent, face enrol commit, legal acceptance, update check, logout (15). The assignment counts 13; the difference is not resolved because the original list is in the missing register (14 §A).
+- **Actual:** each connection's messages are processed one at a time. These handlers call the backend with `CancellationToken.None`, bounded only by `HttpTimeoutSeconds` (30 s) per attempt and the retry policy: activation code, device-pairing start, location change submit/pending/respond, daily tasks, generic-notification ack, work-location confirm, face photo validate, face reference status, permission consent, face enrol commit, legal acceptance, update check, logout (15), plus biometric enrolment start/finish, which call the backend through `EnrollmentCoordinator` with `CancellationToken.None` (17 in total). The assignment counts 13; the difference is not resolved because the original list is in the missing register (14 §A).
 - **Effect:** a clock-in sent while one of these is waiting is not read until it finishes; the tray's lifecycle reply timeout can expire although the Service is healthy.
 - **Recommendation:** per-message time budgets and bounded concurrent dispatch, keeping lifecycle commands ordered; tests with a hanging stub backend (AI-1).
 
@@ -148,11 +149,16 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - `Package.appxmanifest` `MinVersion 10.0.17763.0`, `MaxVersionTested 10.0.19041.0`; project `SupportedOSPlatformVersion`/`TargetPlatformMinVersion 10.0.19041.0`; `release.yml` registers `minimumWindowsVersion 10.0.19041.0`. Align with the supported matrix (Windows 10 22H2, Windows 11) in the installer work.
 
 ### UAT-20 — No whole-suite real-path guard (P3, AUD-017/036)
-- Isolation is per path: `TestAgentDataRoot` (`AgentDataPaths.OverrideRootForTests`) and `TestAssemblySetup` (`TrayBootLog.FallbackPath`). A new path added later is not covered automatically.
+- Isolation is per path: `TestAgentDataRoot` (`AgentDataPaths.OverrideRootForTests`, AUD-034) and `TestAssemblySetup` (`TrayBootLog.FallbackPath`, AUD-036). The only guard test, `TestPathIsolationTests`, checks the tray-boot fallback path. A new path added later is not covered automatically.
 - **Recommendation:** a CI step that hashes/lists `%ProgramData%\ONEVO` and `%LocalAppData%\ONEVO` before and after the test run and fails on any change.
 
 ### UAT-21 — No release candidate process in use (P2, R10)
 - No tags, no GitHub release, no `release/*` branch; `main` stale (UAT-05). `scripts/check-footprint.ps1` is manual only. R10 needs: release PR, tag, signed MSIX from `release.yml`, version matrix, release notes.
+
+### UAT-22 — XamlC XC0025 warnings (P3)
+- **Evidence:** CI run 220 (`9a13436`), step "Build TrayApp": `49 Warning(s)`, all `XC0025` ("Binding was not compiled because it has an explicitly set Source property…"), e.g. `…HeaderBar.xaml`, `…StatusBar.xaml`. Shared and Service: `0 Warning(s)`.
+- **Effect:** those bindings use reflection at runtime; no functional defect.
+- **Recommendation:** enable `MauiEnableXamlCBindingWithSourceCompilation` (or add `x:DataType` on the bindings) and keep the build warning-free.
 
 ## Earlier findings (audit of `main`) → status on `develop`
 

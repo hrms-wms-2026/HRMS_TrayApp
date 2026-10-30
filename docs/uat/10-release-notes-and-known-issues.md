@@ -57,5 +57,7 @@
 | UAT-18 | P0 | Consent/policy/time-off gates not enforced | Do not enrol UAT users before the fix |
 | UAT-19 | P3 | Windows version declarations inconsistent | None |
 | UAT-20 | P3 | No whole-suite test guard for real data paths | None |
+| UAT-22 | P3 | 49 XamlC XC0025 build warnings in TrayApp | None |
+| AUD-020 | P1 | QuestPDF Community licence eligibility not decided | Legal decision |
 | UAT-21 | P2 | No release tag/branch/RC yet | — |
 | UAT-12 | P1 | Face photos kept unencrypted in SQLite and retained after upload | Retention/privacy decision pending (13 §Storage) |

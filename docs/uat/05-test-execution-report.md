@@ -10,7 +10,23 @@
 
 `release.yml` runs the same three test projects before building a signed MSIX for a `vX.Y.Z` tag.
 
-## Results of record — PR #100 head `86aa632`
+## Results of record — `develop` head `9a13436` (final gap audit, 2026-10-30)
+
+Run 220: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/40999925848> — **success** (job `build-and-test`, windows-latest). Counts as printed in the job log:
+
+| Test project | Result |
+|---|---|
+| ONEVO.Agent.Shared.Tests | `Passed! - Failed: 0, Passed: 42, Skipped: 0, Total: 42` |
+| ONEVO.Agent.Service.Tests | `Passed! - Failed: 0, Passed: 518, Skipped: 0, Total: 518` |
+| ONEVO.Agent.TrayApp.Tests | `Passed! - Failed: 0, Passed: 582, Skipped: 0, Total: 582` |
+
+Coverage gate: Shared 46.8% line (floor 26%) / 87.5% branch (floor 0%); Service 75.2% (72%) / 68.2% (63%); TrayApp 47.4% (45%) / 26.4% (24%), all `ok`.
+
+Build: Shared and Service `0 Warning(s)`; TrayApp `49 Warning(s)`, all XamlC `XC0025` (UAT-22). `0 Error(s)` everywhere.
+
+Local run for this audit: not possible. The environment's network policy refused the .NET SDK download (`builds.dotnet.microsoft.com`), so no test was run outside CI.
+
+## Earlier result of record — PR #100 head `86aa632`
 
 Run: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/40869661955> — **success**
 

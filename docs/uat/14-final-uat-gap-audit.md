@@ -6,7 +6,8 @@
 ## A. Source-of-truth limitation (read first)
 
 - The assignment names `tray-uat-audit-2026-10-27.zip` (`04-Issue-Register.md`, `05-Remaining-Work-Plan.md`, `10-Remaining-Manual-Testing-Checklist.md`) as the source of truth. **That ZIP is not in this repository or in this environment.** The register that is checked in is `03-issue-register.md`, and the README already notes that the AUD series' own register is not stored here.
-- Consequence: for each AUD ID, this audit uses (1) the commit history and code on `develop`, and (2) the descriptions in the R01…R11 assignment. **AUD-027, AUD-028 and AUD-034 have no commit, code reference or assignment text**, so their title and status cannot be verified here (§C, marked *Unverifiable*). They are not marked completed.
+- Consequence: for each AUD ID, this audit uses (1) the commit history and code on `develop`, and (2) the descriptions in the R01…R11 assignment. **AUD-027 and AUD-028 have no commit, code reference or assignment text**, so their title and status cannot be verified here (§C, marked *Unverifiable*). They are not marked completed. AUD-020 and AUD-034 were identified from commit bodies (`684af6f`, `b1b1072`) once the full history was fetched; AUD-016 and AUD-026 are known only as "security/legal decisions" from the assignment.
+- The first pass ran on a shallow clone. All history checks in this document were re-run on the full history (2026-10-30).
 - **Action (Human):** commit the ZIP's `04-Issue-Register.md` into `docs/uat/` (or attach it to the session) so the three unverifiable rows can be closed and AUD titles reconciled.
 
 ## B. Release-branch verification
@@ -20,7 +21,7 @@
 | PR #100 (UAT-01, UAT-13), PR #101 (UAT-14) | Merged | `ae33883`, `9a13436` |
 | CI on `develop` head | **Success** — run 220 | <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/40999925848> |
 | Every AUD/AGT fix commit on `develop` | Yes. Branches `fix/aud-018-*` have 0 commits not on `develop` (`git cherry`) | §C |
-| Release branch / tag | **None.** No `release/*` branch (only `feature/tray-release-management`, 0 commits ahead of `develop`), no tags, no GitHub release. `main` is still `5cca93e` (2026-08-05), 204 commits behind `develop` (UAT-05) | `git ls-remote`, GitHub tags API |
+| Release branch / tag | **None.** No `release/*` branch (only `feature/tray-release-management`, 0 commits ahead of `develop`), no tags, no GitHub release. `main` is still `5cca93e` (2026-08-05), 340 commits behind `develop` (UAT-05) | `git ls-remote`, GitHub tags API |
 | Version | `ApplicationDisplayVersion 1.0.0`, manifest `Version="1.0.0.0"`; the release workflow overrides it from a `vX.Y.Z` tag, but no tag exists | `ONEVO.Agent.TrayApp.csproj`, `release.yml` |
 
 "Latest release branch" therefore means `develop` @ `9a13436`. A release candidate does not exist yet (R10).
@@ -39,7 +40,7 @@ Status vocabulary: **Fixed – verified** (merged + CI green + regression test) 
 | AUD-005 | — | Tray not Offline / actions not blocked when Service unreachable | PR #76 `ce41265` | Fixed – device check pending | None | — | 11 §A Service restart |
 | AUD-006 | — | Single instance, one break alert/day, double dispose | PR #76 `7f442c0` | Fixed – device check pending | None | — | 11 §A second instance |
 | **AUD-007** | **P0** | Backend API contract alignment | — | **Open** | UAT-15 (daily-tasks endpoint not on backend `development`), UAT-16 (no dedupe on 3 ingest families), live contract tests | Yes (code + tests, both repos) | Backend owner approves contract; pick target backend branch |
-| AUD-008 | P1 | Clock-action time budget (lifecycle) | PR #79 `d9cdfd0` | **Partial** — lifecycle part fixed and tested | 15 non-lifecycle handlers still call the backend with `CancellationToken.None` on a serial pipe (UAT-17) | Yes | Approve the concurrency model |
+| AUD-008 | P1 | Clock-action time budget (lifecycle) | PR #79 `d9cdfd0` | **Partial** — lifecycle part fixed and tested | 17 non-lifecycle handlers still call the backend with `CancellationToken.None` on a serial pipe (UAT-17) | Yes | Approve the concurrency model |
 | AUD-009 | — | Clock action "already done" not recovered | PR #75 `c0bf13e` | Fixed – verified | None | — | — |
 | **AUD-010** | **P0** | Monitoring privacy gates (consent, policy, time-off) | — | **Open / Escalated** | Gates hard-coded true (UAT-18) | Yes, once the rules are decided | Product + privacy owner decide rules; device test |
 | AUD-011 | — | Owner binding of queued rows (with AUD-004) | PR #72 `0fd709c` | Fixed – verified | None | — | — |
@@ -51,7 +52,7 @@ Status vocabulary: **Fixed – verified** (merged + CI green + regression test) 
 | AUD-017 | — | Test runs touching real agent credentials | `55053dc`, PR #71 `41e18e2` | Fixed – verified | Add a whole-suite guard (UAT-20) | Yes | — |
 | AUD-018 | — | Persistent logs and correlation ids (tray + Service) | PRs #81, #91, #92 | Fixed – verified | UAT-03 log-content policy | — | Policy owner (UAT-03) |
 | AUD-019 | P1 | Live GPS persisted | PR #96 `ade39e2` | **Partial** — live fix kept for its own day only (verified); capture GPS is still stored with face-photo rows (UAT-12) | Resolve with UAT-12 | Yes, after decision | Privacy owner (retention) |
-| AUD-020 | P1 | Security/legal decision (assignment R07) | — | **Escalated** — no commit or code reference; title not in this repo | As AUD-016 | After decision | Security/legal owner |
+| AUD-020 | P1 | QuestPDF licence (named in `684af6f`: "QuestPDF (licence, AUD-020) … left for separate changes") | — | **Escalated** — `DailySummaryPdfBuilder.cs:34` sets `LicenseType.Community`; QuestPDF 2025.7.0 in `Directory.Packages.props`. Whether the Community licence applies to the company is a legal question | Legal decision; then keep, buy a licence, or replace the PDF library | Yes (replacement or licence key wiring) | Legal owner |
 | AUD-021 | — | Long checkout path build failure | PR #87 `e2e941a` (docs) | Fixed (documented; accepted build constraint) | None | — | — |
 | AUD-022 | — | Dependency servicing (.NET 10.0.14, MAUI 10.0.120) | PR #84 `684af6f` | Fixed – verified | Re-check servicing at RC cut (R10) | Yes | — |
 | AUD-023 | — | No retry on timeouts / 408 | PR #78 `5b68379` | Fixed – verified | Note: increases duplicate risk without dedupe (UAT-16) | — | — |
@@ -65,7 +66,7 @@ Status vocabulary: **Fixed – verified** (merged + CI green + regression test) 
 | AUD-031 | — | Sync queue blocked by refused uploads | PR #74 `9831884` | Fixed – verified | None | — | — |
 | AUD-032 | — | Unguarded `async void` UI handlers | PR #74 `9831884` | Fixed – verified | None | — | — |
 | AUD-033 | — | Finished screenshots not uploaded immediately | PR #80 `256ef66`; test made deterministic in `86aa632` | Fixed – verified | None | — | — |
-| AUD-034 | ? | *Not documented in this repository* | — | **Unverifiable** | Obtain finding text (§A) | ? | Reconcile with ZIP register |
+| AUD-034 | — | Service tests redirect agent data paths (`AgentDataPaths`) — named in `b1b1072` | PR #71 `41e18e2` (`TestAgentDataRoot` module initializer) | Fixed – verified (CI 220 Service 518/518). Title inferred from the commit body; confirm against the ZIP register | None | — | — |
 | AUD-035 | — | Successful break reported as "Cannot end break." | PR #98 `86d2f57` | Fixed – verified | None | — | 11 §C |
 | AUD-036 | P1 | Test runs writing to real `tray-boot.log` | PR #99 `b1b1072` | Fixed – verified (CI 197) | Whole-suite guard (UAT-20) | Yes | — |
 
@@ -81,10 +82,11 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 |---|---|---|---|---|
 | UAT-15 | P2 | AUD-007 | `GET /api/v1/monitoring/tray/daily-tasks` and the `day_clocked_in/out_at_utc` attendance fields exist only on backend branch `fix/dapi-seeder-skip-today` (`51d84d4c`), not on `development`. The tray gets 404 → empty daily summary; a restarted tray cannot show a finished day | Confirmed (code, both repos) |
 | UAT-16 | P2 | AUD-007 | Backend app-usage, device-state and meeting-signal ingest has no replay de-duplication (non-unique indexes). With AUD-023 retries, a lost 202 inserts duplicates and inflates reports | Confirmed (code) |
-| UAT-17 | P1 | AUD-008 | IPC messages are handled one at a time per connection; 15 non-lifecycle handlers call the backend with `CancellationToken.None`. One slow call delays clock actions behind it | Confirmed (code) |
+| UAT-17 | P1 | AUD-008 | IPC messages are handled one at a time per connection; 17 non-lifecycle handlers (15 direct, 2 biometric via `EnrollmentCoordinator`) call the backend with `CancellationToken.None`. One slow call delays clock actions behind it | Confirmed (code) |
 | UAT-18 | **P0** | AUD-010 | Consent, policy and time-off lifecycle gates are set to `true` after every enrolment; the tray starts activity capture on a local default policy before the server policy arrives; backend ingest checks the feature toggle but not consent or approved leave | Confirmed (code, both repos) |
 | UAT-19 | P3 | AUD-029 | Manifest `MinVersion 10.0.17763` / `MaxVersionTested 10.0.19041` vs. release registration `minimumWindowsVersion 10.0.19041` and project `SupportedOSPlatformVersion 10.0.19041` | Confirmed (code) |
-| UAT-20 | P3 | AUD-017/036 | No whole-suite guard proving tests leave real `%ProgramData%\ONEVO` and `%LocalAppData%\ONEVO` untouched; isolation relies on per-path redirection | Confirmed (code) |
+| UAT-20 | P3 | AUD-017/034/036 | The only guard test (`TestPathIsolationTests`) covers the tray-boot fallback path. No whole-suite check that real `%ProgramData%\ONEVO` / `%LocalAppData%\ONEVO` stay untouched | Confirmed (code) |
+| UAT-22 | P3 | — | TrayApp Release build prints 49 XamlC `XC0025` warnings (bindings with explicit `Source` not compiled; performance hint, not a defect). Shared and Service build with 0 warnings | Verified (CI 220 log) |
 | UAT-21 | P2 | R10 | No release candidate infrastructure in use: no tag, no release, no release branch; `scripts/check-footprint.ps1` not in CI | Verified (GitHub) |
 
 ## E. Focus-area results (assignment "Final Gap Audit" 1–10)
@@ -94,7 +96,7 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | 1 | Merged fixes in release branch | All AUD/AGT fixes are on `develop`; CI 220 green. No release branch/tag exists | ✅ code · ❌ RC (R10) |
 | 2 | Tray ↔ Backend compatibility | 37 of 38 tray routes exist on backend `development` with matching verbs; `tray/daily-tasks` missing (UAT-15). DTOs: tray tolerates missing fields (defaults). Ingest dedupe gap (UAT-16). No live contract test | ❌ Open (AUD-007) |
 | 3 | Installer / Service / startup / upgrade / uninstall | MSIX ships tray only; Service installed/removed only by developer scripts (`scripts/install-service.ps1`, `uninstall-service.ps1`); no autostart; MSIX uninstall leaves the Service; upgrade never tested on a device | ❌ Blocker (AUD-029, UAT-07/08) |
-| 4 | Auth, tenant isolation, data separation, privacy | Device JWT `TrayDevicePolicy` on all ingest controllers; owner-bound queue (AUD-004); DPAPI LocalMachine + ACL (UAT-09). **Privacy gates not enforced (UAT-18)**; face photos unencrypted (UAT-12); counts in `tray.log` (UAT-03) | ❌ Blocker (AUD-010) |
+| 4 | Auth, tenant isolation, data separation, privacy | All 23 backend controllers the tray calls checked: `TrayDevicePolicy` on every data endpoint; `[AllowAnonymous]` only on activation, device authorization, release check and legal complete-login (challenge cookie + CSRF); owner-bound queue (AUD-004); DPAPI LocalMachine + ACL (UAT-09). **Privacy gates not enforced (UAT-18)**; face photos unencrypted (UAT-12); counts in `tray.log` (UAT-03) | ❌ Blocker (AUD-010) |
 | 5 | Offline sync, retry, duplicates, recovery | Durable queue, per-record outcomes, quarantine, 24 h purge (AGT-01/02, UAT-13) verified by tests and T15 E2E. Duplicates possible for 3 families (UAT-16) | ⚠ Partial |
 | 6 | UAT config, secrets, local storage, integrations | No UAT configuration exists; shipped `ApiBaseUrl` is the dev host `https://onexso.com:7229`. Release secrets (`SIGNING_PFX_*`, `R2_*`, `RELEASE_INGEST_TOKEN`) referenced in `release.yml`; presence not verifiable from here. Release ingest route exists on backend (`POST /admin/v1/tray-releases/ingest`) | ❌ Open (AUD-013/030) |
 | 7 | Missing automated tests / device tests | Missing: live contract tests (AUD-007), privacy-gate tests (AUD-010), IPC concurrency tests (AUD-008), installer smoke test, whole-suite isolation guard (UAT-20). Device tests: all of 11 not started | ❌ Open |
@@ -112,20 +114,20 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | R04 Privacy gates | P0 | AUD-010, UAT-18 | AI + Product/Privacy | Wire real consent/policy/leave sources into `LifecycleGate`; remove local default policy; tests | D-05 |
 | R05 AUD-036 PR | P1 | AUD-036 | — | **Done** (PR #99 merged) | — |
 | R06 IPC concurrency | P1 | AUD-008, UAT-17 | AI | Per-handler budgets + bounded concurrent dispatch; timeout tests | D-06 |
-| R07 Security/legal | P1 | AUD-016, 019, 020, 026, UAT-03, UAT-09, UAT-12 | AI + Security/Legal | Implement decisions | D-07…D-10; §A for AUD-016/020/026 text |
+| R07 Security/legal | P1 | AUD-016, 019, 020, 026, UAT-03, UAT-09, UAT-12 | AI + Security/Legal | Implement decisions | D-07…D-10; §A for AUD-016/026 text |
 | R08 Windows matrix | P1 | 11 §A–§F | Human (QA) | — | R01, R03 |
 | R09 Active perf | P1 | T10 B | Human + AI (analysis, budgets file) | Budgets + CI/check script after data | R01, R04 |
 | R10 RC | P1 | UAT-05, UAT-21, UAT-10 | AI + Release owner | Release PR `develop → main`, tag, notes, version matrix | R01–R07 |
 | R11 Pilot | P1 | 11 §J | Human | — | R10 |
 | P2 hygiene | P2 | UAT-13 ✅, UAT-15/16 (in R02), UAT-21 (in R10) | — | — | — |
-| P3 hygiene | P3 | UAT-02, UAT-06, UAT-19, UAT-20 | AI | Yes, no decision needed (UAT-02 option choice is a code decision) | — |
-| Unverifiable | ? | AUD-027, 028, 034 | Human | After §A | ZIP register |
+| P3 hygiene | P3 | UAT-02, UAT-06, UAT-19, UAT-20, UAT-22 | AI | Yes, no decision needed (UAT-02 option choice is a code decision) | — |
+| Unverifiable | ? | AUD-027, 028 | Human | After §A | ZIP register |
 
 ### F.1 AI-agent executable tasks (isolated branch + regression test + reviewed PR each)
 
 | # | Task | Repo | Blocked by |
 |---|---|---|---|
-| AI-1 | Bounded concurrent IPC dispatch: per-message time budget for the 15 handlers (UAT-17), keep lifecycle commands ordered; tests with a hanging stub backend | Tray | D-06 |
+| AI-1 | Bounded concurrent IPC dispatch: per-message time budget for the 17 handlers (UAT-17), keep lifecycle commands ordered; tests with a hanging stub backend | Tray | D-06 |
 | AI-2 | Bring `GetTrayDailyTasks` + attendance day fields (`51d84d4c`) into backend `development` with its tests (UAT-15) | Backend | D-02 |
 | AI-3 | Replay de-dupe for app-usage/device-state/meeting signals (natural key `(tenant, device, captured_at)` like activity), migration created not applied; idempotent-replay tests (UAT-16) | Backend | D-03 |
 | AI-4 | Contract tests: tray wire records ↔ backend DTO JSON (snapshot of property names) on both sides | Both | AI-2 |
@@ -134,7 +136,7 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | AI-7 | Installer per decision: Service registration, `windows.startupTask`, uninstall cleanup, CI install smoke test on `windows-latest` | Tray | D-01 |
 | AI-8 | Face-photo storage per decision (DPAPI spool + delete on ack, GPS removal) (UAT-12/AUD-019) | Tray | D-08 |
 | AI-9 | `tray.log` counts → Debug or removed (UAT-03) | Tray | D-07 |
-| AI-10 | UAT-02 single idle source; UAT-06 Windows-only test traits; UAT-19 version alignment; UAT-20 whole-suite path guard | Tray | — |
+| AI-10 | UAT-02 single idle source; UAT-06 Windows-only test traits; UAT-19 version alignment; UAT-20 whole-suite path guard; UAT-22 compiled bindings | Tray | — |
 | AI-11 | RC: release PR `develop → main`, `v1.0.0-uat` tag process, release notes, version matrix | Tray | R01–R07 |
 
 ## G. Decision register (product / security / legal / release)
@@ -150,7 +152,8 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | D-07 | Activity counts in `tray.log` | UAT-03 | Monitoring-policy owner | Debug only · remove · keep (accept) | Open |
 | D-08 | Face photo + capture GPS retention on device | UAT-12, AUD-019 | Privacy owner | Encrypt + delete on ack · delete photo data on ack · accept | Open |
 | D-09 | DPAPI LocalMachine + ACL as credential protection | UAT-09 | Security owner | Accept after 11 §F · change scheme | Open |
-| D-10 | AUD-016, AUD-020, AUD-026 (texts in missing register) | R07 | Security/Legal | — | Open |
+| D-10 | AUD-016, AUD-026 (texts in missing register) | R07 | Security/Legal | — | Open |
+| D-14 | QuestPDF Community licence eligibility | AUD-020 | Legal | Community licence applies · buy commercial licence · replace library | Open |
 | D-11 | Accept UAT-04 (60 s idle-end resolution) for UAT | UAT-04 | Product | Accept · shorten sample window | Proposed: accept |
 | D-12 | Production code-signing certificate | UAT-10 | Release owner | — | Open |
 | D-13 | Inform report consumers of UAT-01 value change | UAT-01 | Product | — | Open |
@@ -161,7 +164,7 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 |---|---|---|
 | Completed issue list / AUD status matrix | ✅ (with §A limitation) | §C, 03 |
 | Verified code fixes + PR references | ✅ | §C |
-| Full automated test results | ✅ for `develop`: CI 220 success; counts of record from CI 40869661955 (05) | 05 |
+| Full automated test results | ✅ for `develop`: CI 220 success — Shared 42/42, Service 518/518, TrayApp 582/582, 0 skipped, coverage gate ok. Not re-run locally (SDK download blocked) | 05 |
 | Backend contract verification | ⚠ Static route/DTO check done (§E-2); live check not done | 06, §D |
 | UAT environment configuration | ❌ Not available | 08 |
 | Working install/upgrade package | ❌ | 07 |
@@ -185,12 +188,13 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | UAT-16 | P2 | Duplicate app-usage/device-state/meeting rows after lost responses | Fix or accept with report caveat | D-03 |
 | UAT-03 | P3 | Per-minute counts in local log | Decide | D-07 |
 | UAT-09 | P3 | Credential protection relies on ACL | Accept after 11 §F | D-09 |
-| UAT-02, UAT-06, UAT-19, UAT-20 | P3 | Hygiene | AI fixes; may be deferred past UAT with this register as the record | Tech lead accepts deferral |
+| UAT-02, UAT-06, UAT-19, UAT-20, UAT-22 | P3 | Hygiene | AI fixes; may be deferred past UAT with this register as the record | Tech lead accepts deferral |
 | UAT-04 | — | Idle-end resolution 60 s | Accepted limitation (proposed) | D-11 |
 | UAT-05, UAT-21 | P2 | No release branch/tag; stale `main` | Fix in R10 | Release owner |
 | UAT-10 | Info | Dev certificate needs manual trust | Production certificate | D-12 |
-| AUD-016/020/026 | P1 | Unknown content | Obtain text; decide | D-10 |
-| AUD-027/028/034 | ? | Unknown content | Obtain text | §A |
+| AUD-016/026 | P1 | Unknown content | Obtain text; decide | D-10 |
+| AUD-020 | P1 | Licence non-compliance if Community terms do not apply | Legal decision | D-14 |
+| AUD-027/028 | ? | Unknown content | Obtain text | §A |
 
 ## J. Go / No-Go recommendation
 
@@ -202,7 +206,7 @@ Blocking, in order:
 3. **AUD-013 / AUD-030 / UAT-11** — no UAT environment configuration; the shipped default is a development host.
 4. **AUD-007** — backend contract not aligned for UAT (UAT-15, UAT-16) and not verified live.
 5. No device test, no active-monitoring measurement and no signed RC (R08–R10).
-6. Six AUD items cannot be assessed or decided from this repository (AUD-016, 020, 026, 027, 028, 034).
+6. AUD-016, AUD-026 (texts missing), AUD-027, AUD-028 (unverifiable) and AUD-020 (licence) need the ZIP register or a legal decision.
 
 **GO** for: continuing AI-agent work AI-1, AI-10 (no decision needed) now; AI-2…AI-9 as soon as D-01…D-08 are taken; internal device testing of the existing fixes (11 §B–§F) with the developer install script.
 
