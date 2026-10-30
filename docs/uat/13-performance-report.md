@@ -36,6 +36,31 @@ Not yet set (T10 phase B). They need a measured run on a device with an enrolled
 | Evidence spool | Deleted after delivery; expiry per attempt |
 | `tray.log` / `service.log` | Rolling 5 MB files with fixed retention |
 
+## Installer (MSIX) size
+
+Measured with `build-msix.ps1` (Release, win-x64, throwaway self-signed certificate) on `windows-latest`:
+
+| | `develop` @ `ae33883` | After PR #101 |
+|---|---|---|
+| `.msix` download | **48.25 MB** | **43.85 MB** |
+| Installed (unpacked) | 114.9 MB, 407 files | 110.5 MB, 294 files |
+| PNG images (unpacked) | 12.3 MB, 264 files | 7.95 MB, 151 files |
+
+The Windows App Runtime 1.8 (x64 41 MB) is a separate dependency package. It is installed once per PC if it is missing.
+
+Where the rest goes (unpacked):
+
+| Item | Size | Note |
+|---|---|---|
+| `Microsoft.Windows.SDK.NET.dll` + `Microsoft.WinUI.dll` | 39.4 MB | Needed by the app |
+| QuestPDF (qpdf, Skia, Lato fonts, libstdc++, QuestPDF.dll) | ≈ 29 MB | Only the daily-summary PDF uses it. Moving PDF generation elsewhere is a product decision |
+| MAUI and other DLLs | rest | |
+
+PR #101 removed only images that no screen uses and re-encoded the others losslessly (identical pixels). `ImageResourceContractTests` keeps both rules. Not done, because each would change the UI or UX or needs a decision:
+- lossy colour reduction of the hero images (about −5 MB more);
+- loading images from the backend;
+- removing QuestPDF.
+
 ## Storage — measurements and compression options
 
 Measured on Linux with `develop`'s real `ActivityRecordBuffer` (SQLite file) and a synthetic 8-hour day:

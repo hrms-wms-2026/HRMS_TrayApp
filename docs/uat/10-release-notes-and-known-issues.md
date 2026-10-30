@@ -11,7 +11,13 @@
 
 **Expected effect on reports:** activity `active_seconds` totals drop slightly on days with many breaks, locks or reconnects. Days with idle stretches that ended before a snapshot show more idle time. Attendance work time (from `PresenceSession`) is not affected.
 
-## Already on `develop` before this PR (summary from commit history)
+## PR #101
+
+| Change | Issue |
+|---|---|
+| 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
+
+## Already on `develop` before PR #100 (summary from commit history)
 
 - Durable queue with per-record outcomes and quarantine (AGT-01/02).
 - Open session restored after a Service restart (AUD-001).
