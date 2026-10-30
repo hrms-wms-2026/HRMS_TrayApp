@@ -15,7 +15,7 @@
 | Behaviour | Unit | Integration / in-process | E2E | Manual | Notes |
 |---|---|---|---|---|---|
 | IPC handshake, framing, client verification | ✅ | ✅ | — | 🖐 | `IPC/*` (Service) |
-| IPC dispatch: independent requests off the read loop, ordering, bound (AUD-008, UAT-17) | ✅ | ✅ (real pipe pair) | — | 🖐 11 §C | `NamedPipeServerDispatchTests` (branch `claude/upbeat-hamilton-ebza6u`, CI pending) |
+| IPC dispatch: independent requests off the read loop, ordering, bound (AUD-008, UAT-17) | ✅ | ✅ (real pipe pair) | — | 🖐 11 §C | `NamedPipeServerDispatchTests` (PR #102, CI run 221 green) |
 | Enrollment / activation / token refresh | ✅ | ✅ (stub HTTP) | — | 🖐 | `DeviceTokenRefreshTests`, `Enrollment` |
 | Clock-in/out, breaks, recovery (expired token, already done, break race) | ✅ | ✅ | ✅ T15 | 🖐 | `Lifecycle/*`, `WorkdayOfflineRecoveryFlowTests` |
 | Attendance accounting (`PresenceSession`: idle, gap, sleep, resume) | ✅ | — | ◐ (T15) | 🖐 | `PresenceSessionTests`, `PresenceSessionResumeTests`, `DeviceStateIdleHandlerTests` |

@@ -10,6 +10,20 @@
 
 `release.yml` runs the same three test projects before building a signed MSIX for a `vX.Y.Z` tag.
 
+## PR #102 (`f06743a`) — AUD-008 / UAT-17 part 1
+
+Run 221: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41004208690> — **success**.
+
+| Test project | Result |
+|---|---|
+| ONEVO.Agent.Shared.Tests | `Passed! - Failed: 0, Passed: 42, Skipped: 0, Total: 42` |
+| ONEVO.Agent.Service.Tests | `Passed! - Failed: 0, Passed: 544, Skipped: 0, Total: 544` (+26: `NamedPipeServerDispatchTests` 4 facts + 22 theory cases) |
+| ONEVO.Agent.TrayApp.Tests | `Passed! - Failed: 0, Passed: 582, Skipped: 0, Total: 582` |
+
+Coverage: Shared 46.8% / 87.5%; Service 75.3% / 68.2% (+0.1 line); TrayApp 47.4% / 26.4%; all above floors. Build: Shared/Service 0 warnings, TrayApp 49 `XC0025` (UAT-22, unchanged).
+
+The regression tests were not run against the old code: no SDK in the session (§Local run). That they fail there follows from the code: before the change the read loop awaited every handler, so the second send or the first read times out (dispatch test 1), and a handler exception ended the connection (test 4).
+
 ## Results of record — `develop` head `9a13436` (final gap audit, 2026-10-30)
 
 Run 220: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/40999925848> — **success** (job `build-and-test`, windows-latest). Counts as printed in the job log:

@@ -17,7 +17,7 @@
 |---|---|
 | 45 unused images removed; the remaining PNGs are re-encoded losslessly. MSIX 48.25 → 43.85 MB. No visual change | UAT-14 |
 
-## Branch `claude/upbeat-hamilton-ebza6u` (not yet in a PR)
+## PR #102 (draft, CI green)
 
 | Change | Issue |
 |---|---|

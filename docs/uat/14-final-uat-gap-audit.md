@@ -40,7 +40,7 @@ Status vocabulary: **Fixed – verified** (merged + CI green + regression test) 
 | AUD-005 | — | Tray not Offline / actions not blocked when Service unreachable | PR #76 `ce41265` | Fixed – device check pending | None | — | 11 §A Service restart |
 | AUD-006 | — | Single instance, one break alert/day, double dispose | PR #76 `7f442c0` | Fixed – device check pending | None | — | 11 §A second instance |
 | **AUD-007** | **P0** | Backend API contract alignment | — | **Open** | UAT-15 (daily-tasks endpoint not on backend `development`), UAT-16 (no dedupe on 3 ingest families), live contract tests | Yes (code + tests, both repos) | Backend owner approves contract; pick target backend branch |
-| AUD-008 | P1 | Clock-action time budget (lifecycle) | PR #79 `d9cdfd0`; part 2 `2a41be6` (branch, CI pending) | **Partial** — lifecycle part fixed and tested; independent requests off the read loop on branch (UAT-17 part 1) | 17 non-lifecycle handlers still call the backend with `CancellationToken.None` on a serial pipe (UAT-17) | Yes | Approve the concurrency model |
+| AUD-008 | P1 | Clock-action time budget (lifecycle) | PR #79 `d9cdfd0`; part 2 `2a41be6` (PR #102, CI 221 green) | **Partial** — lifecycle part fixed and tested; independent requests off the read loop on branch (UAT-17 part 1) | 17 non-lifecycle handlers still call the backend with `CancellationToken.None` on a serial pipe (UAT-17) | Yes | Approve the concurrency model |
 | AUD-009 | — | Clock action "already done" not recovered | PR #75 `c0bf13e` | Fixed – verified | None | — | — |
 | **AUD-010** | **P0** | Monitoring privacy gates (consent, policy, time-off) | — | **Open / Escalated** | Gates hard-coded true (UAT-18) | Yes, once the rules are decided | Product + privacy owner decide rules; device test |
 | AUD-011 | — | Owner binding of queued rows (with AUD-004) | PR #72 `0fd709c` | Fixed – verified | None | — | — |
@@ -113,7 +113,7 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 | R03 UAT environment | P0 | AUD-013, AUD-030, UAT-11 | AI + Ops | `appsettings.Uat.json`/install-time config, validation test | UAT URLs (D-04) |
 | R04 Privacy gates | P0 | AUD-010, UAT-18 | AI + Product/Privacy | Wire real consent/policy/leave sources into `LifecycleGate`; remove local default policy; tests | D-05 |
 | R05 AUD-036 PR | P1 | AUD-036 | — | **Done** (PR #99 merged) | — |
-| R06 IPC concurrency | P1 | AUD-008, UAT-17 | AI | Bounded concurrent dispatch **done on branch** (`2a41be6`, CI pending); per-handler budgets remain | D-06 (the conservative option was implemented: only stateless requests run concurrently) |
+| R06 IPC concurrency | P1 | AUD-008, UAT-17 | AI | Bounded concurrent dispatch **done in PR #102** (`2a41be6`, CI 221 green); per-handler budgets remain | D-06 (the conservative option was implemented: only stateless requests run concurrently) |
 | R07 Security/legal | P1 | AUD-016, 019, 020, 026, UAT-03, UAT-09, UAT-12 | AI + Security/Legal | Implement decisions | D-07…D-10; §A for AUD-016/026 text |
 | R08 Windows matrix | P1 | 11 §A–§F | Human (QA) | — | R01, R03 |
 | R09 Active perf | P1 | T10 B | Human + AI (analysis, budgets file) | Budgets + CI/check script after data | R01, R04 |
@@ -127,7 +127,7 @@ Each one is evidence under a parent AUD item, not a separate blocker count. Deta
 
 | # | Task | Repo | Blocked by |
 |---|---|---|---|
-| AI-1 | ~~Bounded concurrent IPC dispatch~~ done (`2a41be6`, CI pending). Remaining: per-message time budgets for the 17 handlers (UAT-17 part 2) | Tray | — |
+| AI-1 | ~~Bounded concurrent IPC dispatch~~ done (PR #102, CI 221 green). Remaining: per-message time budgets for the 17 handlers (UAT-17 part 2) | Tray | — |
 | AI-2 | Bring `GetTrayDailyTasks` + attendance day fields (`51d84d4c`) into backend `development` with its tests (UAT-15) | Backend | D-02 |
 | AI-3 | Replay de-dupe for app-usage/device-state/meeting signals (natural key `(tenant, device, captured_at)` like activity), migration created not applied; idempotent-replay tests (UAT-16) | Backend | D-03 |
 | AI-4 | Contract tests: tray wire records ↔ backend DTO JSON (snapshot of property names) on both sides | Both | AI-2 |
