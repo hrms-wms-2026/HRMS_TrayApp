@@ -317,6 +317,106 @@ public class AgentWorkerTests : IDisposable
         return result!;
     }
 
+    // UAT-17 part 2: a read-only request whose backend call never answers comes back as a failure
+    // once its budget runs out, instead of holding the request (and a dispatch slot) open. Before
+    // the budget these handlers passed CancellationToken.None and the calls below never finished.
+
+    [Fact]
+    public async Task ReadOnlyRequests_WhenTheBackendHangs_FailWithinTheirBudget()
+    {
+        var worker = CreateSut(apiClient: HangingApiClient());
+        worker.ReadOnlyRequestBudget = _ => TimeSpan.FromMilliseconds(200);
+
+        var daily = await ReplyWithinAsync(reply => worker.HandleDailyTasksRequestAsync(
+            new IpcEnvelope { Type = IpcMessageTypes.DailyTasksRequest }, reply));
+        var pending = await ReplyWithinAsync(reply => worker.HandleLocationChangePendingCheckAsync(
+            new IpcEnvelope { Type = IpcMessageTypes.LocationChangePendingCheck }, reply));
+        var face = await ReplyWithinAsync(reply => worker.HandleFaceReferenceStatusAsync(
+            new IpcEnvelope { Type = IpcMessageTypes.FaceReferenceStatus }, reply));
+        var consent = await ReplyWithinAsync(reply => worker.HandlePermissionConsentAsync(
+            new IpcEnvelope { Type = IpcMessageTypes.PermissionConsentStatus }, reply));
+        var update = await ReplyWithinAsync(reply => worker.HandleUpdateCheckRequestAsync(
+            new IpcEnvelope
+            {
+                Type = IpcMessageTypes.UpdateCheckRequest,
+                Payload = JsonSerializer.SerializeToElement(new UpdateCheckRequestPayload("1.0.0"))
+            }, reply));
+
+        Assert.False(daily.Payload!.Value.Deserialize<DailyTasksResultPayload>()!.Success);
+        Assert.False(pending.Payload!.Value.Deserialize<LocationChangePendingResultPayload>()!.Success);
+        Assert.False(face.Payload!.Value.Deserialize<FaceReferenceStatusResultPayload>()!.Success);
+        Assert.False(consent.Payload!.Value.Deserialize<PermissionConsentResultPayload>()!.Success);
+        var updateResult = update.Payload!.Value.Deserialize<UpdateCheckResultPayload>()!;
+        Assert.False(updateResult.Success);
+        Assert.Equal("SERVICE_UNAVAILABLE", updateResult.ErrorCode);
+    }
+
+    [Fact]
+    public async Task GenericNotificationAck_WhenTheBackendHangs_GivesUpWithinItsBudget()
+    {
+        var worker = CreateSut(apiClient: HangingApiClient());
+        worker.ReadOnlyRequestBudget = _ => TimeSpan.FromMilliseconds(200);
+        var envelope = new IpcEnvelope
+        {
+            Type = IpcMessageTypes.GenericNotificationAccepted,
+            Payload = JsonSerializer.SerializeToElement(new GenericNotificationAcceptedPayload(Guid.NewGuid()))
+        };
+
+        // AckTrayDeliveryAsync rethrows its own cancellation; the handler must absorb it.
+        await worker.HandleGenericNotificationAcceptedAsync(envelope).WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Theory]
+    [InlineData(IpcMessageTypes.DailyTasksRequest)]
+    [InlineData(IpcMessageTypes.LocationChangePendingCheck)]
+    [InlineData(IpcMessageTypes.FaceReferenceStatus)]
+    [InlineData(IpcMessageTypes.PermissionConsentStatus)]
+    [InlineData(IpcMessageTypes.UpdateCheckRequest)]
+    [InlineData(IpcMessageTypes.GenericNotificationAccepted)]
+    public void ReadOnlyRequests_HaveAFiniteBudget(string type)
+    {
+        var budget = ONEVO.Agent.Service.IPC.IpcDispatch.ReadOnlyBudget(type);
+        Assert.InRange(budget, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(30));
+    }
+
+    // Cancelling these could leave the backend committed while the Service drops the result.
+    [Theory]
+    [InlineData(IpcMessageTypes.PermissionConsentSubmit)]
+    [InlineData(IpcMessageTypes.LocationChangeSubmit)]
+    [InlineData(IpcMessageTypes.LocationChangeRespond)]
+    [InlineData(IpcMessageTypes.WorkLocationConfirm)]
+    [InlineData(IpcMessageTypes.ActivationCodeSubmit)]
+    [InlineData(IpcMessageTypes.FaceEnrollCommit)]
+    [InlineData(IpcMessageTypes.LegalAcceptanceSubmit)]
+    public void WritingRequests_HaveNoBudget(string type) =>
+        Assert.Equal(Timeout.InfiniteTimeSpan, ONEVO.Agent.Service.IPC.IpcDispatch.ReadOnlyBudget(type));
+
+    private static OnevoApiClient HangingApiClient() =>
+        new(new StubHttpClientFactory(new HangingHandler()), NullLogger<OnevoApiClient>.Instance);
+
+    /// <summary>Runs <paramref name="handle"/> and returns its first reply; fails instead of hanging.</summary>
+    private static async Task<IpcEnvelope> ReplyWithinAsync(Func<Func<IpcEnvelope, Task>, Task> handle)
+    {
+        IpcEnvelope? first = null;
+        await handle(reply =>
+        {
+            first ??= reply;
+            return Task.CompletedTask;
+        }).WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.NotNull(first);
+        return first!;
+    }
+
+    /// <summary>A backend that never answers but honours cancellation, like a stalled connection.</summary>
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException("unreachable");
+        }
+    }
+
     private sealed class StubHttpClientFactory : IHttpClientFactory
     {
         private readonly HttpMessageHandler _handler;

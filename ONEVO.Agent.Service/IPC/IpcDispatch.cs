@@ -39,6 +39,30 @@ internal static class IpcDispatch
         IpcMessageTypes.UpdateCheckRequest,
     };
 
+    /// <summary>
+    /// How long the Service waits on the backend for a read-only request (UAT-17 part 2): the tray's
+    /// own wait for that reply (<c>NamedPipeClient</c>), after which nobody reads the answer. Without
+    /// it a hung call held a dispatch slot through every retry (~2.5–3 min).
+    ///
+    /// Only read-only calls get a budget. Cancelling a call that writes (activation, consent submit,
+    /// face enrolment, legal acceptance, ...) can leave the backend committed while the Service
+    /// throws the result away, so those keep waiting until a decision on how to recover them.
+    /// </summary>
+    private static readonly Dictionary<string, TimeSpan> ReadOnlyBudgets = new(StringComparer.Ordinal)
+    {
+        [IpcMessageTypes.DailyTasksRequest] = TimeSpan.FromSeconds(10),
+        [IpcMessageTypes.LocationChangePendingCheck] = TimeSpan.FromSeconds(10),
+        [IpcMessageTypes.FaceReferenceStatus] = TimeSpan.FromSeconds(15),
+        [IpcMessageTypes.PermissionConsentStatus] = TimeSpan.FromSeconds(8),
+        [IpcMessageTypes.UpdateCheckRequest] = TimeSpan.FromSeconds(20),
+        // No reply is awaited; an ack that is not confirmed is re-offered on the next poll.
+        [IpcMessageTypes.GenericNotificationAccepted] = TimeSpan.FromSeconds(30),
+    };
+
     internal static bool RunsConcurrently(string? messageType) =>
         messageType is not null && IndependentRequests.Contains(messageType);
+
+    /// <summary>The budget for <paramref name="messageType"/>; infinite for a type without one.</summary>
+    internal static TimeSpan ReadOnlyBudget(string messageType) =>
+        ReadOnlyBudgets.TryGetValue(messageType, out var budget) ? budget : Timeout.InfiniteTimeSpan;
 }
