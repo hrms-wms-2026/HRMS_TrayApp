@@ -126,11 +126,9 @@
                   </DataTrigger>
                 </Border.Triggers>
                 <Border.GestureRecognizers>
-                  <!-- x:DataType null: binds through the page's BindingContext (typed object), which
-                       cannot be compiled; it stays a runtime binding (UAT-22). -->
-                  <TapGestureRecognizer x:DataType="{x:Null}"
-                                         Command="{Binding Source={x:Reference RootPage}, Path=BindingContext.SelectOptionCommand}"
-                                         CommandParameter="{Binding .}" />
+                  <!-- Tapped, not a Command binding: the command is on the page's ViewModel, which a
+                       compiled binding inside this typed DataTemplate cannot reach (UAT-22). -->
+                  <TapGestureRecognizer Tapped="OnOptionTapped" />
                 </Border.GestureRecognizers>
                 <Grid ColumnDefinitions="22,40,*" ColumnSpacing="10">
                   <Grid Grid.Column="0" VerticalOptions="Center" WidthRequest="18" HeightRequest="18">

@@ -28,7 +28,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
 | UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | **Fixed in PR #104** (`44d881e`, CI run 231: guard passes; self-check catches a planted write) |
-| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Mostly fixed in PR #103**: 49 → 5 warnings (CI run 228); 5 `XC0023` remain on 2 page bindings |
+| UAT-22 | P3 | Build | 49 XamlC `XC0025` warnings in the TrayApp build | Verified (CI 220 log) | **Fixed**: 49 → 5 in PR #103, 5 → 0 in PR #105 (CI run 234) |
 | UAT-21 | P2 | Release (R10) | No tag, release or release branch; footprint check not in CI | Verified (GitHub) | Open — release process |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
@@ -180,7 +180,8 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - **Fix (`40efd1a`, corrected in the next commit):** `MauiEnableXamlCBindingWithSourceCompilation=true`, plus `x:DataType` set to the control's own class on the root of the 9 controls whose bindings all use `Source={x:Reference Root}` (47 bindings). Paths were checked against the controls' public properties before pushing.
   - First attempt (CI run 226, green but 52 warnings): without `x:DataType` the 47 bindings gave `XC0022`, and the `x:DataType="{x:Null}"` opt-out on the 2 page bindings gave `XC0023`. Both were removed.
   - Second attempt (`76a2b56`, CI red): the 2 page bindings through `BindingContext` (LegalConsentPage "View", WorkLocationPage option tap) without opt-out failed the build with `XC0045` ("Property BindingContext not found on PendingLegalDocumentPayload / WorkLocationOption"). Inside a typed `DataTemplate`, XamlC checks them against the template's `x:DataType`, not the `x:Reference` page. That build otherwise printed 0 warnings, so the 47 control bindings compile.
-  - Final: those 2 elements opt out with `x:DataType="{x:Null}"` again and keep their runtime binding. Expected result is 5 `XC0023` warnings (the bindings on those two elements), down from 49. Removing them needs those commands reachable from the item type, for example a command on `WorkLocationOption`. That is a ViewModel change and is left open.
+  - PR #103 (run 228): those 2 elements opted out with `x:DataType="{x:Null}"` and kept their runtime binding. Expected result is 5 `XC0023` warnings (the bindings on those two elements), down from 49. Removing them needs those commands reachable from the item type, for example a command on `WorkLocationOption`. That is a ViewModel change and is left open.
+- **Last 5 warnings (follow-up PR):** the two elements raise `Clicked` / `Tapped`. The page calls the same command (`OpenDocumentCommand`, `SelectOptionCommand`) with the item taken from the sender's `BindingContext`. The opt-outs are removed, so no binding is left uncompiled. CI run 234 (<https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41026270607>): Shared, Service and TrayApp builds print `0 Warning(s)`.
 - **Manual:** 11 §E (both page actions and the 9 controls).
 
 ## Earlier findings (audit of `main`) → status on `develop`

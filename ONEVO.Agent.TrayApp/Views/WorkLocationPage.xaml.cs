@@ -16,6 +16,12 @@ public partial class WorkLocationPage : ContentPage, IQueryAttributable
         ResponsiveTwoPane.Attach(this, PaneGrid, LeftPane, RightPane, narrowLeftMaxHeight: 240);
     }
 
+    private void OnOptionTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is BindableObject { BindingContext: WorkLocationOption option })
+            _vm.SelectOptionCommand.Execute(option);
+    }
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         query.TryGetValue("next", out var next);
