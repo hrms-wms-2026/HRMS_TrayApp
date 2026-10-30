@@ -10,6 +10,10 @@
 
 `release.yml` runs the same three test projects before building a signed MSIX for a `vX.Y.Z` tag.
 
+## PR #105 (`214366c`) — UAT-22 last warnings
+
+Run 234: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41026270607> — **success**. Shared 42/42, Service 559/559, TrayApp 582/582, 0 skipped. **Build: 0 warnings in all three projects** (TrayApp was 49 on `develop` before #103). Isolation guard: self-check caught the planted file; real folders unchanged.
+
 ## PR #104 (`eeb5b43`) — UAT-20 isolation guard
 
 Run 231: <https://github.com/hrms-wms-2026/HRMS_TrayApp/actions/runs/41018122916> — **success**. Shared 42/42, Service 559/559, TrayApp 582/582, 0 skipped. TrayApp build 5 warnings (UAT-22, unchanged).
