@@ -24,7 +24,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-14 | P3 | Packaging / size | MSIX carried 45 images no screen uses | Verified (measurement build) | **Fixed in PR #101**: MSIX 48.25 → 43.85 MB |
 | UAT-15 | P2 | Backend contract (AUD-007) | `tray/daily-tasks` and attendance day fields not on backend `development` | Confirmed (code, both repos) | Escalated — backend branch decision |
 | UAT-16 | P2 | Backend ingest (AUD-007) | No replay de-dupe for app-usage, device-state, meeting signals | Confirmed (code) | Escalated — backend contract |
-| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed**: part 1 in PR #102 (`2a41be6`); part 2, read-only budgets, `923692a`: independent requests off the read loop. Per-handler time budgets still open |
+| UAT-17 | P1 | Service IPC (AUD-008) | Serial IPC dispatch; 17 non-lifecycle handlers call the backend without a budget | Confirmed (code); fix verified by CI run 221 (Service 544/544) | **Partly fixed**: part 1 in PR #102 (`2a41be6`); part 2, read-only budgets, in PR #103 (`923692a`, CI run 224: Service 559/559): independent requests off the read loop. Per-handler time budgets still open |
 | UAT-18 | **P0** | Service/Tray privacy (AUD-010) | Consent, policy and time-off gates hard-coded true; capture starts before server policy | Confirmed (code, both repos) | **Escalated** — product/privacy rules |
 | UAT-19 | P3 | Packaging (AUD-029) | Windows version declarations inconsistent | Confirmed (code) | Open |
 | UAT-20 | P3 | Tests (AUD-017/034/036) | No whole-suite guard for real data paths | Confirmed (code) | Open |
