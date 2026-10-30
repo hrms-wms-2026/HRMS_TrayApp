@@ -176,8 +176,10 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - **Evidence:** CI run 220 (`9a13436`), step "Build TrayApp": `49 Warning(s)`, all `XC0025` ("Binding was not compiled because it has an explicitly set Source property…"), e.g. `…HeaderBar.xaml`, `…StatusBar.xaml`. Shared and Service: `0 Warning(s)`.
 - **Effect:** those bindings use reflection at runtime; no functional defect.
 - **Recommendation:** enable `MauiEnableXamlCBindingWithSourceCompilation` (or add `x:DataType` on the bindings) and keep the build warning-free.
-- **Fix (`40efd1a`):** property enabled. The 47 control self-bindings are compiled (paths checked against the controls' public properties before pushing). The 2 page bindings through `BindingContext` (LegalConsentPage "View", WorkLocationPage option tap) opt out with `x:DataType="{x:Null}"`, so they keep today's runtime binding.
-- **Manual:** 11 §E (both opted-out actions).
+- **Fix (`40efd1a`, corrected in the next commit):** `MauiEnableXamlCBindingWithSourceCompilation=true`, plus `x:DataType` set to the control's own class on the root of the 9 controls whose bindings all use `Source={x:Reference Root}` (47 bindings). Paths were checked against the controls' public properties before pushing.
+  - First attempt (CI run 226, green but 52 warnings): without `x:DataType` the 47 bindings gave `XC0022`, and the `x:DataType="{x:Null}"` opt-out on the 2 page bindings gave `XC0023`. Both were removed.
+  - The 2 page bindings through `BindingContext` (LegalConsentPage "View", WorkLocationPage option tap) are unchanged from before. Their warning count is in the next CI run.
+- **Manual:** 11 §E (both page actions and the 9 controls).
 
 ## Earlier findings (audit of `main`) → status on `develop`
 
