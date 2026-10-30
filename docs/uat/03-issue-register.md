@@ -19,6 +19,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 | UAT-11 | P3 | Configuration | Shipped `ApiBaseUrl` must be confirmed per environment | Verified (`appsettings.json`) | Open — backend team |
 | UAT-12 | **P1** | Service buffer / privacy | Face photos kept unencrypted (base64 JSON) in SQLite and retained after upload | Verified (code + measurement) | **Escalated** — privacy/retention decision |
 | UAT-13 | P2 | Service buffer / storage | Delivered rows retained until the 100 MB limit (≈2–4 months); then a blocking full `VACUUM` | Verified (measurement) | **Fixed in PR #100** (`a8dab05`); CI green on `86aa632` (Service 518/518) |
+| UAT-14 | P3 | Packaging / size | MSIX carried 45 images no screen uses | Verified (measurement build) | **Fixed in PR #101**: MSIX 48.25 → 43.85 MB |
 
 ### UAT-01 — Activity snapshots over-report active time (P1)
 - **File:** `ONEVO.Agent.TrayApp/Collectors/ActivityCountCollector.cs` (`EmitSnapshotAsync`, `SnapshotLoopAsync`, `StopAsync`).
@@ -44,6 +45,7 @@ Classification: **Verified** (reproduced by test/experiment), **Confirmed (code)
 - `Package.appxmanifest` declares only the tray application, with the protocol handler. `release.yml` builds and uploads only that MSIX.
 - The Service is installed only by `scripts/install-service.ps1`, a developer script that publishes from a repo checkout with the SDK.
 - A device that receives only the released MSIX has a tray that stays Offline.
+- Confirmed on a real build (2026-10-30, measurement run 40885438847): the unpacked MSIX contains no `ONEVO.Agent.Service*.exe`.
 - **Needs a packaging decision:** MSIX `desktop6:Service`, or an MSI/bootstrapper.
 
 ### UAT-08 — Tray does not start at logon (P1)
