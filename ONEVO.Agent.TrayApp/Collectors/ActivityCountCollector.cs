@@ -20,10 +20,17 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
     /// <summary>Raised after each snapshot is handed to the Service (for UI status).</summary>
     public event Action<ActivitySnapshotPayload, int>? SnapshotEmitted;
 
+    /// <summary>How often last-input time is sampled for active/idle accounting.</summary>
+    internal static readonly TimeSpan SamplePeriod = TimeSpan.FromSeconds(5);
+
     private readonly ILogger<ActivityCountCollector> _logger;
     private readonly NamedPipeClient _pipeClient;
     private readonly ISessionDayMetrics _dayMetrics;
     private readonly string _deviceId;
+    private readonly Func<long> _clockMs;
+    private readonly Func<int> _secondsSinceLastInput;
+    private readonly object _trackerLock = new();
+    private ActivityIntervalTracker _tracker;
 
     private readonly object _counterLock = new();
     private long _keyboardCount;
@@ -49,12 +56,31 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         ILogger<ActivityCountCollector> logger,
         NamedPipeClient pipeClient,
         ISessionDayMetrics dayMetrics)
+        : this(logger, pipeClient, dayMetrics,
+            () => Environment.TickCount64, PrivacyScrubber.GetSecondsSinceLastInput)
+    {
+    }
+
+    /// <summary>Testing seam: injects the monotonic clock and the seconds-since-last-input source.</summary>
+    internal ActivityCountCollector(
+        ILogger<ActivityCountCollector> logger,
+        NamedPipeClient pipeClient,
+        ISessionDayMetrics dayMetrics,
+        Func<long> clockMs,
+        Func<int> secondsSinceLastInput)
     {
         _logger = logger;
         _pipeClient = pipeClient;
         _dayMetrics = dayMetrics;
         _deviceId = Environment.MachineName;
+        _clockMs = clockMs;
+        _secondsSinceLastInput = secondsSinceLastInput;
+        _tracker = NewTracker();
     }
+
+    // Idle rule unchanged: no input for at least half the interval.
+    private ActivityIntervalTracker NewTracker() =>
+        new(_intervalSeconds, idleThresholdSeconds: _intervalSeconds / 2, _clockMs());
 
     public async Task StartAsync(AgentPolicy policy, CancellationToken cancellationToken)
     {
@@ -76,6 +102,9 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         // into system-wide input lag, so the hooks get their own thread that does nothing else.
         await StartHookThreadAsync();
         BootLog($"hooks installed on dedicated thread={_hookThreadId}");
+
+        lock (_trackerLock)
+            _tracker = NewTracker();
 
         _runCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _snapshotLoop = SnapshotLoopAsync(_runCts.Token);
@@ -282,17 +311,16 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
 
     private async Task SnapshotLoopAsync(CancellationToken ct)
     {
-        // First tick after a short delay so UI shows "working" quickly.
+        // First snapshot after a short delay so UI shows "working" quickly; it covers only the
+        // seconds that actually elapsed (UAT-01).
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(Math.Min(5, _intervalSeconds)), ct);
             await EmitSnapshotAsync(ct);
 
-            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(_intervalSeconds));
+            using var timer = new PeriodicTimer(SamplePeriod);
             while (await timer.WaitForNextTickAsync(ct))
-            {
-                await EmitSnapshotAsync(ct);
-            }
+                await TickAsync(ct);
         }
         catch (OperationCanceledException)
         {
@@ -305,7 +333,27 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
         }
     }
 
-    private async Task EmitSnapshotAsync(CancellationToken ct)
+    /// <summary>One sampling step; emits a snapshot once a full interval has elapsed.</summary>
+    internal async Task TickAsync(CancellationToken ct)
+    {
+        bool due;
+        lock (_trackerLock)
+        {
+            var now = _clockMs();
+            _tracker.Sample(now, _secondsSinceLastInput());
+            due = _tracker.ElapsedMs(now) >= _intervalSeconds * 1000L;
+        }
+
+        if (due)
+            await EmitSnapshotAsync(ct);
+    }
+
+    /// <summary>
+    /// Emits a snapshot covering the time since the previous one: a partial interval (stop on
+    /// break, lock or disconnect) reports only its real duration, and every no-input span of at
+    /// least half the interval counts as idle — not just the one in progress at this instant (UAT-01).
+    /// </summary>
+    internal async Task EmitSnapshotAsync(CancellationToken ct)
     {
         long keyboard;
         long mouse;
@@ -317,14 +365,21 @@ public sealed class ActivityCountCollector : IAgentCollector, IAsyncDisposable
             _mouseCount = 0;
         }
 
-        var interval = _intervalSeconds;
-        var secondsSinceInput = PrivacyScrubber.GetSecondsSinceLastInput();
-        var idleSeconds = secondsSinceInput >= interval / 2
-            ? Math.Min(interval, secondsSinceInput)
-            : 0;
-        var activeSeconds = Math.Max(0, interval - idleSeconds);
+        int activeSeconds;
+        int idleSeconds;
+        lock (_trackerLock)
+        {
+            var now = _clockMs();
+            _tracker.Sample(now, _secondsSinceLastInput());
+            (activeSeconds, idleSeconds) = _tracker.Complete(now);
+        }
 
-        var eventDensity = (keyboard + mouse) / (double)Math.Max(1, interval);
+        var coveredSeconds = activeSeconds + idleSeconds;
+        if (coveredSeconds == 0 && keyboard + mouse == 0)
+            return; // nothing happened since the previous snapshot
+
+        // A stop within half a second of the last snapshot still carries the input counted in it.
+        var eventDensity = (keyboard + mouse) / (double)Math.Max(1, coveredSeconds);
         var intensity = Math.Round(
             (decimal)Math.Clamp(eventDensity / 5.0 * 100.0, 0, 100), 2);
 

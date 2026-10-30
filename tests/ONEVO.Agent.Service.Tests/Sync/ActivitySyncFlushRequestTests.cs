@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ONEVO.Agent.Service.Buffer;
 using ONEVO.Agent.Service.Configuration;
@@ -42,10 +42,11 @@ public class ActivitySyncFlushRequestTests
     {
         using var buffer = ActivityRecordBuffer.CreateInMemory();
         var credentials = TestStores.NewCredentialStore();
-        credentials.StoreDeviceJwt("test-jwt");
+        credentials.ClearDeviceJwt();
         var factory = new RecordingHttpClientFactory(HttpStatusCode.OK);
+        var startupFlushPeeked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var sync = new ActivitySyncService(
-            NullLogger<ActivitySyncService>.Instance,
+            new SignalingLogger(message => message.StartsWith("No device JWT", StringComparison.Ordinal), startupFlushPeeked),
             buffer,
             credentials,
             factory,
@@ -54,9 +55,14 @@ public class ActivitySyncFlushRequestTests
             Options.Create(new AgentOptions { ApiBaseUrl = "https://api.example.com", IngestIntervalSeconds = 3600 }));
         try
         {
+            // The loop flushes once at start. Without a token that flush leaves the row pending and
+            // logs it, which tells the test the start-up flush has already read the queue: any later
+            // upload can only come from a RequestFlush (or the hour-long ingest tick).
+            Assert.True(buffer.TryEnqueue(WorkSession()));
             await sync.StartAsync(CancellationToken.None);
-            await Task.Delay(200); // the loop's first (empty) flush runs at start
+            await startupFlushPeeked.Task.WaitAsync(TimeSpan.FromSeconds(30));
 
+            credentials.StoreDeviceJwt("test-jwt");
             Assert.True(buffer.TryEnqueue(WorkSession()));
             if (requestFlush)
                 sync.RequestFlush();
@@ -83,5 +89,18 @@ public class ActivitySyncFlushRequestTests
     public async Task WithoutARequest_RowsWaitForTheIngestInterval()
     {
         Assert.Equal(0, await RunAsync(requestFlush: false, observeFor: TimeSpan.FromSeconds(1)));
+    }
+}
+
+/// <summary>Completes <paramref name="signal"/> when a message matching <paramref name="match"/> is logged.</summary>
+internal sealed class SignalingLogger(Func<string, bool> match, TaskCompletionSource signal) : ILogger<ActivitySyncService>
+{
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        if (match(formatter(state, exception)))
+            signal.TrySetResult();
     }
 }

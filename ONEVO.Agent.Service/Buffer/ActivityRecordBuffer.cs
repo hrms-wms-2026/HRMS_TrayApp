@@ -33,6 +33,15 @@ public sealed class ActivityRecordBuffer : IDisposable
     /// </summary>
     public static readonly TimeSpan MaxSnapshotAge = TimeSpan.FromHours(24);
 
+    /// <summary>
+    /// How long a delivered (<c>synced</c>) row is kept before <see cref="PurgeDelivered"/> deletes it
+    /// (UAT-13). While kept, its event id still de-duplicates a late re-submit (INSERT OR IGNORE);
+    /// after it, a replay is either refused by the backend (snapshots older than 24 h), upserted (work
+    /// sessions) or de-duplicated by idempotency key (face photos). Synced inactivity attempts are
+    /// never purged here: <see cref="HasPendingOrSyncedAttempt"/> relies on them.
+    /// </summary>
+    public static readonly TimeSpan DeliveredRetention = TimeSpan.FromHours(24);
+
     // High-volume, low-priority rows. Only these may be quarantined as stale to make room; nothing
     // pending is ever deleted to make room (AGT-02).
     private const string LowPriorityTypesSql =
@@ -89,6 +98,8 @@ public sealed class ActivityRecordBuffer : IDisposable
         try
         {
             InitializeSchema();
+            PurgeDeliveredOnOpenUnlocked();
+            EnsureIncrementalAutoVacuumUnlocked();
         }
         catch (SqliteException ex) when (IsFileBacked && ex.SqliteErrorCode is 11 or 26)
         {
@@ -103,7 +114,100 @@ public sealed class ActivityRecordBuffer : IDisposable
                 ex.SqliteErrorCode, preserved);
             _conn = OpenConnection(databasePath, isUri);
             InitializeSchema();
+            EnsureIncrementalAutoVacuumUnlocked();
         }
+    }
+
+    /// <summary>
+    /// Deletes delivered rows queued more than <see cref="DeliveredRetention"/> ago and returns their
+    /// space to the file. Pending, quarantined and inactivity-attempt rows are never touched (UAT-13).
+    /// </summary>
+    /// <returns>The number of rows deleted.</returns>
+    public int PurgeDelivered(DateTimeOffset now)
+    {
+        lock (_gate)
+        {
+            try
+            {
+                return PurgeDeliveredUnlocked(now);
+            }
+            catch (SqliteException ex)
+            {
+                // Housekeeping only: a failure here must never affect capture or upload.
+                _logger.LogWarning(ex, "Could not purge delivered activity rows; will retry on the next flush");
+                return 0;
+            }
+        }
+    }
+
+    private void PurgeDeliveredOnOpenUnlocked()
+    {
+        try
+        {
+            PurgeDeliveredUnlocked(DateTimeOffset.UtcNow);
+        }
+        catch (SqliteException ex) when (ex.SqliteErrorCode is not (11 or 26))
+        {
+            // A busy/locked file must not stop the Service from starting; the next flush retries.
+            _logger.LogWarning(ex, "Could not purge delivered activity rows at startup");
+        }
+    }
+
+    private int PurgeDeliveredUnlocked(DateTimeOffset now)
+    {
+        var purged = ExecuteUnlocked(
+            $"""
+            DELETE FROM collection_records
+            WHERE status = 'synced'
+              AND record_type <> '{CollectionRecordTypes.InactivityCaptureAttempt}'
+              AND created_at < $cutoff;
+            """,
+            ("$cutoff", (now - DeliveredRetention).ToUniversalTime().ToString("O")));
+        if (purged > 0)
+        {
+            ReclaimFreePagesUnlocked();
+            _logger.LogDebug("Purged {Count} delivered activity row(s) older than {Hours}h", purged, DeliveredRetention.TotalHours);
+        }
+        return purged;
+    }
+
+    /// <summary>
+    /// Switches the file to incremental auto-vacuum so freed pages are returned in small steps instead
+    /// of a full VACUUM that rewrites the whole file under the buffer lock (UAT-13). A new database
+    /// switches instantly; an existing one is converted once, after its delivered rows were purged.
+    /// </summary>
+    private void EnsureIncrementalAutoVacuumUnlocked()
+    {
+        if (!IsFileBacked || AutoVacuumModeUnlocked() == IncrementalAutoVacuum)
+            return;
+
+        try
+        {
+            ExecuteUnlocked("PRAGMA auto_vacuum = INCREMENTAL;");
+            ExecuteUnlocked("VACUUM;");
+        }
+        catch (SqliteException ex)
+        {
+            // E.g. not enough disk for the one-time rewrite: keep working in the old mode.
+            _logger.LogWarning(ex, "Could not switch the activity buffer to incremental auto-vacuum");
+        }
+    }
+
+    private const long IncrementalAutoVacuum = 2;
+
+    private long AutoVacuumModeUnlocked()
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "PRAGMA auto_vacuum;";
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    /// <summary>Returns free pages to the file system: cheap in incremental mode, full VACUUM otherwise.</summary>
+    private void ReclaimFreePagesUnlocked()
+    {
+        if (!IsFileBacked)
+            return;
+        ExecuteUnlocked(AutoVacuumModeUnlocked() == IncrementalAutoVacuum ? "PRAGMA incremental_vacuum;" : "VACUUM;");
     }
 
     private static SqliteConnection OpenConnection(string databasePath, bool isUri)
@@ -756,7 +860,7 @@ public sealed class ActivityRecordBuffer : IDisposable
                 """);
             if (purged > 0)
             {
-                ExecuteUnlocked("VACUUM;");
+                ReclaimFreePagesUnlocked();
                 _logger.LogInformation(
                     "Activity buffer at size limit — purged {Count} already-delivered row(s)", purged);
             }
