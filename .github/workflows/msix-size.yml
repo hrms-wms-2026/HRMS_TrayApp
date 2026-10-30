@@ -1,5 +1,5 @@
 # Measurement only: builds the MSIX of the PR #100 code with a throwaway self-signed certificate
-# and reports its size. No secrets, no upload anywhere except a 1-day workflow artifact.
+# and reports its size. No secrets, no upload anywhere except a 1-day workflow artifact. (run 2: after image cleanup)
 name: MSIX size
 
 on:
