@@ -43,6 +43,23 @@ public sealed class DailySummaryViewModelTests
     }
 
     [Fact]
+    public void LoadFromSnapshot_DurationsOver24Hours_ReadAsHoursNotDays()
+    {
+        var vm = new DailySummaryViewModel(new FakeNamedPipeClient(), new ONEVO.Agent.TrayApp.Services.SessionDayMetrics());
+        var clockIn = new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.FromHours(5.5));
+
+        vm.LoadFromSnapshot(new SessionSnapshot(
+            clockIn, clockIn.AddHours(30), false, null,
+            TimeSpan.FromHours(26),
+            TimeSpan.FromHours(4),
+            "09:00 AM – 06:00 PM",
+            1));
+
+        Assert.Equal("26:00:00", vm.BreakTimeDisplay);
+        Assert.Equal("26h 00m", vm.BreakCompactDisplay);
+    }
+
+    [Fact]
     public void OnAppearing_MapsAllowedScreenshotsIntoGallery()
     {
         var metrics = new ONEVO.Agent.TrayApp.Services.SessionDayMetrics();

@@ -579,16 +579,13 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
 
         var totalApp = TimeSpan.Zero;
         foreach (var app in TopApps)
-        {
-            if (TimeSpan.TryParse(app.Duration, out var d))
-                totalApp += d;
-        }
+            totalApp += Parse(app.Duration);
 
         if (totalApp > TimeSpan.Zero)
         {
             var withShare = TopApps.Select((app, i) =>
             {
-                var dur = TimeSpan.TryParse(app.Duration, out var d) ? d : TimeSpan.Zero;
+                var dur = Parse(app.Duration);
                 var pct = (int)Math.Round(100.0 * dur.TotalSeconds / totalApp.TotalSeconds);
                 return app with
                 {
@@ -611,8 +608,15 @@ public sealed partial class DailySummaryViewModel : BaseViewModel
         }
     }
 
-    private static TimeSpan Parse(string value) =>
-        TimeSpan.TryParse(value, out var t) ? t : TimeSpan.Zero;
+    /// <summary>Reads "HH:MM:SS" with hours past 24 as hours ("26:00:00" is 26h, not 26 days).</summary>
+    internal static TimeSpan Parse(string value)
+    {
+        var parts = value.Split(':');
+        if (parts.Length == 3
+            && int.TryParse(parts[0], out var h) && int.TryParse(parts[1], out var m) && int.TryParse(parts[2], out var s))
+            return new TimeSpan(h, m, s);
+        return TimeSpan.TryParse(value, out var t) ? t : TimeSpan.Zero;
+    }
 
     internal static string Compact(TimeSpan t)
     {
