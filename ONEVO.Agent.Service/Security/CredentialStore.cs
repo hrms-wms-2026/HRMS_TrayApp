@@ -12,7 +12,7 @@ public sealed class CredentialStore
     /// <summary>Production callers use the parameterless constructor (real ProgramData path).
     /// Tests pass <paramref name="credentialDirectoryOverride"/> (a per-test temp directory) so a
     /// test run never overwrites or deletes a real enrolled agent's credentials (AUD-017).</summary>
-    public CredentialStore(string? credentialDirectoryOverride = null)
+    public CredentialStore(string? credentialDirectoryOverride = null, ILogger<CredentialStore>? logger = null)
     {
         var directory = credentialDirectoryOverride ?? AgentDataPaths.Root;
         _credentialPath = Path.Combine(directory, "credential.dat");
@@ -21,7 +21,7 @@ public sealed class CredentialStore
         // The tokens are DPAPI LocalMachine-protected, so the folder ACL is what keeps other local
         // users from reading them. Also covers identity.json and files left by earlier versions (AUD-003).
         Directory.CreateDirectory(directory);
-        AgentDataAcl.TryRestrict(directory);
+        AgentDataAcl.TryRestrict(directory, logger);
     }
 
     public void StoreDeviceJwt(string jwt) => ProtectAndWrite(_credentialPath, jwt);

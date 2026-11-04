@@ -13,9 +13,11 @@ public sealed class EvidenceSpoolStore
 
     private readonly string _directory;
     private readonly object _gate = new();
+    private readonly ILogger<EvidenceSpoolStore>? _logger;
 
-    public EvidenceSpoolStore(string? directory = null)
+    public EvidenceSpoolStore(string? directory = null, ILogger<EvidenceSpoolStore>? logger = null)
     {
+        _logger = logger;
         _directory = directory ?? GetDefaultDirectory();
         Directory.CreateDirectory(_directory);
         TryApplyRestrictedAcl(_directory);
@@ -100,10 +102,10 @@ public sealed class EvidenceSpoolStore
         }
     }
 
-    private static void TryApplyRestrictedAcl(string path)
+    private void TryApplyRestrictedAcl(string path)
     {
         var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
         if (path.StartsWith(programData, StringComparison.OrdinalIgnoreCase))
-            AgentDataAcl.TryRestrict(path);
+            AgentDataAcl.TryRestrict(path, _logger);
     }
 }

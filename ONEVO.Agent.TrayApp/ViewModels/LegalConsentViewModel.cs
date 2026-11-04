@@ -47,11 +47,13 @@ public sealed partial class LegalConsentViewModel : BaseViewModel
     private static void OpenDocument(PendingLegalDocumentPayload document)
     {
         // ContentUrl comes from the backend response, not a hardcoded constant like
-        // WorkspaceLinks.PortalUrl — restrict it to http(s) before handing it to
+        // WorkspaceLinks.PortalUrl — restrict it to https before handing it to
         // ShellExecute, which would otherwise happily launch any registered protocol
         // handler (file:, a custom app scheme, etc.) for a malformed or tampered value.
+        // Plain http is refused too: the document the employee agrees to must not be
+        // swappable on the network.
         if (!Uri.TryCreate(document.ContentUrl, UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            || uri.Scheme != Uri.UriSchemeHttps)
         {
             return;
         }

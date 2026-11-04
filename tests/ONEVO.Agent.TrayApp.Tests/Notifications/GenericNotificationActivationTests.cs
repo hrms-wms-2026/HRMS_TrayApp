@@ -45,12 +45,14 @@ public sealed class GenericNotificationActivationTests
         Assert.True(url is null || url == $"{Portal}/dashboard");
     }
 
-    [Fact]
-    public void NonHttpPortal_IsRefused()
+    [Theory]
+    [InlineData("file:///C:/Windows")]
+    [InlineData("http://acme.onexso.com:4200")]
+    public void NonHttpsPortal_IsRefused(string portal)
     {
         var args = GenericNotificationActivation.BuildArguments(Payload("open_related"));
 
-        Assert.Null(GenericNotificationActivation.TryGetNavigationUrl(args, "file:///C:/Windows"));
+        Assert.Null(GenericNotificationActivation.TryGetNavigationUrl(args, portal));
     }
 
     [Fact]
