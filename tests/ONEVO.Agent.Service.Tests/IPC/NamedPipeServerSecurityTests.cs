@@ -84,6 +84,40 @@ public class NamedPipeServerSecurityTests
         }
     }
 
+    [Fact]
+    public void PipeSecurity_IsOwnedByTheServiceAccount()
+    {
+        var owner = NamedPipeServer.BuildPipeSecurity().GetOwner(typeof(System.Security.Principal.SecurityIdentifier));
+
+        Assert.Equal(System.Security.Principal.WindowsIdentity.GetCurrent().User, owner);
+    }
+
+    [Fact]
+    public void PipeSecurity_DoesNotLetOtherUsersCreateServerInstances()
+    {
+        var rules = NamedPipeServer.BuildPipeSecurity()
+            .GetAccessRules(true, false, typeof(System.Security.Principal.SecurityIdentifier))
+            .Cast<PipeAccessRule>()
+            .Where(rule => rule.IdentityReference != System.Security.Principal.WindowsIdentity.GetCurrent().User);
+
+        Assert.All(rules, rule => Assert.False(rule.PipeAccessRights.HasFlag(PipeAccessRights.CreateNewInstance)));
+    }
+
+    [Fact]
+    public void FirstPipeInstance_FailsWhenAnotherProcessAlreadyHoldsTheName()
+    {
+        // The guarantee CreateSecurePipe relies on: a squatter's pipe is never joined.
+        var pipeName = $"ONEVO.Test.Pipe.{Guid.NewGuid():N}";
+        using var squatter = new NamedPipeServerStream(
+            pipeName, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+
+        Assert.ThrowsAny<Exception>(() => NamedPipeServerStreamAcl.Create(
+            pipeName, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances,
+            PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.FirstPipeInstance,
+            0, 0, NamedPipeServer.BuildPipeSecurity()));
+    }
+
     private static async Task<(NamedPipeServer Server, NamedPipeClientStream Client, CancellationTokenSource Cts)>
         ConnectAsync(IIpcClientVerifier verifier)
     {

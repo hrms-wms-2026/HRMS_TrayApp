@@ -17,6 +17,9 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
     private readonly ConcurrentDictionary<Guid, IpcConnection> _connections = new();
     private CancellationTokenSource? _cts;
 
+    // Only the accept loop touches this; set once our first pipe instance exists.
+    private bool _ownsPipeName;
+
     public event Func<IpcEnvelope, Func<IpcEnvelope, Task>, Task>? MessageReceived;
 
     public NamedPipeServer(
@@ -198,9 +201,39 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
         }
     }
 
-    private static NamedPipeServerStream CreateSecurePipe()
+    /// <summary>
+    /// The very first instance is created with <see cref="PipeOptions.FirstPipeInstance"/>: if another
+    /// process already holds the pipe name (squatting while the Service was stopped), the create
+    /// fails and is retried instead of joining that process's pipe. Later instances join our own.
+    /// </summary>
+    private NamedPipeServerStream CreateSecurePipe()
+    {
+        var options = PipeOptions.Asynchronous;
+        if (!_ownsPipeName)
+            options |= PipeOptions.FirstPipeInstance;
+
+        var pipe = NamedPipeServerStreamAcl.Create(
+            pipeName: Constants.PipeName,
+            direction: PipeDirection.InOut,
+            maxNumberOfServerInstances: NamedPipeServerStream.MaxAllowedServerInstances,
+            transmissionMode: PipeTransmissionMode.Byte,
+            options: options,
+            inBufferSize: 0,
+            outBufferSize: 0,
+            pipeSecurity: BuildPipeSecurity());
+        _ownsPipeName = true;
+        return pipe;
+    }
+
+    /// <summary>
+    /// Internal for tests. The owner is set explicitly to the Service account (LocalSystem when
+    /// installed): the Tray App checks the owner to tell the real Service from a squatter, and a
+    /// standard user can never create a pipe owned by SYSTEM.
+    /// </summary>
+    internal static PipeSecurity BuildPipeSecurity()
     {
         var security = new PipeSecurity();
+        security.SetOwner(WindowsIdentity.GetCurrent().User!);
         security.AddAccessRule(new PipeAccessRule(
             WindowsIdentity.GetCurrent().User!,
             PipeAccessRights.FullControl,
@@ -214,15 +247,7 @@ public sealed class NamedPipeServer : IAsyncDisposable, IIpcBroadcaster
             PipeAccessRights.ReadWrite,
             AccessControlType.Allow));
 
-        return NamedPipeServerStreamAcl.Create(
-            pipeName: Constants.PipeName,
-            direction: PipeDirection.InOut,
-            maxNumberOfServerInstances: NamedPipeServerStream.MaxAllowedServerInstances,
-            transmissionMode: PipeTransmissionMode.Byte,
-            options: PipeOptions.Asynchronous,
-            inBufferSize: 0,
-            outBufferSize: 0,
-            pipeSecurity: security);
+        return security;
     }
 
     public async ValueTask DisposeAsync()

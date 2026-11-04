@@ -7,6 +7,7 @@ using System.Text.Json;
 using ONEVO.Agent.Shared;
 using ONEVO.Agent.Shared.IPC;
 using ONEVO.Agent.Shared.Models;
+using ONEVO.Agent.TrayApp.Security;
 
 public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
 {
@@ -16,6 +17,7 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<EvidenceTransferAckPayload?>> _pendingEvidenceAcks = new();
     private readonly EvidenceTransferClient _evidenceTransferClient;
     private readonly string _pipeName;
+    private readonly Func<PipeStream, string?> _verifyServer;
     private NamedPipeClientStream? _pipe;
     // Cleared without the write lock by ResetConnectionAsync; WriteEnvelopeAsync reads it once.
     private volatile StreamWriter? _writer;
@@ -34,13 +36,21 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
     public StatusResponsePayload? LastKnownStatus { get; private set; }
     public AgentPolicy? LastKnownPolicy { get; private set; }
 
-    public NamedPipeClient(ILogger<NamedPipeClient> logger) : this(logger, Constants.PipeName) { }
+    public NamedPipeClient(ILogger<NamedPipeClient> logger)
+        : this(logger, Constants.PipeName,
+            pipe => PipeServerVerifier.Check(pipe, PipeServerVerifier.AllowCurrentUserOwnerByDefault)) { }
 
-    // Tests pass a unique pipe name so they never touch a real Agent Service's pipe.
-    internal NamedPipeClient(ILogger<NamedPipeClient> logger, string pipeName)
+    /// <summary>
+    /// Tests pass a unique pipe name so they never touch a real Agent Service's pipe. Their in-test
+    /// server is owned by the test user, so by default the current user is accepted as the owner.
+    /// </summary>
+    /// <param name="verifyServer">Returns null when the connected server is trusted, otherwise why not.</param>
+    internal NamedPipeClient(
+        ILogger<NamedPipeClient> logger, string pipeName, Func<PipeStream, string?>? verifyServer = null)
     {
         _logger = logger;
         _pipeName = pipeName;
+        _verifyServer = verifyServer ?? (pipe => PipeServerVerifier.Check(pipe, allowCurrentUserOwner: true));
         _evidenceTransferClient = new EvidenceTransferClient(WriteEnvelopeAsync, WaitForEvidenceAckAsync);
     }
 
@@ -70,6 +80,11 @@ public sealed class NamedPipeClient : INamedPipeClient, IAsyncDisposable
                     _pipe = new NamedPipeClientStream(
                         ".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
                     await _pipe.ConnectAsync(Constants.IpcConnectionTimeoutMs, ct);
+
+                    // Before a single byte is read or written: the server must be the Service.
+                    if (_verifyServer(_pipe) is { } rejection)
+                        throw new UnauthorizedAccessException($"Agent pipe server rejected: {rejection}");
+
                     await AuthenticateAsync(_pipe, ct);
 
                     var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
