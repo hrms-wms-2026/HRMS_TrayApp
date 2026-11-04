@@ -95,6 +95,11 @@ public sealed class PresenceSession
             if (_openPause is { Reason: PauseReason.ManualBreak })
                 return;
 
+            // A break the backend reports from an earlier day (left open, never ended) only counts
+            // from clock-in. A same-day start is kept: the backend clock-in can precede ours.
+            if (at.ToLocalTime().Date < _clockInAt.Value.ToLocalTime().Date)
+                at = _clockInAt.Value;
+
             _openPause = (PauseReason.ManualBreak, at);
             _breakSessionCount++;
             _lastKnownActivityAt = at;

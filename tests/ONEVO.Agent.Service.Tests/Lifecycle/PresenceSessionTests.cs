@@ -32,6 +32,27 @@ public sealed class PresenceSessionTests
     }
 
     [Fact]
+    public void StartBreak_FromEarlierDay_IsClampedToClockIn()
+    {
+        // A break left open on the backend days earlier must not count days of break today.
+        var session = new PresenceSession();
+        var clockIn = new DateTimeOffset(2026, 11, 3, 9, 0, 0, TimeSpan.Zero);
+        var staleBreakStart = clockIn.AddDays(-4);
+        var end = clockIn.AddMinutes(20);
+
+        session.ClockIn(clockIn);
+        session.StartBreak(staleBreakStart);
+
+        var open = session.Snapshot(clockIn.AddMinutes(5));
+        Assert.Equal(clockIn, open.CurrentBreakStartedAt);
+
+        session.EndBreak(end);
+        var snap = session.Snapshot(end);
+        Assert.Equal(TimeSpan.FromMinutes(20), snap.AccumulatedBreak);
+        Assert.Equal(TimeSpan.Zero, snap.AccumulatedWork);
+    }
+
+    [Fact]
     public void Snapshot_WhileOnBreak_ClosedBreakOnly_OpenBreakInWorkMath()
     {
         var session = new PresenceSession();
