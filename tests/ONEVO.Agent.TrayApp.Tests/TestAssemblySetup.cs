@@ -16,6 +16,9 @@ internal static class TestAssemblySetup
         // TrayBootLog before any logger is attached (AUD-036).
         var bootLogDir = Path.Combine(Path.GetTempPath(), $"onevo-tray-tests-{Guid.NewGuid():N}");
         TrayBootLog.FallbackPath = Path.Combine(bootLogDir, "tray-boot.log");
+
+        // Nor create the developer's real window-title hash key.
+        ONEVO.Agent.TrayApp.Security.HashingService.KeyPath = Path.Combine(bootLogDir, "title-hash.key");
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
             try { Directory.Delete(bootLogDir, recursive: true); }

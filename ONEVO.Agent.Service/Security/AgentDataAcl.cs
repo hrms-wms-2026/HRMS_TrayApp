@@ -13,9 +13,12 @@ public static class AgentDataAcl
     /// <summary>
     /// Replaces the DACL of <paramref name="path"/> with a protected one. For a directory the rules
     /// are inherited by new children, and the files already in it are restricted as well. Best-effort:
-    /// a failure (e.g. a folder created by another account) leaves the existing ACL in place.
+    /// a failure (e.g. a folder created by another account) leaves the existing ACL in place. A
+    /// failure is never silent: it is logged when <paramref name="logger"/> is given, and the result
+    /// is false, because the DPAPI LocalMachine files are then readable by every local user.
     /// </summary>
-    public static void TryRestrict(string path)
+    /// <returns>True when the path and every file directly in it were restricted.</returns>
+    public static bool TryRestrict(string path, ILogger? logger = null)
     {
         try
         {
@@ -25,31 +28,41 @@ public static class AgentDataAcl
                 directory.SetAccessControl((DirectorySecurity)BuildRestricted(
                     directory.GetAccessControl(), InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit));
 
+                var allRestricted = true;
                 foreach (var file in directory.EnumerateFiles())
-                    RestrictFile(file);
+                    allRestricted &= RestrictFile(file, logger);
+                return allRestricted;
             }
-            else if (File.Exists(path))
-            {
-                RestrictFile(new FileInfo(path));
-            }
+
+            return !File.Exists(path) || RestrictFile(new FileInfo(path), logger);
         }
-        catch
+        catch (Exception ex)
         {
-            // ACL hardening is best-effort; the agent still works without it.
+            // The agent still works without it, but the data is not protected from other local users.
+            LogFailure(logger, ex, path);
+            return false;
         }
     }
 
-    private static void RestrictFile(FileInfo file)
+    private static bool RestrictFile(FileInfo file, ILogger? logger)
     {
         try
         {
             file.SetAccessControl((FileSecurity)BuildRestricted(file.GetAccessControl(), InheritanceFlags.None));
+            return true;
         }
-        catch
+        catch (Exception ex)
         {
-            // Best-effort per file (e.g. locked by another process).
+            // Per file (e.g. locked by another process); the other files are still restricted.
+            LogFailure(logger, ex, file.FullName);
+            return false;
         }
     }
+
+    private static void LogFailure(ILogger? logger, Exception ex, string path) =>
+        logger?.LogWarning(ex,
+            "Could not restrict access to {Path} — other local users may be able to read this agent data (AUD-003)",
+            path);
 
     private static FileSystemSecurity BuildRestricted(FileSystemSecurity security, InheritanceFlags inheritance)
     {

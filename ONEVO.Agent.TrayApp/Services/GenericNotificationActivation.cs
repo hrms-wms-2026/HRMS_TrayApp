@@ -44,7 +44,7 @@ public static class GenericNotificationActivation
         if (deliveryId is null || action != OpenRelated)
             return null;
         if (!Uri.TryCreate(portalBaseUrl, UriKind.Absolute, out var portal)
-            || (portal.Scheme != Uri.UriSchemeHttps && portal.Scheme != Uri.UriSchemeHttp))
+            || portal.Scheme != Uri.UriSchemeHttps)
             return null;
 
         return portalBaseUrl.TrimEnd('/') + "/dashboard";
