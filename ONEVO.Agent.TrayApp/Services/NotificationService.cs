@@ -8,7 +8,7 @@ using Microsoft.Windows.AppNotifications.Builder;
 /// Allow/Skip inactivity prompt — see <see cref="WindowsInactivityPromptService"/> for that flow.
 /// These notifications carry no arguments and are never awaited for a decision.
 /// </summary>
-public sealed class NotificationService : IGenericNotificationToast
+public sealed class NotificationService : IGenericNotificationToast, ILongSessionToast
 {
     private readonly ILogger<NotificationService> _logger;
 
@@ -51,6 +51,31 @@ public sealed class NotificationService : IGenericNotificationToast
         {
             _logger.LogWarning(ex, "Failed to show generic notification {DeliveryId}", payload.DeliveryId);
             return false;
+        }
+    }
+
+    /// <summary>The 24-hour clock-in reminder: body and button carry the same arguments (see LongSessionActivation).</summary>
+    public void ShowLongSessionReminder(string title, string message, string buttonText, string action)
+    {
+        _logger.LogInformation("Long session reminder shown");
+        try
+        {
+            var notification = new AppNotificationBuilder()
+                .AddArgument("kind", LongSessionActivation.KindValue)
+                .AddArgument("action", action)
+                .AddText(title)
+                .AddText(message)
+                .AddButton(new AppNotificationButton(buttonText)
+                    .AddArgument("kind", LongSessionActivation.KindValue)
+                    .AddArgument("action", action))
+                .BuildNotification();
+            notification.Tag = LongSessionActivation.KindValue;
+
+            AppNotificationManager.Default.Show(notification);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to show long session reminder");
         }
     }
 

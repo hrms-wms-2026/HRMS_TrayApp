@@ -84,6 +84,12 @@ public static class MauiProgram
             sp.GetRequiredService<INamedPipeClient>(),
             sp.GetRequiredService<IGenericNotificationToast>(),
             sp.GetRequiredService<ShownNotificationLog>()));
+        builder.Services.AddSingleton<ILongSessionToast>(sp => sp.GetRequiredService<NotificationService>());
+        // Built at startup through WindowsInactivityPromptService (eagerly resolved below), so it is
+        // listening before the first status arrives.
+        builder.Services.AddSingleton(sp => new LongSessionReminder(
+            sp.GetRequiredService<INamedPipeClient>(),
+            sp.GetRequiredService<ILongSessionToast>()));
         builder.Services.AddSingleton<IUpdateChecker, UpdateChecker>();
         builder.Services.AddSingleton<UpdateNotifier>();
         builder.Services.AddSingleton<NotificationActivationRouter>();

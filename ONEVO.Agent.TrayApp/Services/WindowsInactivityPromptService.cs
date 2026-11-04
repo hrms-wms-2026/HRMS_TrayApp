@@ -42,15 +42,18 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
     private readonly NotificationActivationRouter _router;
     private readonly ActivityCheckPromptHub _hub;
     private readonly ILogger<WindowsInactivityPromptService> _logger;
+    private readonly LongSessionReminder? _longSession;
 
     public WindowsInactivityPromptService(
         NotificationActivationRouter router,
         ActivityCheckPromptHub hub,
-        ILogger<WindowsInactivityPromptService> logger)
+        ILogger<WindowsInactivityPromptService> logger,
+        LongSessionReminder? longSession = null)
     {
         _router = router;
         _hub = hub;
         _logger = logger;
+        _longSession = longSession;
 
         try
         {
@@ -159,9 +162,15 @@ public sealed class WindowsInactivityPromptService : IInactivityPromptService
     {
         BootLog($"NotificationInvoked argument='{args.Argument}'");
 
-        // Intentionally does nothing beyond routing: no Window.Activate(), no Shell navigation, no
-        // foregrounding of the MAUI window. That is how this satisfies "do not activate or
-        // foreground the MAUI window" for both the Allow and Skip buttons.
+        // Allow/Skip intentionally does nothing beyond routing: no Window.Activate(), no Shell
+        // navigation, no foregrounding of the MAUI window. The 24-hour reminder is the exception:
+        // its "Clock out" click opens the window on the clock-out confirmation.
+        if (LongSessionActivation.IsLongSession(args.Argument))
+        {
+            _longSession?.HandleActivation(args.Argument);
+            return;
+        }
+
         if (GenericNotificationActivation.IsGeneric(args.Argument))
         {
             OpenGenericNotificationTarget(args.Argument);

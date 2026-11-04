@@ -15,6 +15,7 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
     private readonly ActivityCheckPromptHub? _activityCheckHub;
     private readonly NotificationActivationRouter? _activityCheckRouter;
     private readonly NotificationService? _notifications;
+    private readonly LongSessionReminder? _longSession;
     private IDispatcherTimer? _uiTimer;
     private bool _uiPausedWhileHidden;
     private DateTimeOffset? _clockInAt;
@@ -105,7 +106,8 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
         ActivityCheckPromptHub? activityCheckHub = null,
         NotificationActivationRouter? activityCheckRouter = null,
         NotificationService? notifications = null,
-        ServiceConnectionStatus? connection = null)
+        ServiceConnectionStatus? connection = null,
+        LongSessionReminder? longSession = null)
     {
         Title = "Active Session";
         Connection = connection ?? new ServiceConnectionStatus();
@@ -128,6 +130,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             _activityCheckHub.Shown += OnActivityCheckShown;
             _activityCheckHub.Closed += OnActivityCheckClosed;
         }
+        _longSession = longSession;
+        if (_longSession is not null)
+            _longSession.ClockOutRequested += OnLongSessionClockOutRequested;
     }
 
     /// <summary>Footer IPC connection state (shared singleton in the app).</summary>
@@ -191,6 +196,31 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
 
         EnsureUiTimerRunning();
         UpdateTimersCore();
+        OpenPendingLongSessionClockOut();
+    }
+
+    private void OnLongSessionClockOutRequested()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is not null)
+            dispatcher.Dispatch(OpenPendingLongSessionClockOut);
+        else
+            OpenPendingLongSessionClockOut();
+    }
+
+    /// <summary>"Clock out" on the 24-hour reminder toast: show the normal clock-out confirmation.</summary>
+    private void OpenPendingLongSessionClockOut()
+    {
+        if (_longSession?.TryConsumeClockOutRequest() != true)
+            return;
+
+        if (IsOnBreak)
+        {
+            ErrorMessage = "End your break first, then clock out.";
+            return;
+        }
+
+        RequestClockOut();
     }
 
     private async Task CheckPendingLocationChangeAsync()
@@ -872,6 +902,9 @@ public sealed partial class ActiveSessionViewModel : BaseViewModel, IAsyncDispos
             _activityCheckHub.Shown -= OnActivityCheckShown;
             _activityCheckHub.Closed -= OnActivityCheckClosed;
         }
+
+        if (_longSession is not null)
+            _longSession.ClockOutRequested -= OnLongSessionClockOutRequested;
 
         Connection.PropertyChanged -= OnConnectionChanged;
 
