@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ONEVO.Agent.Service": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
